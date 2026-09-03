@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "level_004",
+  "difficulty": 2,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "#####",
+      "#####",
+      "#####",
+      "#####"
+    ]
+  },
+  "pieces": [
+    "Y",
+    "F",
+    "P",
+    "U"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "pieceId": "F",
+      "cells": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "P",
+      "cells": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          3,
+          1
+        ]
+      ]
+    },
+    {
+      "pieceId": "U",
+      "cells": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "web-demo-1#17",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 60,
+    "createdAt": "2026-09-03T22:13:34.093Z"
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-09-03T22:13:34.227Z",
+  "seed": "web-demo-1",
+  "requested": 15,
+  "produced": 15,
+  "buckets": 5,
+  "shapes": [
+    "rect-2x5",
+    "rect-3x5",
+    "rect-4x5",
+    "rect-5x5",
+    "rect-3x10",
+    "rect-4x10",
+    "rect-5x6",
+    "rect-5x8",
+    "rect-5x9",
+    "rect-5x10",
+    "rect-5x11",
+    "triangle-20",
+    "ell-25",
+    "notch-30",
+    "step-30"
+  ],
+  "diagnostics": {
+    "attempts": 1396,
+    "noTiling": 1057,
+    "ambiguous": 324,
+    "failures": 3
+  },
+  "levels": [
+    {
+      "id": "level_001",
+      "difficulty": 1,
+      "pieces": "UPY",
+      "rows": 3,
+      "cols": 5,
+      "score": 0.3365,
+      "solverNodes": 30,
+      "forcedMoveFraction": 0.667,
+      "meanBranching": 4.67
+    },
+    {
+      "id": "level_002",
+      "difficulty": 1,
+      "pieces": "PUZV",
+      "rows": 4,
+      "cols": 5,
+      "score": 0.3419,
+      "solverNodes": 58,
+      "forcedMoveFraction": 0.75,
+      "meanBranching": 4.5
+    },
+    {
+      "id": "level_003",
+      "difficulty": 1,
+      "pieces": "IWUPL",
+      "rows": 5,
+      "cols": 8,
+      "score": 0.3864,
+      "solverNodes": 28,
+      "forcedMoveFraction": 0.6,
+      "meanBranching": 2.8
+    },
+    {
+      "id": "level_004",
+      "difficulty": 2,
+      "pieces": "YFPU",
+      "rows": 4,
+      "cols": 5,
+      "score": 0.4206,
+      "solverNodes": 60,
+      "forcedMoveFraction": 0.5,
+      "meanBranching": 5
+    },
+    {
+      "id": "level_005",
+      "difficulty": 2,
+      "pieces": "FYWP",
+      "rows": 4,
+      "cols": 8,
+      "score": 0.4527,
+      "solverNodes": 25,
+      "forcedMoveFraction": 0.25,
+      "meanBranching": 2.5
+    },
+    {
+      "id": "level_006",
+      "difficulty": 2,
+      "pieces": "VLP",
+      "rows": 3,
+      "cols": 5,
+      "score": 0.4642,
+      "solverNodes": 34,
+      "forcedMoveFraction": 0.333,
+      "meanBranching": 6
+    },
+    {
+      "id": "level_007",
+      "difficulty": 3,
+      "pieces": "PVIYNZ",
+      "rows": 4,
+      "cols": 8,
+      "score": 0.507,
+      "solverNodes": 312,
+      "forcedMoveFraction": 0.5,
+      "meanBranching": 5
+    },
+    {
+      "id": "level_008",
+      "difficulty": 3,
+      "pieces": "YPLWT",
+      "rows": 5,
+      "cols": 5,
+      "score": 0.5338,
+      "solverNodes": 356,
+      "forcedMoveFraction": 0.4,
+      "meanBranching": 5.6
+    },
+    {
+      "id": "level_009",
+      "difficulty": 3,
+      "pieces": "FNUIPT",
+      "rows": 3,
+      "cols": 10,
+      "score": 0.5561,
+      "solverNodes": 233,
+      "forcedMoveFraction": 0.333,
+      "meanBranching": 7
+    },
+    {
+      "id": "level_010",
+      "difficulty": 4,
+      "pieces": "NXIVFTPU",
+      "rows": 4,
+      "cols": 10,
+      "score": 0.5955,
+      "solverNodes": 423,
+      "forcedMoveFraction": 0.25,
+      "meanBranching": 5.38
+    },
+    {
+      "id": "level_011",
+      "difficulty": 4,
+      "pieces": "LVPWUN",
+      "rows": 5,
+      "cols": 6,
+      "score": 0.6101,
+      "solverNodes": 1274,
+      "forcedMoveFraction": 0.333,
+      "meanBranching": 5.83
+    },
+    {
+      "id": "level_012",
+      "difficulty": 4,
+      "pieces": "NLIXTYUW",
+      "rows": 5,
+      "cols": 8,
+      "score": 0.639,
+      "solverNodes": 2117,
+      "forcedMoveFraction": 0.375,
+      "meanBranching": 7.13
+    },
+    {
+      "id": "level_013",
+      "difficulty": 5,
+      "pieces": "IPLZTU",
+      "rows": 5,
+      "cols": 7,
+      "score": 0.6404,
+      "solverNodes": 350,
+      "forcedMoveFraction": 0.167,
+      "meanBranching": 6.33
+    },
+    {
+      "id": "level_014",
+      "difficulty": 5,
+      "pieces": "FUWTLXNZY",
+      "rows": 5,
+      "cols": 9,
+      "score": 0.6856,
+      "solverNodes": 4718,
+      "forcedMoveFraction": 0.333,
+      "meanBranching": 8
+    },
+    {
+      "id": "level_015",
+      "difficulty": 5,
+      "pieces": "PTUXVWNFZY",
+      "rows": 5,
+      "cols": 10,
+      "score": 0.7861,
+      "solverNodes": 25681,
+      "forcedMoveFraction": 0.2,
+      "meanBranching": 8.9
+    }
+  ]
+}

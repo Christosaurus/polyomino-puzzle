@@ -10,3 +10,5 @@ coverage/
 # generated level packs (not curated yet)
 /levels/
 /packages/level-gen-cli/levels/
+
+dist/
