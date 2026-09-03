@@ -8,8 +8,9 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "build": "npm run build -w @polyomino/puzzle-core && npm run build -w @polyomino/level-gen-cli",
+    "typecheck": "npm run build -w @polyomino/puzzle-core && npm run typecheck --workspaces --if-present",
+    "gen": "npm run build && node packages/level-gen-cli/dist/main.js"
   },
   "license": "UNLICENSED"
 }

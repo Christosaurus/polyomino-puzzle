@@ -312,6 +312,137 @@ export function solve(
   };
 }
 
+export interface SolveAnalysis {
+  /** Fraction of pieces placed by a forced move — a cell with exactly one legal placement. 1 = the level is fully deducible without guessing. */
+  forcedMoveFraction: number;
+  /** Mean number of legal placements at the most-constrained empty cell, over the walk. */
+  meanBranching: number;
+  /** Largest branching seen at any step. */
+  maxBranching: number;
+}
+
+/**
+ * Walk a known solution the way a careful solver would: at each step take the
+ * most-constrained empty cell; if it has one legal placement, that move is
+ * "forced", otherwise follow the known solution and mark that a guess was
+ * needed. Produces difficulty signals — how much of the level is pure deduction,
+ * and how wide the choices are.
+ */
+export function analyzeDifficulty(
+  shape: Shape,
+  pieces: readonly SolverPiece[],
+  solution: readonly Placement[],
+): SolveAnalysis {
+  const cellIndex = new Map<string, number>();
+  shape.cells.forEach(([row, col], i) => cellIndex.set(`${row},${col}`, i));
+  const cellCount = shape.cells.length;
+
+  interface WalkPlacement {
+    pieceIndex: number;
+    cellIds: number[];
+    key: string;
+  }
+  const placements: WalkPlacement[] = [];
+  const byCell: number[][] = Array.from({ length: cellCount }, () => []);
+
+  pieces.forEach((piece, pieceIndex) => {
+    const seen = new Set<string>();
+    for (const orientation of piece.orientations) {
+      const norm = normalize(orientation);
+      const oKey = norm.map(([r, c]) => `${r},${c}`).join(";");
+      if (seen.has(oKey)) continue;
+      seen.add(oKey);
+      let height = 0;
+      let width = 0;
+      for (const [r, c] of norm) {
+        if (r > height) height = r;
+        if (c > width) width = c;
+      }
+      for (let dRow = 0; dRow + height < shape.rows; dRow++) {
+        for (let dCol = 0; dCol + width < shape.cols; dCol++) {
+          const cellIds: number[] = [];
+          let fits = true;
+          for (const [r, c] of norm) {
+            const idx = cellIndex.get(`${r + dRow},${c + dCol}`);
+            if (idx === undefined) {
+              fits = false;
+              break;
+            }
+            cellIds.push(idx);
+          }
+          if (!fits) continue;
+          const key = `${piece.id}@${[...cellIds].sort((a, b) => a - b).join(",")}`;
+          const id = placements.length;
+          placements.push({ pieceIndex, cellIds, key });
+          for (const idx of cellIds) byCell[idx]!.push(id);
+        }
+      }
+    }
+  });
+
+  const solutionKeys = new Set(
+    solution.map((pl) => {
+      const ids = pl.cells
+        .map(([r, c]) => cellIndex.get(`${r},${c}`) ?? -1)
+        .sort((a, b) => a - b);
+      return `${pl.pieceId}@${ids.join(",")}`;
+    }),
+  );
+
+  const board = new Int8Array(cellCount);
+  const used = new Array<boolean>(pieces.length).fill(false);
+  const branchings: number[] = [];
+  let forced = 0;
+  let placed = 0;
+
+  while (placed < pieces.length) {
+    let bestCandidates: number[] | null = null;
+    for (let i = 0; i < cellCount; i++) {
+      if (board[i] === 1) continue;
+      const candidates: number[] = [];
+      for (const pid of byCell[i]!) {
+        const p = placements[pid]!;
+        if (used[p.pieceIndex]) continue;
+        let ok = true;
+        for (const idx of p.cellIds) {
+          if (board[idx] === 1) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) candidates.push(pid);
+      }
+      if (bestCandidates === null || candidates.length < bestCandidates.length) {
+        bestCandidates = candidates;
+        if (candidates.length <= 1) break;
+      }
+    }
+    if (bestCandidates === null || bestCandidates.length === 0) break;
+
+    branchings.push(bestCandidates.length);
+    let chosen: number;
+    if (bestCandidates.length === 1) {
+      chosen = bestCandidates[0]!;
+      forced += 1;
+    } else {
+      chosen =
+        bestCandidates.find((pid) => solutionKeys.has(placements[pid]!.key)) ??
+        bestCandidates[0]!;
+    }
+    const p = placements[chosen]!;
+    for (const idx of p.cellIds) board[idx] = 1;
+    used[p.pieceIndex] = true;
+    placed += 1;
+  }
+
+  return {
+    forcedMoveFraction: pieces.length > 0 ? forced / pieces.length : 1,
+    meanBranching:
+      branchings.length > 0 ? branchings.reduce((a, b) => a + b, 0) / branchings.length : 0,
+    maxBranching: branchings.length > 0 ? Math.max(...branchings) : 0,
+  };
+}
+
 /**
  * A translation-independent key for a solution, minimized over the shape's
  * symmetries so that a solution and its symmetric images share one key.

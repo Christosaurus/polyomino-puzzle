@@ -12,3 +12,4 @@ export * from "./solver.js";
 export * from "./rng.js";
 export * from "./level.js";
 export * from "./generator.js";
+export * from "./scorer.js";
