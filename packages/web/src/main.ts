@@ -83,6 +83,7 @@ async function openLevel(index: number): Promise<void> {
   gameSection.hidden = false;
   gameControls.hidden = false;
   hideWin();
+  window.scrollTo(0, 0);
 }
 
 function backToPicker(): void {

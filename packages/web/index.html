@@ -44,17 +44,18 @@
       #app {
         max-width: 560px;
         margin: 0 auto;
-        padding: env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 12px);
+        padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 10px);
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        min-height: 100vh;
+        gap: 10px;
+        min-height: 100dvh;
       }
       header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        min-height: 40px;
       }
       h1 {
         font-size: 17px;
@@ -95,6 +96,15 @@
         font-size: 13px;
         opacity: 0.65;
         text-align: center;
+        margin: 2px 0 0;
+      }
+      #game {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #game:not([hidden]) {
+        margin: auto 0;
       }
       #levels {
         display: grid;

@@ -70,9 +70,14 @@ export class GameView {
     this.canvas.addEventListener("pointerup", this.handleUp);
     this.canvas.addEventListener("pointercancel", this.handleUp);
 
+    window.addEventListener("resize", this.handleViewportChange);
+    window.visualViewport?.addEventListener("resize", this.handleViewportChange);
+
     this.resizeObserver.observe(wrap);
     this.schedule();
   }
+
+  private handleViewportChange = (): void => this.schedule();
 
   setGame(game: GameState): void {
     this.game = game;
@@ -87,6 +92,8 @@ export class GameView {
     this.canvas.removeEventListener("pointermove", this.handleMove);
     this.canvas.removeEventListener("pointerup", this.handleUp);
     this.canvas.removeEventListener("pointercancel", this.handleUp);
+    window.removeEventListener("resize", this.handleViewportChange);
+    window.visualViewport?.removeEventListener("resize", this.handleViewportChange);
   }
 
   // Only react to width changes — resizing the canvas changes the wrapper's
@@ -106,26 +113,36 @@ export class GameView {
   }
 
   // ── Layout ────────────────────────────────────────────────────────────────
+  // The whole canvas (board + tray) must fit inside the visible viewport so the
+  // player never has to scroll. Tray height is decided first, the board takes
+  // whatever vertical space is left (and is also bounded by the width).
   private computeLayout(): Layout {
     const cssWidth = this.wrap.clientWidth || 320;
     const { rows, cols } = this.game.shape;
-    const pad = 14;
+    const pad = 12;
 
-    const maxBoardHeight = Math.min(window.innerHeight * 0.52, 460);
+    const viewportH = window.visualViewport?.height ?? window.innerHeight;
+    const reservedForChrome = 138; // header + hint line + page padding
+    const maxCanvasHeight = Math.max(240, viewportH - reservedForChrome);
+
+    const unplaced = this.game.pieces.filter((p) => !p.pos && p !== this.drag?.piece);
+    const trayCell = Math.max(9, Math.min(17, Math.floor(cssWidth / 28)));
+    const slotSize = trayCell * 6;
+    const perRow = Math.max(1, Math.floor((cssWidth - pad) / slotSize));
+    // Reserve tray height for the whole piece set, so the board never reflows
+    // as pieces are placed and removed.
+    const trayRows = Math.ceil(this.game.pieces.length / perRow);
+    const trayHeight = trayRows * slotSize + pad;
+
+    const maxBoardHeight = maxCanvasHeight - trayHeight - pad * 2;
     const boardCell = Math.max(
-      14,
+      12,
       Math.floor(Math.min((cssWidth - pad * 2) / cols, maxBoardHeight / rows)),
     );
     const boardW = boardCell * cols;
     const board: BoardLayout = { x: Math.floor((cssWidth - boardW) / 2), y: pad, cell: boardCell };
 
-    // Tray
     const trayTop = board.y + boardCell * rows + pad;
-    const trayCell = Math.max(9, Math.floor(cssWidth / 30));
-    const slotSize = trayCell * 6;
-    const perRow = Math.max(1, Math.floor((cssWidth - pad) / slotSize));
-    const unplaced = this.game.pieces.filter((p) => !p.pos && p !== this.drag?.piece);
-
     const tray: TraySlot[] = unplaced.map((piece, i) => {
       const r = Math.floor(i / perRow);
       const c = i % perRow;
@@ -141,9 +158,7 @@ export class GameView {
       };
     });
 
-    const trayRows = Math.max(1, Math.ceil(unplaced.length / perRow));
     const cssHeight = trayTop + trayRows * slotSize + pad;
-
     return { cssWidth, cssHeight, board, tray };
   }
 
