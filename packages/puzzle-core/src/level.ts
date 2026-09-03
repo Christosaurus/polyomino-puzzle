@@ -1,0 +1,203 @@
+/**
+ * The level data model — the JSON that ships in the app bundle and that the
+ * generator CLI writes out.
+ *
+ * Design notes (from the architecture review):
+ *   - `schemaVersion` from day one, so the format can evolve.
+ *   - The full solution is stored, not just the piece list: hints can then work
+ *     off the stored solution without running the solver on-device, and QA can
+ *     check every level.
+ *   - The shape is stored as ASCII rows plus an origin — compact, diff-friendly,
+ *     and any silhouette works (not just rectangles).
+ *   - `allowReflection` per level, even though the game currently always allows
+ *     it, so individual levels can tighten the rule later.
+ */
+
+import { type Cell, cellKey } from "./cells.js";
+import type { PentominoName } from "./pentomino.js";
+import { Shape } from "./shape.js";
+
+export const LEVEL_SCHEMA_VERSION = 1 as const;
+
+export interface LevelShape {
+  /** Board row of the shape's top-left bounding-box corner. Usually 0. */
+  originRow: number;
+  /** Board column of the shape's top-left bounding-box corner. Usually 0. */
+  originCol: number;
+  /** One string per row; `#` is a target cell, `.` is empty. */
+  rows: string[];
+}
+
+export interface LevelPlacement {
+  pieceId: PentominoName;
+  /** Absolute `[row, col]` cells, in the same frame as `shape` (origin included). */
+  cells: Array<[number, number]>;
+}
+
+export interface LevelMeta {
+  generatorVersion: string;
+  /** Seed string that produced this level. */
+  seed: string;
+  /** How many solutions the uniqueness check searched for (the solver's `solutionLimit`). */
+  solutionCountChecked: number;
+  /** Distinct solutions found, up to the shape's symmetry. 1 for a clean level. */
+  distinctSolutions: number;
+  /** Solver search nodes for the uniqueness check — a difficulty sub-signal. */
+  solverNodes: number;
+  /** ISO-8601 date the level was generated. */
+  createdAt: string;
+}
+
+export interface Level {
+  schemaVersion: typeof LEVEL_SCHEMA_VERSION;
+  id: string;
+  /** Difficulty bucket 1–5, or 0 if not yet scored. */
+  difficulty: number;
+  shape: LevelShape;
+  /** The multiset of pieces the player is given. */
+  pieces: PentominoName[];
+  allowReflection: boolean;
+  /** A complete solution: every piece placed, together tiling the shape exactly. */
+  solution: LevelPlacement[];
+  meta: LevelMeta;
+}
+
+/** Encode a `Shape` (plus board origin) as `LevelShape` ASCII rows. */
+export function shapeToLevelShape(shape: Shape, originRow = 0, originCol = 0): LevelShape {
+  return { originRow, originCol, rows: shape.toAscii().split("\n") };
+}
+
+/** Rebuild the `Shape` from a `LevelShape` (origin is dropped — `Shape` is origin-free). */
+export function levelShapeToShape(levelShape: LevelShape): Shape {
+  return Shape.fromAscii(levelShape.rows.join("\n"));
+}
+
+/** The target `Shape` of a level. */
+export function levelShape(level: Level): Shape {
+  return levelShapeToShape(level.shape);
+}
+
+export interface BuildLevelInput {
+  id: string;
+  shape: Shape;
+  originRow?: number;
+  originCol?: number;
+  pieces: readonly PentominoName[];
+  allowReflection: boolean;
+  /** Solution placements in the shape's own frame (origin 0,0). */
+  solution: ReadonlyArray<{ pieceId: PentominoName; cells: ReadonlyArray<Cell> }>;
+  difficulty?: number;
+  meta: LevelMeta;
+}
+
+/**
+ * Assemble a `Level`, shifting the solution into the board frame by the origin.
+ * Does not validate — call `validateLevel` on the result.
+ */
+export function buildLevel(input: BuildLevelInput): Level {
+  const originRow = input.originRow ?? 0;
+  const originCol = input.originCol ?? 0;
+  return {
+    schemaVersion: LEVEL_SCHEMA_VERSION,
+    id: input.id,
+    difficulty: input.difficulty ?? 0,
+    shape: shapeToLevelShape(input.shape, originRow, originCol),
+    pieces: [...input.pieces],
+    allowReflection: input.allowReflection,
+    solution: input.solution.map((p) => ({
+      pieceId: p.pieceId,
+      cells: p.cells.map(([r, c]): [number, number] => [r + originRow, c + originCol]),
+    })),
+    meta: input.meta,
+  };
+}
+
+/**
+ * Structural and semantic checks. Returns a list of problems; an empty list means
+ * the level is internally consistent (shape parses, solution tiles it exactly,
+ * pieces match the solution).
+ */
+export function validateLevel(level: unknown): string[] {
+  const errors: string[] = [];
+  const l = level as Partial<Level>;
+
+  if (l.schemaVersion !== LEVEL_SCHEMA_VERSION) {
+    errors.push(`schemaVersion must be ${LEVEL_SCHEMA_VERSION}, got ${String(l.schemaVersion)}`);
+    return errors;
+  }
+  if (typeof l.id !== "string" || l.id === "") errors.push("id must be a non-empty string");
+  if (!l.shape || !Array.isArray(l.shape.rows) || l.shape.rows.length === 0) {
+    errors.push("shape.rows must be a non-empty array");
+    return errors;
+  }
+  if (!Array.isArray(l.pieces) || l.pieces.length === 0) errors.push("pieces must be non-empty");
+  if (!Array.isArray(l.solution) || l.solution.length === 0) {
+    errors.push("solution must be non-empty");
+    return errors;
+  }
+
+  let shape: Shape;
+  try {
+    shape = levelShapeToShape(l.shape);
+  } catch (e) {
+    errors.push(`shape does not parse: ${(e as Error).message}`);
+    return errors;
+  }
+
+  const { originRow, originCol } = l.shape;
+  const shapeCells = new Set(
+    shape.cells.map(([r, c]) => `${r + originRow},${c + originCol}`),
+  );
+
+  // Solution must cover every shape cell exactly once.
+  const covered = new Map<string, number>();
+  for (const placement of l.solution) {
+    for (const [r, c] of placement.cells) {
+      const key = `${r},${c}`;
+      if (!shapeCells.has(key)) errors.push(`solution cell ${key} (${placement.pieceId}) is outside the shape`);
+      covered.set(key, (covered.get(key) ?? 0) + 1);
+    }
+  }
+  for (const [key, count] of covered) {
+    if (count > 1) errors.push(`solution covers cell ${key} ${count} times`);
+  }
+  for (const key of shapeCells) {
+    if (!covered.has(key)) errors.push(`solution leaves cell ${key} empty`);
+  }
+
+  // The solution's pieces must be exactly the level's piece multiset.
+  const wanted = [...(l.pieces ?? [])].sort();
+  const got = l.solution.map((p) => p.pieceId).sort();
+  if (JSON.stringify(wanted) !== JSON.stringify(got)) {
+    errors.push(`pieces ${JSON.stringify(wanted)} != solution pieces ${JSON.stringify(got)}`);
+  }
+
+  // Each solution piece must be a connected group of the right size (5).
+  for (const placement of l.solution) {
+    if (placement.cells.length !== 5) {
+      errors.push(`piece ${placement.pieceId} has ${placement.cells.length} cells, expected 5`);
+    }
+  }
+
+  if (typeof l.difficulty !== "number" || l.difficulty < 0 || l.difficulty > 5) {
+    errors.push(`difficulty must be 0–5, got ${String(l.difficulty)}`);
+  }
+  void cellKey; // reserved for a future stricter piece-shape check
+
+  return errors;
+}
+
+/** Pretty-printed JSON, stable key order. */
+export function serializeLevel(level: Level): string {
+  return JSON.stringify(level, null, 2);
+}
+
+/** Parse and validate. Throws with the collected errors if invalid. */
+export function parseLevel(json: string): Level {
+  const data = JSON.parse(json) as unknown;
+  const errors = validateLevel(data);
+  if (errors.length > 0) {
+    throw new Error(`Invalid level:\n  - ${errors.join("\n  - ")}`);
+  }
+  return data as Level;
+}

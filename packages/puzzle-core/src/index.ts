@@ -9,3 +9,6 @@ export * from "./cells.js";
 export * from "./pentomino.js";
 export * from "./shape.js";
 export * from "./solver.js";
+export * from "./rng.js";
+export * from "./level.js";
+export * from "./generator.js";
