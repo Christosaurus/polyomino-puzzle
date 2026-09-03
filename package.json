@@ -1,0 +1,15 @@
+{
+  "name": "polyomino-puzzle",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ubongo/IQ-Fit-style polyomino packing puzzle — offline-generated, curated levels",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "license": "UNLICENSED"
+}
