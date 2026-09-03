@@ -7,3 +7,5 @@
 
 export * from "./cells.js";
 export * from "./pentomino.js";
+export * from "./shape.js";
+export * from "./solver.js";

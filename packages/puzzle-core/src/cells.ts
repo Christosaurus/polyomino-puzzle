@@ -83,6 +83,30 @@ export function orientations(
   return [...seen.values()];
 }
 
+/** A geometric operation on a shape (does not normalize). */
+export type Transform = (cells: CellList) => Cell[];
+
+/**
+ * The eight transforms of the dihedral group D4: the identity, three rotations,
+ * and each of those composed with a mirror. Used to find a target shape's own
+ * symmetries so the solver can count solutions up to symmetry.
+ */
+export function dihedralTransforms(): Transform[] {
+  const r1: Transform = (cs) => rotate90(cs);
+  const r2: Transform = (cs) => rotate90(rotate90(cs));
+  const r3: Transform = (cs) => rotate90(rotate90(rotate90(cs)));
+  return [
+    (cs) => cs.map(([r, c]): Cell => [r, c]),
+    r1,
+    r2,
+    r3,
+    (cs) => reflect(cs),
+    (cs) => r1(reflect(cs)),
+    (cs) => r2(reflect(cs)),
+    (cs) => r3(reflect(cs)),
+  ];
+}
+
 /** True if all cells form a single edge-connected group (4-connectivity). */
 export function isConnected(cells: CellList): boolean {
   if (cells.length <= 1) return true;
