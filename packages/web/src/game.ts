@@ -30,15 +30,22 @@ export interface PieceState {
   pos: Pos | null;
 }
 
+/** Target solve time per difficulty (1..5), in seconds — beat it for 3 stars. */
+const PAR_SECONDS = [0, 40, 70, 110, 160, 240];
+
 export class GameState {
   readonly level: Level;
   readonly shape: Shape;
   readonly pieces: PieceState[];
+  readonly parSeconds: number;
   private readonly shapeCells: Set<string>;
+  private startedAt: number | null = null;
+  private finishedAt: number | null = null;
 
   constructor(level: Level) {
     this.level = level;
     this.shape = levelShape(level);
+    this.parSeconds = PAR_SECONDS[level.difficulty] ?? 120;
     this.shapeCells = new Set(this.shape.cells.map(([r, c]) => `${r},${c}`));
     this.pieces = level.pieces.map((name, i) => ({
       key: `${name}#${i}`,
@@ -46,6 +53,28 @@ export class GameState {
       orientationIndex: 0,
       pos: null,
     }));
+  }
+
+  /** Start the clock on the player's first action. */
+  markStarted(): void {
+    if (this.startedAt === null) this.startedAt = performance.now();
+  }
+
+  get started(): boolean {
+    return this.startedAt !== null;
+  }
+
+  elapsedMs(): number {
+    if (this.startedAt === null) return 0;
+    return (this.finishedAt ?? performance.now()) - this.startedAt;
+  }
+
+  /** 3 stars for beating par, 2 for under 2× par, 1 otherwise. */
+  starRating(): number {
+    const seconds = this.elapsedMs() / 1000;
+    if (seconds <= this.parSeconds) return 3;
+    if (seconds <= this.parSeconds * 2) return 2;
+    return 1;
   }
 
   orientationCount(name: PentominoName): number {
@@ -106,10 +135,17 @@ export class GameState {
     return this.occupied().size === this.shape.size;
   }
 
+  /** Freeze the timer — call once, when the level is solved. */
+  finish(): void {
+    if (this.finishedAt === null) this.finishedAt = performance.now();
+  }
+
   reset(): void {
     for (const piece of this.pieces) {
       piece.pos = null;
       piece.orientationIndex = 0;
     }
+    this.startedAt = null;
+    this.finishedAt = null;
   }
 }
