@@ -1,10 +1,11 @@
 /**
- * Runtime game state for one level.
+ * Runtime state for one "fill the frame" level (campaign / daily / descent).
  *
  * Pure geometry — no solver. A move is legal when the piece's cells all sit
  * inside the target shape and none overlap another placed piece. The level is
- * won when every target cell is covered (piece sizes sum to the shape size, so
- * that also means every piece is placed).
+ * won when every target cell is covered.
+ *
+ * Time is a **countdown**. Run out before solving and the level fails.
  */
 
 import {
@@ -22,30 +23,33 @@ export interface Pos {
 }
 
 export interface PieceState {
-  /** Unique instance key (a level can repeat a pentomino name). */
   key: string;
   name: PentominoName;
   orientationIndex: number;
-  /** Board position of the piece's local (0,0), or null while in the tray. */
   pos: Pos | null;
 }
 
-/** Target solve time per difficulty (1..5), in seconds — beat it for 3 stars. */
-const PAR_SECONDS = [0, 40, 70, 110, 160, 240];
+function limitMsFor(level: Level): number {
+  const pieces = level.pieces.length;
+  const secs = (25 + pieces * 10) * (0.8 + level.difficulty * 0.14);
+  return Math.round(secs) * 1000;
+}
 
 export class GameState {
   readonly level: Level;
   readonly shape: Shape;
   readonly pieces: PieceState[];
-  readonly parSeconds: number;
+  readonly limitMs: number;
+  usedUndo = false;
+
   private readonly shapeCells: Set<string>;
   private startedAt: number | null = null;
-  private finishedAt: number | null = null;
+  private endedAt: number | null = null;
 
-  constructor(level: Level) {
+  constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
     this.shape = levelShape(level);
-    this.parSeconds = PAR_SECONDS[level.difficulty] ?? 120;
+    this.limitMs = limitMsOverride ?? limitMsFor(level);
     this.shapeCells = new Set(this.shape.cells.map(([r, c]) => `${r},${c}`));
     this.pieces = level.pieces.map((name, i) => ({
       key: `${name}#${i}`,
@@ -55,48 +59,49 @@ export class GameState {
     }));
   }
 
-  /** Start the clock on the player's first action. */
   markStarted(): void {
     if (this.startedAt === null) this.startedAt = performance.now();
   }
-
   get started(): boolean {
     return this.startedAt !== null;
   }
 
   elapsedMs(): number {
     if (this.startedAt === null) return 0;
-    return (this.finishedAt ?? performance.now()) - this.startedAt;
+    return (this.endedAt ?? performance.now()) - this.startedAt;
+  }
+  remainingMs(): number {
+    return Math.max(0, this.limitMs - this.elapsedMs());
+  }
+  get timedOut(): boolean {
+    return !this.isWon() && this.remainingMs() <= 0 && this.started;
   }
 
-  /** 3 stars for beating par, 2 for under 2× par, 1 otherwise. */
+  /** 3 stars for finishing with lots of time left, then 2, then 1. */
   starRating(): number {
-    const seconds = this.elapsedMs() / 1000;
-    if (seconds <= this.parSeconds) return 3;
-    if (seconds <= this.parSeconds * 2) return 2;
+    if (this.timedOut) return 0;
+    const frac = this.remainingMs() / this.limitMs;
+    if (frac >= 0.55) return 3;
+    if (frac >= 0.2) return 2;
     return 1;
   }
 
   orientationCount(name: PentominoName): number {
     return PENTOMINOES[name].orientations.length;
   }
-
-  /** Local cells (normalized to 0,0) of a piece in its current orientation. */
   localCells(piece: PieceState): readonly Cell[] {
-    const orientations = PENTOMINOES[piece.name].orientations;
-    return orientations[piece.orientationIndex % orientations.length]!;
+    const o = PENTOMINOES[piece.name].orientations;
+    return o[piece.orientationIndex % o.length]!;
   }
-
-  /** Absolute cells if the piece were at `pos`. */
   cellsAt(piece: PieceState, pos: Pos): Array<[number, number]> {
     return this.localCells(piece).map(([r, c]) => [r + pos.row, c + pos.col]);
   }
 
   private occupied(exceptKey?: string): Set<string> {
     const out = new Set<string>();
-    for (const piece of this.pieces) {
-      if (!piece.pos || piece.key === exceptKey) continue;
-      for (const [r, c] of this.cellsAt(piece, piece.pos)) out.add(`${r},${c}`);
+    for (const p of this.pieces) {
+      if (!p.pos || p.key === exceptKey) continue;
+      for (const [r, c] of this.cellsAt(p, p.pos)) out.add(`${r},${c}`);
     }
     return out;
   }
@@ -105,8 +110,7 @@ export class GameState {
     const blocked = this.occupied(piece.key);
     for (const [r, c] of this.cellsAt(piece, pos)) {
       const key = `${r},${c}`;
-      if (!this.shapeCells.has(key)) return false;
-      if (blocked.has(key)) return false;
+      if (!this.shapeCells.has(key) || blocked.has(key)) return false;
     }
     return true;
   }
@@ -116,36 +120,34 @@ export class GameState {
     piece.pos = { ...pos };
     return true;
   }
-
   removeToTray(piece: PieceState): void {
+    if (piece.pos) this.usedUndo = true;
     piece.pos = null;
   }
-
-  /** Cycle to the next orientation; if that makes a placed piece illegal, send it back to the tray. */
   nextOrientation(piece: PieceState): void {
     piece.orientationIndex = (piece.orientationIndex + 1) % this.orientationCount(piece.name);
-    if (piece.pos && !this.canPlace(piece, piece.pos)) piece.pos = null;
+    if (piece.pos && !this.canPlace(piece, piece.pos)) {
+      piece.pos = null;
+      this.usedUndo = true;
+    }
   }
 
   get placedCount(): number {
     return this.pieces.filter((p) => p.pos).length;
   }
-
   isWon(): boolean {
     return this.occupied().size === this.shape.size;
   }
-
-  /** Freeze the timer — call once, when the level is solved. */
   finish(): void {
-    if (this.finishedAt === null) this.finishedAt = performance.now();
+    if (this.endedAt === null) this.endedAt = performance.now();
   }
-
   reset(): void {
-    for (const piece of this.pieces) {
-      piece.pos = null;
-      piece.orientationIndex = 0;
+    for (const p of this.pieces) {
+      p.pos = null;
+      p.orientationIndex = 0;
     }
     this.startedAt = null;
-    this.finishedAt = null;
+    this.endedAt = null;
+    this.usedUndo = false;
   }
 }

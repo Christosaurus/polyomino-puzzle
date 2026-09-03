@@ -6,40 +6,30 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>Polyomino-Puzzle</title>
+    <title>Lumen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap"
+    />
     <style>
       :root {
-        color-scheme: light dark;
-        --bg-1: #eef1f6;
-        --bg-2: #dfe4ee;
-        --fg: #1b1d24;
-        --fg-dim: #5b6170;
-        --panel: #ffffff;
-        --panel-2: #f4f6fb;
-        --line: #d7dce7;
-        --cell: #e6e9f1;
-        --board-edge: #b7c0d4;
-        --accent: #4b5bd7;
-        --accent-fg: #ffffff;
-        --gold: #ffb300;
-        --shadow: 0 10px 30px -12px rgba(20, 25, 50, 0.35);
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg-1: #14161c;
-          --bg-2: #0e1014;
-          --fg: #eef1f7;
-          --fg-dim: #9aa1b2;
-          --panel: #1e222b;
-          --panel-2: #262b36;
-          --line: #333a48;
-          --cell: #2b313d;
-          --board-edge: #454d5e;
-          --accent: #6675f0;
-          --accent-fg: #ffffff;
-          --gold: #ffc24d;
-          --shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.6);
-        }
+        color-scheme: dark;
+        --bg-1: #0c0f1a;
+        --bg-2: #070912;
+        --surface: #151a2b;
+        --surface-2: #1d2338;
+        --hairline: #2b3350;
+        --cell: #232a41;
+        --board-edge: #3b4568;
+        --ink: #eef2ff;
+        --ink-dim: #8f9ac2;
+        --lumen: #ffc23d;
+        --accent: #5b6bff;
+        --good: #3ddc84;
+        --bad: #ff5470;
+        --shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.7);
       }
       * {
         box-sizing: border-box;
@@ -51,33 +41,59 @@
       html,
       body {
         margin: 0;
-        padding: 0;
-        color: var(--fg);
-        background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+        height: 100%;
+        background: radial-gradient(120% 80% at 50% 0%, var(--bg-1), var(--bg-2));
         background-attachment: fixed;
-        font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        font-family: "Hanken Grotesk", system-ui, sans-serif;
         overscroll-behavior: none;
         -webkit-user-select: none;
         user-select: none;
       }
       #app {
-        max-width: 560px;
+        max-width: 620px;
         margin: 0 auto;
-        padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 14px);
+        min-height: 100dvh;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        min-height: 100dvh;
+      }
+      .screen {
+        flex: 1;
+        padding: calc(env(safe-area-inset-top) + 16px) 16px 96px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .screen.play {
+        padding-bottom: 16px;
+        justify-content: center;
       }
 
+      h1 {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 800;
+        font-size: 26px;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      h2 {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 600;
+        font-size: 18px;
+        margin: 0;
+      }
+      .muted {
+        color: var(--ink-dim);
+        font-size: 13px;
+      }
       button {
         font: inherit;
-        font-weight: 650;
-        color: var(--fg);
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 9px 15px;
+        font-weight: 700;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 13px;
+        padding: 11px 16px;
         cursor: pointer;
         transition: transform 0.08s ease;
       }
@@ -85,137 +101,151 @@
         transform: scale(0.96);
       }
       button.primary {
-        background: var(--accent);
-        color: var(--accent-fg);
+        background: linear-gradient(180deg, #6b79ff, #4b5bf0);
         border-color: transparent;
-        box-shadow: 0 6px 18px -6px var(--accent);
+        box-shadow: 0 8px 22px -8px var(--accent);
       }
       button.ghost {
         background: transparent;
+        border-color: transparent;
+        color: var(--ink-dim);
+        padding-left: 4px;
       }
 
-      /* ── Picker ─────────────────────────────────────────── */
-      .app-head {
+      .topbar {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
         gap: 10px;
       }
-      .app-head h1 {
-        font-size: 20px;
-        margin: 0;
-        letter-spacing: -0.01em;
+      .star-count {
+        font-weight: 800;
+        font-size: 15px;
       }
-      .app-head .stars {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--fg-dim);
+      .star-count b {
+        color: var(--lumen);
       }
-      .app-head .stars b {
-        color: var(--gold);
+
+      /* cards */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
-      #picker-status {
-        margin: 0 2px 10px;
-        font-size: 13px;
-        color: var(--fg-dim);
+      .card.locked {
+        opacity: 0.55;
       }
-      #levels {
+      .card .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .card .big {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 800;
+        font-size: 22px;
+      }
+      .progress {
+        height: 7px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        overflow: hidden;
+      }
+      .progress i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, var(--lumen), #ff9d3d);
+      }
+
+      /* region + level grids */
+      .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
         gap: 10px;
       }
       .lvl {
         position: relative;
+        aspect-ratio: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        padding: 13px 6px 10px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        box-shadow: var(--shadow);
+        justify-content: center;
+        gap: 5px;
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 15px;
       }
       .lvl .n {
-        font-size: 17px;
+        font-family: "Unbounded", sans-serif;
         font-weight: 800;
+        font-size: 17px;
       }
       .lvl .s {
         font-size: 11px;
         letter-spacing: 1px;
-        color: var(--line);
+        color: var(--hairline);
       }
       .lvl .s .on {
-        color: var(--gold);
+        color: var(--lumen);
       }
       .lvl.done {
-        border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-      }
-      .lvl .check {
-        position: absolute;
-        top: -7px;
-        right: -7px;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: var(--accent);
-        color: #fff;
-        font-size: 12px;
-        display: none;
-        align-items: center;
-        justify-content: center;
-      }
-      .lvl.done .check {
-        display: flex;
+        border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline));
       }
 
-      /* ── Game ───────────────────────────────────────────── */
-      #game {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      #game:not([hidden]) {
-        margin: auto 0;
-      }
-      #hud {
+      /* HUD (shared) */
+      .hud {
         display: grid;
         grid-template-columns: 1fr auto 1fr;
         align-items: center;
         gap: 8px;
+        margin-bottom: 8px;
       }
-      #hud .lvl-tag {
-        font-weight: 750;
-        font-size: 15px;
+      .hud .right {
+        text-align: right;
       }
-      #timer {
+      .clock {
         font-variant-numeric: tabular-nums;
         font-weight: 800;
-        font-size: 22px;
-        letter-spacing: 0.02em;
-        padding: 3px 12px;
+        font-size: 24px;
+        padding: 4px 14px;
         border-radius: 999px;
-        background: var(--panel);
-        border: 1px solid var(--line);
+        background: var(--surface);
+        border: 1px solid var(--hairline);
       }
-      #timer.over {
-        color: #e0641c;
-        border-color: color-mix(in srgb, #e0641c 40%, var(--line));
+      .clock.warn {
+        color: var(--bad);
+        border-color: color-mix(in srgb, var(--bad) 45%, var(--hairline));
+        animation: pulse 0.9s ease-in-out infinite;
       }
-      #hud .right {
-        display: flex;
-        justify-content: flex-end;
-        gap: 6px;
+      @keyframes pulse {
+        50% {
+          transform: scale(1.06);
+        }
       }
-      #btn-mute {
-        padding: 7px 11px;
+      .hud .metric {
+        font-weight: 800;
+        font-size: 15px;
+      }
+      .hud .metric small {
+        display: block;
+        font-weight: 600;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
       }
 
-      #board-wrap {
+      .board-wrap {
         position: relative;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 18px;
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 20px;
         box-shadow: var(--shadow);
         overflow: hidden;
         touch-action: none;
@@ -225,133 +255,354 @@
         display: block;
         width: 100%;
       }
-      .foot {
+      .play-foot {
         display: flex;
-        align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        align-items: center;
+        margin-top: 8px;
       }
-      #hint {
-        font-size: 12.5px;
-        color: var(--fg-dim);
-        margin: 0;
+      .play-foot .muted {
+        font-size: 12px;
       }
 
-      /* ── Win card ───────────────────────────────────────── */
-      #win {
+      /* overlays */
+      .overlay {
         position: absolute;
         inset: 0;
         display: none;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--panel) 78%, transparent);
-        backdrop-filter: blur(3px);
+        background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+        backdrop-filter: blur(4px);
       }
-      #win.show {
+      .overlay.show {
         display: flex;
         animation: fade 0.25s ease both;
-      }
-      .win-card {
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 20px;
-      }
-      .win-card h2 {
-        margin: 0;
-        font-size: 26px;
-        letter-spacing: -0.01em;
-      }
-      .win-stars {
-        display: flex;
-        gap: 10px;
-        font-size: 40px;
-        line-height: 1;
-      }
-      .win-stars span {
-        color: var(--line);
-        transform: scale(0);
-        animation: starpop 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) forwards;
-      }
-      .win-stars span.on {
-        color: var(--gold);
-        filter: drop-shadow(0 3px 8px color-mix(in srgb, var(--gold) 55%, transparent));
-      }
-      .win-stars span:nth-child(1) {
-        animation-delay: 0.08s;
-      }
-      .win-stars span:nth-child(2) {
-        animation-delay: 0.24s;
-      }
-      .win-stars span:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-      .win-time {
-        font-size: 14px;
-        color: var(--fg-dim);
-        font-variant-numeric: tabular-nums;
-      }
-      .win-time b {
-        color: var(--fg);
-      }
-      .win-card button {
-        margin-top: 4px;
-        padding: 11px 26px;
-        font-size: 16px;
       }
       @keyframes fade {
         from {
           opacity: 0;
         }
       }
-      @keyframes starpop {
+      .ocard {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 22px;
+        max-width: 300px;
+      }
+      .ocard h3 {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 800;
+        font-size: 24px;
+        margin: 0;
+      }
+      .ocard .sub {
+        color: var(--ink-dim);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      .ocard .sub b {
+        color: var(--ink);
+      }
+      .ostars {
+        display: flex;
+        gap: 10px;
+        font-size: 42px;
+        line-height: 1;
+      }
+      .ostars span {
+        color: var(--hairline);
+        transform: scale(0);
+        animation: sp 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) forwards;
+      }
+      .ostars span.on {
+        color: var(--lumen);
+        filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--lumen) 55%, transparent));
+      }
+      .ostars span:nth-child(2) {
+        animation-delay: 0.14s;
+      }
+      .ostars span:nth-child(3) {
+        animation-delay: 0.28s;
+      }
+      @keyframes sp {
         to {
           transform: scale(1);
         }
+      }
+      .ocard .btns {
+        display: flex;
+        gap: 10px;
+      }
+
+      /* achievements */
+      .ach {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
+      }
+      .ach.locked {
+        opacity: 0.45;
+      }
+      .ach .ic {
+        font-size: 20px;
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface-2);
+        border-radius: 10px;
+      }
+      .ach.done .ic {
+        background: color-mix(in srgb, var(--lumen) 22%, var(--surface-2));
+        color: var(--lumen);
+      }
+      .ach .t {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .ach .h {
+        font-size: 12px;
+        color: var(--ink-dim);
+      }
+      .statgrid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .stat {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .stat b {
+        font-family: "Unbounded", sans-serif;
+        font-size: 20px;
+        display: block;
+      }
+      .stat small {
+        color: var(--ink-dim);
+        font-size: 12px;
+      }
+
+      /* tab bar */
+      #tabbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        display: flex;
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px);
+        background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--hairline);
+      }
+      #tabbar button {
+        flex: 1;
+        background: none;
+        border: none;
+        padding: 6px 2px;
+        color: var(--ink-dim);
+        font-size: 10.5px;
+        font-weight: 700;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+      }
+      #tabbar button .ic {
+        font-size: 18px;
+      }
+      #tabbar button.on {
+        color: var(--lumen);
+      }
+
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 96px;
+        transform: translateX(-50%) translateY(20px);
+        z-index: 40;
+        background: var(--surface);
+        border: 1px solid var(--lumen);
+        color: var(--ink);
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 13px;
+        opacity: 0;
+        transition: all 0.3s ease;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
       }
     </style>
   </head>
   <body>
     <div id="app">
-      <section id="picker">
-        <div class="app-head">
-          <h1>Polyomino</h1>
-          <div class="stars" id="total-stars"></div>
+      <!-- ── Spielen: regions ── -->
+      <section class="screen" id="screen-home">
+        <div class="topbar">
+          <h1>Lumen</h1>
+          <span class="star-count" id="home-stars"></span>
         </div>
-        <p id="picker-status">Levels werden geladen …</p>
-        <div id="levels"></div>
+        <p class="muted" id="home-status">Wird geladen …</p>
+        <div id="regions" style="display:flex;flex-direction:column;gap:12px"></div>
       </section>
 
-      <section id="game" hidden>
-        <div id="hud">
-          <div><button id="btn-back" class="ghost">‹ Übersicht</button></div>
-          <div id="timer">0:00</div>
-          <div class="right">
-            <button id="btn-mute" title="Ton">🔊</button>
-          </div>
+      <!-- ── Region → levels ── -->
+      <section class="screen" id="screen-region" hidden>
+        <button class="ghost" id="region-back">‹ Regionen</button>
+        <div>
+          <h1 id="region-name"></h1>
+          <p class="muted" id="region-sub"></p>
         </div>
+        <div class="grid" id="region-levels"></div>
+      </section>
 
-        <div id="board-wrap">
-          <canvas id="canvas"></canvas>
-          <div id="win">
-            <div class="win-card">
-              <h2>Gelöst!</h2>
-              <div class="win-stars" id="win-stars"><span>★</span><span>★</span><span>★</span></div>
-              <div class="win-time" id="win-time"></div>
-              <button id="btn-next" class="primary">Weiter ›</button>
+      <!-- ── Täglich ── -->
+      <section class="screen" id="screen-daily" hidden>
+        <h1>Tägliche Scherbe</h1>
+        <div class="card" id="daily-card">
+          <div class="row">
+            <div>
+              <div class="big" id="daily-streak">🔥 0</div>
+              <div class="muted">Tage in Folge</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="daily-best">0</div>
+              <div class="muted">Bester Streak</div>
+            </div>
+          </div>
+          <p class="muted" id="daily-note">Ein neues Fenster jeden Tag — für alle gleich.</p>
+          <button class="primary" id="daily-play">Heute spielen</button>
+        </div>
+      </section>
+
+      <!-- ── Abstieg ── -->
+      <section class="screen" id="screen-descent" hidden>
+        <h1>Abstieg</h1>
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="big" id="descent-best">Ebene 0</div>
+              <div class="muted">Bestmarke</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="descent-runs">0</div>
+              <div class="muted">Läufe</div>
+            </div>
+          </div>
+          <p class="muted">Fenster für Fenster hinab. Jedes schwerer, jede Uhr kürzer. Ein Fehlschlag beendet den Lauf.</p>
+          <button class="primary" id="descent-play">Abstieg beginnen</button>
+        </div>
+      </section>
+
+      <!-- ── Kaskade ── -->
+      <section class="screen" id="screen-cascade" hidden>
+        <h1>Kaskade</h1>
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="big" id="cascade-best">0</div>
+              <div class="muted">Höchste Punktzahl</div>
+            </div>
+            <div style="text-align:right">
+              <div class="big" id="cascade-cleared">0</div>
+              <div class="muted">Meiste Reihen</div>
+            </div>
+          </div>
+          <p class="muted">90 Sekunden. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
+          <button class="primary" id="cascade-play">Kaskade starten</button>
+        </div>
+      </section>
+
+      <!-- ── Sammlung ── -->
+      <section class="screen" id="screen-collection" hidden>
+        <h1>Sammlung</h1>
+        <div class="statgrid" id="stats"></div>
+        <h2 style="margin-top:8px">Erfolge</h2>
+        <div id="achievements" style="display:flex;flex-direction:column;gap:8px"></div>
+      </section>
+
+      <!-- ── Play (campaign / daily / descent) ── -->
+      <section class="screen play" id="screen-play" hidden>
+        <div class="hud">
+          <div><button class="ghost" id="play-back">‹</button></div>
+          <div class="clock" id="play-clock">0:00</div>
+          <div class="right metric" id="play-title"><small>Level</small><span id="play-title-txt">–</span></div>
+        </div>
+        <div class="board-wrap" id="play-wrap">
+          <canvas id="play-canvas"></canvas>
+          <div class="overlay" id="play-overlay">
+            <div class="ocard">
+              <h3 id="ov-title">Gelöst!</h3>
+              <div class="ostars" id="ov-stars"><span>★</span><span>★</span><span>★</span></div>
+              <div class="sub" id="ov-sub"></div>
+              <div class="btns">
+                <button class="ghost" id="ov-quit">Übersicht</button>
+                <button class="primary" id="ov-next">Weiter ›</button>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="foot">
-          <p id="hint">Antippen zum Drehen · ziehen zum Platzieren</p>
-          <button id="btn-reset" class="ghost">Neu</button>
+        <div class="play-foot">
+          <span class="muted">Antippen dreht · ziehen platziert</span>
+          <button class="ghost" id="play-reset">Neu</button>
         </div>
       </section>
+
+      <!-- ── Kaskade play ── -->
+      <section class="screen play" id="screen-kaskade" hidden>
+        <div class="hud">
+          <div><button class="ghost" id="k-back">‹</button></div>
+          <div class="clock" id="k-clock">1:30</div>
+          <div class="right metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></div>
+        </div>
+        <div class="hud" style="grid-template-columns:1fr 1fr;margin-top:-4px">
+          <div class="metric"><small>Multiplikator</small><span id="k-mult">×1.0</span></div>
+          <div class="right metric"><small>Reihen</small><span id="k-cleared">0</span></div>
+        </div>
+        <div class="board-wrap" id="k-wrap">
+          <canvas id="k-canvas"></canvas>
+          <div class="overlay" id="k-overlay">
+            <div class="ocard">
+              <h3>Zeit um!</h3>
+              <div class="sub" id="k-result"></div>
+              <div class="btns">
+                <button class="ghost" id="k-quit">Übersicht</button>
+                <button class="primary" id="k-again">Nochmal</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <nav id="tabbar">
+        <button data-tab="home" class="on"><span class="ic">◆</span>Spielen</button>
+        <button data-tab="daily"><span class="ic">☀</span>Täglich</button>
+        <button data-tab="descent"><span class="ic">▼</span>Abstieg</button>
+        <button data-tab="cascade"><span class="ic">⚡</span>Kaskade</button>
+        <button data-tab="collection"><span class="ic">★</span>Sammlung</button>
+      </nav>
+
+      <div class="toast" id="toast"></div>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/app.ts"></script>
   </body>
 </html>
