@@ -1,0 +1,792 @@
+<title>Lumen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Hanken+Grotesk:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+/>
+
+<style>
+  :root {
+    /* light theme &mdash; a pale, cool daylight */
+    --ground: #eceef5;
+    --surface: #ffffff;
+    --surface-2: #f4f5fa;
+    --hairline: #d3d7e4;
+    --ink: #14182b;
+    --ink-dim: #5b6486;
+    --lumen: #d98218;
+    --lumen-soft: #f3d9a8;
+    --cyan: #0f9fb8;
+    --magenta: #cf3c7f;
+    --lime: #6f9f1f;
+    --violet: #6d4fd0;
+    --shadow: 0 18px 44px -22px rgba(20, 24, 55, 0.4);
+    --maxw: 68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #080a14;
+      --surface: #10131f;
+      --surface-2: #161a29;
+      --hairline: #262c40;
+      --ink: #e9eeff;
+      --ink-dim: #8a93b6;
+      --lumen: #ffc23d;
+      --lumen-soft: #4a3a1a;
+      --cyan: #34d3ec;
+      --magenta: #f0559a;
+      --lime: #a9e34b;
+      --violet: #9d80f5;
+      --shadow: 0 22px 60px -26px rgba(0, 0, 0, 0.75);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #080a14;
+    --surface: #10131f;
+    --surface-2: #161a29;
+    --hairline: #262c40;
+    --ink: #e9eeff;
+    --ink-dim: #8a93b6;
+    --lumen: #ffc23d;
+    --lumen-soft: #4a3a1a;
+    --cyan: #34d3ec;
+    --magenta: #f0559a;
+    --lime: #a9e34b;
+    --violet: #9d80f5;
+    --shadow: 0 22px 60px -26px rgba(0, 0, 0, 0.75);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 22px;
+  }
+  section {
+    padding: 68px 0;
+    border-top: 1px solid var(--hairline);
+  }
+  h2 {
+    font-family: "Unbounded", sans-serif;
+    font-weight: 600;
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 8px;
+  }
+  h3 {
+    font-family: "Unbounded", sans-serif;
+    font-weight: 400;
+    font-size: 1.02rem;
+    letter-spacing: 0.01em;
+    margin: 0 0 6px;
+  }
+  p {
+    margin: 0 0 16px;
+    max-width: 62ch;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--lumen);
+    margin: 0 0 18px;
+  }
+  .lede {
+    font-size: 1.12rem;
+    color: var(--ink-dim);
+  }
+  strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  a {
+    color: var(--lumen);
+  }
+
+  /* ── Hero — always dark: the thesis image is light in darkness ── */
+  .hero {
+    position: relative;
+    border-top: 0;
+    padding: 0;
+    min-height: 82vh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: #070912;
+    color: #eef2ff;
+  }
+  #hero-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      100deg,
+      #070912 22%,
+      rgba(7, 9, 18, 0.72) 46%,
+      rgba(7, 9, 18, 0) 72%
+    );
+  }
+  .hero .wrap {
+    position: relative;
+    z-index: 1;
+    padding-top: 96px;
+    padding-bottom: 96px;
+  }
+  .hero .eyebrow {
+    color: #ffc23d;
+  }
+  .hero h1 {
+    font-family: "Unbounded", sans-serif;
+    font-weight: 800;
+    font-size: clamp(3.4rem, 15vw, 7rem);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    margin: 0 0 22px;
+    color: #f4f7ff;
+  }
+  .hero .tagline {
+    font-size: clamp(1.1rem, 3.4vw, 1.45rem);
+    color: #dfe6ff;
+    max-width: 26ch;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .hero .sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.8rem;
+    color: #7c86ad;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Lists & cards ────────────────────────────────── */
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .flat {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .flat p {
+    margin: 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    margin-top: 22px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card .k {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .card p {
+    font-size: 0.95rem;
+    color: var(--ink-dim);
+    margin: 0;
+  }
+  .card p strong {
+    color: var(--ink);
+  }
+
+  .feature {
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--lumen);
+    border-radius: 14px;
+    padding: 22px;
+    margin-top: 24px;
+  }
+  .feature h3 {
+    color: var(--lumen);
+  }
+  .feature p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* ── Region / mechanic table ─────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 22px;
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .rail-row {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr;
+    gap: 16px;
+    padding: 16px 18px;
+    background: var(--surface);
+    align-items: baseline;
+  }
+  .rail-row .n {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--lumen);
+    font-size: 0.9rem;
+  }
+  .rail-row .b strong {
+    display: block;
+    font-family: "Unbounded", sans-serif;
+    font-weight: 400;
+    font-size: 0.98rem;
+    margin-bottom: 3px;
+  }
+  .rail-row .b span {
+    color: var(--ink-dim);
+    font-size: 0.92rem;
+  }
+  .rail-row .b em {
+    color: var(--cyan);
+    font-style: normal;
+  }
+
+  /* ── Palette swatches ────────────────────────────── */
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .sw {
+    flex: 1 1 84px;
+    border-radius: 12px;
+    padding: 12px 12px 10px;
+    border: 1px solid var(--hairline);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+  .sw span {
+    display: block;
+    height: 40px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* ── Tab-bar sketch ──────────────────────────────── */
+  .tabbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 22px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 8px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+  }
+  .tab.on {
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+  .tab b {
+    display: block;
+    font-size: 1.1rem;
+    line-height: 1;
+    margin-bottom: 4px;
+    color: var(--lumen);
+    font-weight: 400;
+  }
+
+  /* ── Roadmap ─────────────────────────────────────── */
+  ol.road {
+    list-style: none;
+    counter-reset: r;
+    padding: 0;
+    margin: 22px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  ol.road li {
+    counter-increment: r;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: 14px;
+    padding: 15px 0;
+    border-top: 1px solid var(--hairline);
+    align-items: baseline;
+  }
+  ol.road li::before {
+    content: counter(r, decimal-leading-zero);
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--lumen);
+    font-size: 0.85rem;
+  }
+  ol.road strong {
+    display: block;
+    margin-bottom: 2px;
+  }
+  ol.road span {
+    color: var(--ink-dim);
+    font-size: 0.94rem;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    color: var(--ink-dim);
+    margin-left: 8px;
+  }
+
+  footer {
+    padding: 50px 0 80px;
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-dim);
+    font-size: 0.86rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #hero-canvas {
+      opacity: 0.6;
+    }
+  }
+</style>
+
+<section class="hero">
+  <canvas id="hero-canvas" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <p class="eyebrow">Spielkonzept &middot; Arbeitstitel</p>
+    <h1>Lumen</h1>
+    <p class="tagline">Ein dunkel gewordenes Land wieder zum Leuchten bringen &mdash; eine Scherbe nach der anderen.</p>
+    <p class="sub">Polyomino-Packpuzzle &rarr; Story, Modi, Look, Reihenfolge</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Der ehrliche Befund</p>
+    <h2>Warum es sich gerade flach anf&uuml;hlt</h2>
+    <div class="flat">
+      <p><strong>Kein Warum.</strong> Man legt Formen in einen Rahmen. Es passiert nichts, wenn er voll ist, au&szlig;er &bdquo;gel&ouml;st". Es gibt keinen Grund, weiterzuspielen.</p>
+      <p><strong>Kein Druck.</strong> Der Timer z&auml;hlt hoch und ist folgenlos. Spannung entsteht nur, wenn eine Uhr <em>gegen</em> dich l&auml;uft.</p>
+      <p><strong>Keine Abwechslung.</strong> Level 1 und Level 50 spielen sich identisch. Keine neuen Regeln, keine F&auml;higkeiten, kein Moduswechsel.</p>
+      <p><strong>Kein K&ouml;rper.</strong> Flache Quadrate auf flachem Grund. Das Vorbild &mdash; die IQ-StecKpuzzles &mdash; lebt von gl&auml;nzendem Plastik, sattem Farblicht und echten Schatten.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Die Geschichte</p>
+    <h2>Das Licht ist erloschen. Du bringst es zur&uuml;ck.</h2>
+    <p>
+      Vor langer Zeit hielt ein Netz aus <strong>Lichtfenstern</strong> die Welt hell &mdash; jedes ein Mosaik aus
+      farbigen Scherben. Ein Riss ging hindurch, die Fenster zersprangen, das Land fiel in D&auml;mmerung.
+    </p>
+    <p>
+      Du bist die <strong>Setzerin</strong> (oder der Setzer). Jedes Level ist ein zerbrochenes Fenster.
+      Du f&uuml;gst die Scherben &mdash; die Polyomino-Teile &mdash; exakt wieder ein. Sitzt das letzte St&uuml;ck, <strong>flutet
+      Licht hindurch</strong>: ein Garten bl&uuml;ht auf, ein Leuchtturm dreht sich, ein Sternbild kehrt zur&uuml;ck.
+      Hinter dem gef&uuml;llten Fenster wird ein Bild sichtbar, das vorher dunkel war.
+    </p>
+    <p>
+      Kein Text n&ouml;tig, kein Vorwissen. Die Fantasie funktioniert wortlos und in jedem Alter:
+      <strong>aus Dunkel wird Licht, weil du die Teile richtig legst.</strong>
+    </p>
+    <p class="lede" style="margin-top:24px">
+      Alternative Namen, falls &bdquo;Lumen" nicht sitzt: <strong>Tessera</strong> (das Mosaikpl&auml;ttchen),
+      <strong>Prisma</strong>, <strong>Facet</strong>, <strong>Glimmer</strong>.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Die Welt</p>
+    <h2>Sechs Regionen, die nacheinander erwachen</h2>
+    <p>
+      Statt einer endlosen Levelliste: eine <strong>Karte</strong> als Zuhause. Jede Region ist ein Kapitel mit
+      eigener Farbwelt, eigenen Rahmenformen und <strong>einer neuen Regel plus einem neuen Werkzeug</strong>.
+      Am Ende jeder Region steht ein gro&szlig;es <strong>Prunkfenster</strong> &mdash; ein mehrteiliges Puzzle, das alles
+      Gelernte b&uuml;ndelt. L&ouml;st du es, leuchtet die Region auf der Karte auf und die n&auml;chste &ouml;ffnet sich.
+    </p>
+    <p>
+      Fortschritt = Sterne. Jedes Level gibt 1&ndash;3. Die n&auml;chste Region braucht ein Sterne-Minimum, nicht jedes
+      Level einzeln &mdash; so bleibt man nie h&auml;ngen. Eine <strong>Galerie</strong> sammelt alle wiederhergestellten
+      Fenster als Bilder.
+    </p>
+    <div class="rail">
+      <div class="rail-row"><span class="n">I</span><div class="b"><strong>Der Garten</strong><span>Einf&uuml;hrung. Ruhig, gr&uuml;n-golden. Regel: nur einsetzen. Werkzeug: <em>Drehen</em>.</span></div></div>
+      <div class="rail-row"><span class="n">II</span><div class="b"><strong>Die Werkstatt</strong><span>Manche Scherben stecken schon fest im Rahmen &mdash; drumherum bauen. Werkzeug: <em>Linse</em> (zeigt eine korrekte Platzierung, begrenzt).</span></div></div>
+      <div class="rail-row"><span class="n">III</span><div class="b"><strong>Der Farbhof</strong><span>Der Rahmen hat Farbzonen &mdash; Scherbe muss zur Zone passen. Werkzeug: <em>L&ouml;semittel</em> (platziertes Teil sofort zur&uuml;ckholen).</span></div></div>
+      <div class="rail-row"><span class="n">IV</span><div class="b"><strong>Die Br&uuml;cken</strong><span>Rahmen mit L&ouml;chern, die frei bleiben; Teile, die L&uuml;cken &uuml;berspannen. Werkzeug: <em>Phasenscherbe</em> (ein Teil darf einmal &uuml;berlappen).</span></div></div>
+      <div class="rail-row"><span class="n">V</span><div class="b"><strong>Der Schatten</strong><span>Leere Zellen verdunkeln mit der Zeit; verdunkelte Zellen sind erst wieder frei nach einem <em>Funken</em>. Werkzeug: <em>Leuchtfeuer</em> (friert den Schatten 8 s).</span></div></div>
+      <div class="rail-row"><span class="n">VI</span><div class="b"><strong>Der Spiegelsaal</strong><span>Der Rahmen ist geteilt &mdash; was du links legst, spiegelt sich rechts. Prunkfenster-Finale mit allem kombiniert.</span></div></div>
+    </div>
+    <p style="margin-top:22px">
+      Sp&auml;ter: <strong>Hexominos</strong> und Spezialscherben (2×2-&bdquo;Kristall", Einzel-&bdquo;Funke", zweifarbige
+      &bdquo;Prismenscherbe") erweitern das Teileset &mdash; neue Formen halten das Legen frisch.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Modi</p>
+    <h2>Vier Arten zu spielen</h2>
+    <p>Die Kampagne ist die Grundlage. Drei weitere Modi bauen darauf auf und teilen sich Teileset, Fit-Logik und Renderer &mdash; kaum Zusatzaufwand, viel Bindung.</p>
+    <div class="grid">
+      <div class="card">
+        <span class="k">Kampagne</span>
+        <p><strong>Die Reise durchs Licht.</strong> Countdown pro Level: viel Zeit fr&uuml;h, knapper mit jeder Region. &Uuml;ber Sternzeit = 3 Sterne, &uuml;ber Parzeit = 2, vor Ablauf = 1. Bei 0 &bdquo;flackert das Licht aus" &mdash; sanfter Neustart, kein Strafsystem.</p>
+      </div>
+      <div class="card">
+        <span class="k">T&auml;gliche Scherbe</span>
+        <p><strong>Ein Fenster pro Tag</strong>, f&uuml;r alle gleich (fester Seed). Streak-Z&auml;hler. Verpasst = Streak weg. Der klassische &bdquo;einmal am Tag reinschauen"-Haken.</p>
+      </div>
+      <div class="card">
+        <span class="k">Abstieg</span>
+        <p><strong>Endlos nach unten.</strong> Fenster f&uuml;r Fenster, jedes schwerer, jeder Countdown k&uuml;rzer. Ein Fehlschlag beendet den Lauf. Pers&ouml;nliche Bestmarke: &bdquo;Ebene 14".</p>
+      </div>
+      <div class="card">
+        <span class="k">Kaskade</span>
+        <p><strong>Der Schnelligkeitsmodus.</strong> Scherben fahren auf einem Flie&szlig;band herunter &mdash; greifen, legen, Fl&auml;che f&uuml;llen, bevor die Zeit abl&auml;uft. Siehe unten.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <h3>Kaskade &mdash; im Detail</h3>
+      <p>
+        Rechts neben dem Spielfeld ein <strong>senkrechtes Flie&szlig;band</strong>. Alle ~1,5 s erscheint oben eine
+        leuchtende Scherbe und wandert nach unten. Du ziehst sie per Drag &amp; Drop aufs Feld; sie rastet ins
+        Raster. Passt sie nicht (au&szlig;erhalb / &Uuml;berlappung), springt sie in deinen <strong>Halteplatz</strong>
+        (1 Slot, sp&auml;ter 2) &mdash; dort parkst du auch bewusst Scherben f&uuml;r gleich.
+      </p>
+      <p>
+        Nimmst du zu langsam ab, <strong>f&auml;llt die &auml;lteste Scherbe unten vom Band</strong> (verloren) und das
+        Band wird minimal schneller. Wird eine <strong>volle Reihe</strong> (oder Farbzone, oder das ganze
+        Feld) gedeckt, <strong>entz&uuml;ndet</strong> sie sich: aufblitzen, Zellen frei, dicke Punkte, kurzer
+        Screenshake. Dadurch spielt der Modus quasi endlos innerhalb des Zeitlimits &mdash; f&uuml;llen, z&uuml;nden, f&uuml;llen.
+      </p>
+      <p>
+        <strong>Score</strong> = gedeckte Zellen + Boni: Reihen/Zonen, Serien ohne Fehlwurf, ein
+        Tempo-Multiplikator, der beim fl&uuml;ssigen Legen w&auml;chst und bei Leerlauf/Fehlwurf zerf&auml;llt. Ein
+        <strong>Perfect Clear</strong> (Feld komplett leer ger&auml;umt) gibt Riesenbonus + Zeitgutschrift.
+        T&auml;glicher Kaskade-Seed mit Rangliste, eigene Bestzeit, exklusive Kaskade-Skins.
+      </p>
+      <p style="color:var(--ink-dim);font-size:0.9rem">
+        Verwandt mit Tetris im Flow-Gef&uuml;hl, aber ohne Schwerkraft: es z&auml;hlt die kluge Platzierung, nicht der
+        Reflex allein. Der Modus macht aus dem ruhigen Logikspiel zus&auml;tzlich ein &bdquo;nur noch ein Lauf"-Spiel.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Der Look</p>
+    <h2>Echtes Plastik-Licht, kein flaches Raster</h2>
+    <p>
+      Das Vorbild &mdash; IQ&nbsp;Fit / Smart Games &mdash; sieht aus wie <strong>spritzgegossenes Plastik</strong>:
+      satte Farben, eine harte Lichtquelle, versenkte Mulden im Brett, echte Schlagschatten. Das l&auml;sst sich
+      als <strong>2,5-D</strong> auf Canvas glaubhaft nachbauen, ohne 3-D-Engine:
+    </p>
+    <div class="flat">
+      <p><strong>Gekipptes Brett.</strong> Leichte Perspektive. Jede Zelle eine vertiefte Mulde mit Innenschatten.</p>
+      <p><strong>Scherben als extrudierte K&ouml;rper.</strong> Helle Oberseite + dunklere Seitenw&auml;nde (ein paar Pixel &bdquo;hoch") + Kontaktschatten aufs Brett. Das ist der gr&ouml;&szlig;te &bdquo;jetzt ist es 3-D"-Hebel.</p>
+      <p><strong>Glanz.</strong> Weicher wei&szlig;er Glanzpunkt oben links, Farbverlauf &uuml;ber die Fl&auml;che &mdash; wie eine geschliffene Pastille.</p>
+      <p><strong>Sattere Farben.</strong> Weg von den blassen Pastellt&ouml;nen. Juwelent&ouml;ne auf dunklem Grund, damit das Licht wirkt.</p>
+      <p><strong>Der Moment.</strong> Letzte Scherbe sitzt &rarr; das Fenster leuchtet von hinten auf, Farben bl&uuml;hen, eine Druckwelle, Lichtmotten, das Bild dahinter blendet ein.</p>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:var(--surface)"><span style="background:#0f9fb8"></span>Cyan<br />#0F9FB8</div>
+      <div class="sw" style="background:var(--surface)"><span style="background:#cf3c7f"></span>Magenta<br />#CF3C7F</div>
+      <div class="sw" style="background:var(--surface)"><span style="background:#6f9f1f"></span>Limette<br />#6F9F1F</div>
+      <div class="sw" style="background:var(--surface)"><span style="background:#6d4fd0"></span>Violett<br />#6D4FD0</div>
+      <div class="sw" style="background:var(--surface)"><span style="background:#e8891a"></span>Bernstein<br />#E8891A</div>
+      <div class="sw" style="background:var(--surface)"><span style="background:#0b0e1a;border:1px solid var(--hairline)"></span>Grund<br />#0B0E1A</div>
+    </div>
+    <p style="margin-top:22px">
+      <strong>Option f&uuml;r echtes 3-D:</strong> Three.js im Web bzw. react-three-fiber + expo-gl in der App &mdash;
+      wirklich extrudierte Teile, echte Beleuchtung, Kamerakippung, physisches Fallen. Gr&ouml;&szlig;erer Aufwand.
+      Empfehlung: <strong>erst 2,5-D auf Canvas</strong> (validiert den Spa&szlig;, ist bald fertig), dann bei
+      Bedarf auf echtes 3-D heben.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Men&uuml; &amp; Navigation</p>
+    <h2>Ein Ort zum Wechseln</h2>
+    <p>
+      Untere Leiste wie in jedem Mobile-Game. Oben ein Kopf mit Sternen, aktueller Region und Tages-Streak.
+      Innerhalb der Kampagne wischt man durch die Regionen; &bdquo;Anpassen" schaltet Scherben-Skins und
+      Brett-Themes frei (mit Sternen / Erfolgen).
+    </p>
+    <div class="tabbar">
+      <div class="tab on"><b>&#9670;</b>Spielen</div>
+      <div class="tab"><b>&#9728;</b>T&auml;glich</div>
+      <div class="tab"><b>&#9660;</b>Abstieg</div>
+      <div class="tab"><b>&#9889;</b>Kaskade</div>
+      <div class="tab"><b>&#9733;</b>Sammlung</div>
+    </div>
+    <p style="margin-top:18px;color:var(--ink-dim);font-size:0.94rem">
+      &bdquo;Sammlung" b&uuml;ndelt Galerie der Fenster, Erfolge, Statistiken und Anpassen &mdash; damit die Leiste bei f&uuml;nf
+      Eintr&auml;gen bleibt.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Bindung</p>
+    <h2>Erfolge &amp; Freischaltbares</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="k">Kurzfristig</span>
+        <p>Der Kreislauf aus Legen &rarr; Klick &rarr; Aufleuchten. Den Countdown f&uuml;r 3 Sterne schlagen.</p>
+      </div>
+      <div class="card">
+        <span class="k">Mittelfristig</span>
+        <p>Eine Region abschlie&szlig;en &rarr; Prunkfenster leuchtet, neues Werkzeug + neue Welt.</p>
+      </div>
+      <div class="card">
+        <span class="k">Langfristig</span>
+        <p>Alle Sterne, volle Galerie, Tages-Streak, Abstieg-Bestmarke, Kaskade-Rangliste.</p>
+      </div>
+    </div>
+    <p style="margin-top:24px">
+      <strong>Erfolge</strong> als greifbare Ziele: &bdquo;Werkstatt wiederhergestellt", &bdquo;eine ganze Region mit 3
+      Sternen", &bdquo;10 Level in Folge ohne Zur&uuml;cknehmen", &bdquo;mit 30 s Rest gel&ouml;st", &bdquo;Perfect Clear in Kaskade".
+      Belohnung: <strong>Scherben-Skins</strong> (Glas, Kristall, Neon, Holz), <strong>Brett-Themes</strong>,
+      Farbpaletten. Rein kosmetisch &mdash; kein Pay-to-win, keine Energie.
+    </p>
+    <p>
+      <strong>Monetarisierung</strong> bleibt wie geplant: gro&szlig;z&uuml;giger Gratis-Teil, dann Regionen /
+      &bdquo;alles freischalten" als Einmalkauf. Kaskade und T&auml;glich gratis als Dauer-Anker.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">N&auml;chste Schritte</p>
+    <h2>Reihenfolge</h2>
+    <p>Der Kern (Solver, Generator, Level-Format, Web-Prototyp) steht. Von hier aus:</p>
+    <ol class="road">
+      <li><strong>Look-Umbau auf 2,5-D<span class="tag">Prototyp</span></strong><span>Gekippte Mulden, extrudierte Scherben mit Glanz + Kontaktschatten, Juwelenpalette, Lichtbl&uuml;te beim Sieg. Gr&ouml;&szlig;ter Sprung im Gef&uuml;hl, kein neuer Content n&ouml;tig.</span></li>
+      <li><strong>Countdown statt Aufw&auml;rtsz&auml;hler<span class="tag">Prototyp</span></strong><span>Sternzeit / Parzeit / Deckel pro Level. &bdquo;Licht flackert aus"-Fehlschlag. Sterne an Zeit koppeln.</span></li>
+      <li><strong>Tab-Men&uuml; + Weltkarte<span class="tag">Prototyp</span></strong><span>F&uuml;nf Tabs, Regionskarte als Zuhause, Sterne schalten Regionen frei, Galerie-Ger&uuml;st.</span></li>
+      <li><strong>Kaskade-Modus<span class="tag">Prototyp</span></strong><span>Flie&szlig;band, Halteplatz, Reihen-Z&uuml;ndung, Score + Multiplikator. Nutzt vorhandene Fit-Logik.</span></li>
+      <li><strong>Region-Mechaniken<span class="tag">Content</span></strong><span>Feste Scherben, Farbzonen, L&ouml;cher, kriechender Schatten &mdash; je eine Regel + ein Werkzeug ins Level-Schema.</span></li>
+      <li><strong>Erfolge + Kosmetik<span class="tag">Content</span></strong><span>Erfolgs-System, Skin-/Theme-Freischaltung, Anpassen-Screen.</span></li>
+      <li><strong>Playtest auf dem iPhone &rarr; dann Expo-Portierung<span class="tag">Release</span></strong><span>Wenn der Kern-Loop tr&auml;gt: React Native, EAS-Cloud-Build, StoreKit, App Store.</span></li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Lumen &mdash; Spielkonzept, Stand 4. September 2026. Lebendiges Dokument; &auml;ndert sich mit jedem Playtest.
+  </div>
+</footer>
+
+<script>
+  (function () {
+    const canvas = document.getElementById("hero-canvas");
+    const ctx = canvas.getContext("2d");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let W = 0,
+      H = 0,
+      dpr = 1;
+
+    // one pentomino-ish target: a 5x4 block of cells
+    const COLS = 5,
+      ROWS = 4;
+    const jewels = ["#34d3ec", "#f0559a", "#a9e34b", "#9d80f5", "#ffc23d"];
+
+    let cells = [];
+    function build() {
+      cells = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          cells.push({
+            r,
+            c,
+            color: jewels[(r + c) % jewels.length],
+            // scattered start
+            sx: Math.random() * 2 - 1,
+            sy: Math.random() * 2 - 1,
+            srot: (Math.random() - 0.5) * 2,
+          });
+        }
+      }
+    }
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function rrect(x, y, w, h, rad) {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, rad);
+      else {
+        ctx.moveTo(x + rad, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rad);
+        ctx.arcTo(x + w, y + h, x, y + h, rad);
+        ctx.arcTo(x, y + h, x, y, rad);
+        ctx.arcTo(x, y, x + w, y, rad);
+      }
+    }
+
+    const CYCLE = reduce ? 1 : 7200;
+    let t0 = performance.now();
+
+    function ease(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function frame(now) {
+      const phase = ((now - t0) % CYCLE) / CYCLE; // 0..1
+      const assemble = ease(Math.min(1, phase / 0.5));
+      const bloom = phase > 0.58 && phase < 0.88 ? Math.sin(((phase - 0.58) / 0.3) * Math.PI) : 0;
+
+      ctx.clearRect(0, 0, W, H);
+
+      const size = Math.min(W * 0.44, H * 0.62);
+      const cell = size / Math.max(COLS, ROWS + 0.5);
+      const gw = cell * COLS,
+        gh = cell * ROWS;
+      // anchor to the right so the headline zone stays clear
+      const ox = Math.max(W * 0.52, W - gw - Math.max(20, W * 0.05));
+      const oy = H / 2 - gh / 2;
+      const cxg = ox + gw / 2,
+        cyg = oy + gh / 2;
+
+      if (bloom > 0) {
+        const g = ctx.createRadialGradient(cxg, cyg, 0, cxg, cyg, size * 1.4);
+        g.addColorStop(0, `rgba(255,198,80,${0.42 * bloom})`);
+        g.addColorStop(1, "rgba(255,198,80,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // recessed wells
+      for (let r = 0; r < ROWS; r++) {
+        for (let cc = 0; cc < COLS; cc++) {
+          rrect(ox + cc * cell + 3, oy + r * cell + 3, cell - 6, cell - 6, cell * 0.16);
+          ctx.fillStyle = "rgba(120,132,180,0.08)";
+          ctx.fill();
+        }
+      }
+
+      for (const c of cells) {
+        const tx = ox + c.c * cell;
+        const ty = oy + c.r * cell;
+        const spread = (1 - assemble) * size * 0.85;
+        const x = tx + c.sx * spread;
+        const y = ty + c.sy * spread;
+        const rot = c.srot * (1 - assemble);
+        const a = 0.28 + 0.72 * assemble;
+        const lift = Math.max(2, cell * 0.13) * (0.55 + 0.45 * assemble) + bloom * 3;
+
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.translate(x + cell / 2, y + cell / 2);
+        ctx.rotate(rot);
+        ctx.translate(-cell / 2, -cell / 2);
+
+        // side wall
+        ctx.fillStyle = shade(c.color, -0.34);
+        rrect(3, 3 + lift, cell - 6, cell - 6, cell * 0.18);
+        ctx.fill();
+
+        // top face, with a jewel glow that intensifies as it settles / blooms
+        ctx.shadowColor = c.color;
+        ctx.shadowBlur = (6 + assemble * 10 + bloom * 22) * (window.devicePixelRatio > 1 ? 1 : 0.7);
+        const grad = ctx.createLinearGradient(0, 3, 0, cell - 3);
+        grad.addColorStop(0, shade(c.color, 0.32 + bloom * 0.28));
+        grad.addColorStop(1, shade(c.color, -0.04));
+        ctx.fillStyle = grad;
+        rrect(3, 3, cell - 6, cell - 6, cell * 0.18);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // gloss
+        ctx.globalAlpha = a * 0.55;
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        rrect(cell * 0.17, cell * 0.15, cell * 0.4, cell * 0.22, cell * 0.11);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    function shade(hex, amt) {
+      const n = parseInt(hex.slice(1), 16);
+      const t = amt >= 0 ? 255 : 0;
+      const p = Math.abs(amt);
+      const r = Math.round(((n >> 16) & 255) + (t - ((n >> 16) & 255)) * p);
+      const g = Math.round(((n >> 8) & 255) + (t - ((n >> 8) & 255)) * p);
+      const b = Math.round((n & 255) + (t - (n & 255)) * p);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    build();
+    resize();
+    window.addEventListener("resize", resize);
+    requestAnimationFrame(frame);
+  })();
+</script>
