@@ -16,36 +16,51 @@
     <style>
       :root {
         color-scheme: dark;
-        /* surfaces — a rich grape */
-        --grape: #5b46cf;
-        --grape-lo: #3b2c9e;
-        --grape-deep: #2a1f74;
-        --panel: linear-gradient(180deg, #6a54e0, #4a38b8);
-        --panel-inset: #2e2384;
-        --border: #2b1f74;
-        --border-lo: #221a5c;
-        /* signature: Lumen = light */
+        /* ── base surfaces — deep twilight violet, warmer + moodier ── */
+        --grape: #5039c6;
+        --grape-lo: #37279a;
+        --grape-deep: #241a66;
+        --night: #170f45;
+        --panel: linear-gradient(165deg, #6b4be6 0%, #513bc4 55%, #3f2ea6 100%);
+        --panel-2: linear-gradient(165deg, #7a4bdc 0%, #5a3ac0 100%);
+        --panel-inset: #241a66;
+        --border: #281c78;
+        --border-lo: #1c1456;
+        --iris: #8b6bff;
+        /* ── signature: Lumen = light ── */
         --gold: #ffc23b;
-        --gold-lo: #e08f12;
-        /* semantic */
-        --go: #3fd06b;
-        --go-lo: #22913f;
-        --stop: #ff5a52;
-        --stop-lo: #c9322b;
-        --sky: #3fb8ff;
-        --pink: #ff5aa0;
+        --gold-lo: #e0890f;
+        /* ── candy accent family (vibrant, multi-hue) ── */
+        --mango: #ff9c3d;
+        --mango-lo: #e0640f;
+        --go: #66e05f;
+        --go-lo: #269a34;
+        --stop: #ff5b6a;
+        --stop-lo: #d43350;
+        --sky: #45c1ff;
+        --sky-lo: #1f83d8;
+        --aqua: #2fd9cf;
+        --aqua-lo: #10a49b;
+        --pink: #ff5fa8;
+        --pink-lo: #d63389;
+        --grape-bright: #a875ff;
+        --grape-bright-lo: #7b45e0;
+        /* per-screen accent — overridden by [data-region]; drives buttons + nodes */
+        --accent: #66e05f;
+        --accent-lo: #269a34;
+        --node: #ffd36b;
         --ink: #ffffff;
-        --ink-2: #d9d3ff;
+        --ink-2: #ddd6ff;
         --ink-dim: #a99fe6;
-        --stroke: #241757;
+        --stroke: #201356;
         /* canvas tokens (board / belt) */
-        --cell: #2c2178;
-        --board-edge: #7d68ea;
-        --surface: #3b2c9e;
-        --surface-2: #2c2178;
-        --hairline: #4a3ab0;
+        --cell: #251a72;
+        --board-edge: #8b73f0;
+        --surface: #3a2ba0;
+        --surface-2: #251a72;
+        --hairline: #52409e;
         --lumen: #ffc23b;
-        --shadow: 0 14px 0 -4px rgba(20, 12, 60, 0.45), 0 26px 44px -18px rgba(10, 6, 40, 0.7);
+        --shadow: 0 14px 0 -4px rgba(16, 9, 52, 0.5), 0 26px 44px -18px rgba(8, 4, 34, 0.72);
         --r-sm: 12px;
         --r-md: 18px;
         --r-lg: 26px;
@@ -156,14 +171,14 @@
         opacity: 0.7;
       }
       button.go {
-        background: linear-gradient(180deg, #5ce58a, #2fb356);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent-lo));
       }
       button.go,
       button.go:active {
         box-shadow:
           inset 0 2px 0 rgba(255, 255, 255, 0.4),
           inset 0 -5px 0 rgba(0, 0, 0, 0.22),
-          0 6px 0 -1px var(--go-lo),
+          0 6px 0 -1px var(--accent-lo),
           0 12px 18px -8px rgba(0, 0, 0, 0.5);
       }
       button.stop {
@@ -328,8 +343,8 @@
         bottom: 24px;
         width: 8px;
         border-radius: 999px;
-        background: linear-gradient(180deg, #64d2ff, #2b7fe0);
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 0 14px rgba(80, 180, 255, 0.5);
+        background: linear-gradient(180deg, #4be3a0 0%, #ffab3d 50%, #ff6ec7 100%);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 170, 90, 0.45);
       }
       .station {
         position: relative;
@@ -346,19 +361,51 @@
         background: var(--panel-inset);
         border: 3px solid rgba(255, 255, 255, 0.2);
       }
-      .station.done::before {
-        background: radial-gradient(circle at 35% 30%, #fff3c4, var(--gold));
+      .station.done::before,
+      .station.current::before {
+        background: radial-gradient(circle at 35% 30%, #fff, var(--node));
         border-color: #fff;
-        box-shadow: 0 0 14px var(--gold);
+        box-shadow: 0 0 16px var(--node);
       }
       .station.current::before {
-        border-color: var(--gold);
         animation: ping 1.3s ease-in-out infinite;
       }
       @keyframes ping {
         50% {
-          box-shadow: 0 0 0 8px rgba(255, 194, 59, 0.28);
+          box-shadow: 0 0 0 9px color-mix(in srgb, var(--node) 30%, transparent);
         }
+      }
+      /* per-region colour identity */
+      .station[data-region="garden"],
+      #screen-region[data-region="garden"],
+      #screen-play[data-region="garden"] {
+        --accent: var(--aqua);
+        --accent-lo: var(--aqua-lo);
+        --node: #4be3a0;
+      }
+      .station[data-region="workshop"],
+      #screen-region[data-region="workshop"],
+      #screen-play[data-region="workshop"] {
+        --accent: var(--mango);
+        --accent-lo: var(--mango-lo);
+        --node: #ffab3d;
+      }
+      .station[data-region="courtyard"],
+      #screen-region[data-region="courtyard"],
+      #screen-play[data-region="courtyard"] {
+        --accent: var(--pink);
+        --accent-lo: var(--pink-lo);
+        --node: #ff6ec7;
+      }
+      #screen-play[data-region="daily"] {
+        --accent: var(--gold);
+        --accent-lo: var(--gold-lo);
+        --node: var(--gold);
+      }
+      #screen-play[data-region="descent"] {
+        --accent: var(--sky);
+        --accent-lo: var(--sky-lo);
+        --node: var(--sky);
       }
       .st-card {
         background: var(--panel);
@@ -407,10 +454,10 @@
         align-items: center;
         justify-content: center;
         gap: 4px;
-        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        background: linear-gradient(180deg, #9a7bff, #6a4be0);
         border: 3px solid var(--border);
         border-radius: var(--r-md);
-        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.22), inset 0 -5px 0 rgba(0, 0, 0, 0.22), 0 5px 0 -1px var(--border-lo);
+        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.28), inset 0 -5px 0 rgba(0, 0, 0, 0.22), 0 5px 0 -1px var(--border-lo);
         font-weight: 800;
       }
       .lvl .n {
@@ -427,7 +474,10 @@
         text-shadow: 0 0 6px var(--gold);
       }
       .lvl.done {
-        background: linear-gradient(180deg, #5cd8ff, #2f8fe0);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent-lo));
+      }
+      .lvl.done .s {
+        color: rgba(255, 255, 255, 0.35);
       }
 
       /* ── HUD (play / kaskade) ──────────────────────── */
@@ -494,11 +544,12 @@
         margin: 6px 0;
         border-radius: 28px;
         padding: 10px;
-        background: linear-gradient(180deg, #5b46cf, #3a2b9e);
+        background: linear-gradient(160deg, #6a4be6, #3a2b9e);
         border: 3px solid var(--border);
         box-shadow:
           inset 0 4px 0 rgba(255, 255, 255, 0.22),
           inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+          0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
           var(--shadow);
         touch-action: none;
         overflow: hidden;
@@ -519,18 +570,32 @@
         gap: 14px;
       }
       .joker {
+        --jc: var(--gold);
+        --jc-lo: var(--gold-lo);
         width: 88px;
         padding: 12px 6px 10px;
         border-radius: 20px;
-        background: linear-gradient(180deg, #5ce58a, #2fb356);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--jc) 82%, #fff), var(--jc-lo));
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 3px;
         box-shadow:
-          inset 0 2px 0 rgba(255, 255, 255, 0.4),
+          inset 0 2px 0 rgba(255, 255, 255, 0.45),
           inset 0 -5px 0 rgba(0, 0, 0, 0.22),
-          0 6px 0 -1px var(--go-lo);
+          0 6px 0 -1px var(--jc-lo);
+      }
+      #jk-hint {
+        --jc: var(--gold);
+        --jc-lo: var(--gold-lo);
+      }
+      #jk-time {
+        --jc: var(--sky);
+        --jc-lo: var(--sky-lo);
+      }
+      #jk-solvent {
+        --jc: var(--pink);
+        --jc-lo: var(--pink-lo);
       }
       .joker .ji {
         font-size: 28px;
@@ -728,7 +793,7 @@
         transform: none;
       }
       .seg button.on {
-        background: linear-gradient(180deg, #5ce58a, #2fb356);
+        background: linear-gradient(180deg, #66e05f, #269a34);
         color: #fff;
         text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4);

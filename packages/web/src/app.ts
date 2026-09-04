@@ -205,6 +205,7 @@ function renderHome(): void {
     const complete = got >= max && max > 0;
     const station = document.createElement("div");
     station.className = `station${locked ? " locked" : complete ? " done" : " current"}`;
+    station.dataset.region = r.id;
     station.innerHTML = `
       <div class="st-card">
         <div class="row">
@@ -226,6 +227,7 @@ function renderHome(): void {
 function openRegion(index: number): void {
   const r = regions[index];
   if (!r) return;
+  $("screen-region").dataset.region = r.id;
   $("region-name").textContent = r.name;
   $("region-sub").textContent = r.subtitle;
   const s = store.load();
@@ -395,6 +397,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const entry = region.levels[index];
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
+  $("screen-play").dataset.region = region.id;
   $("play-title-txt").textContent = `${region.name} · ${index + 1} / ${region.levels.length}`;
   let level: Level;
   try {
@@ -458,6 +461,7 @@ async function playDaily(): Promise<void> {
     return;
   }
   scenery.setTheme("garden");
+  $("screen-play").dataset.region = "daily";
   $("play-title-txt").textContent = "Tägliche Scherbe";
   const game = new GameState(level);
   mountGame(game, {
@@ -516,6 +520,7 @@ async function playDescentLevel(): Promise<void> {
     endDescent();
     return;
   }
+  $("screen-play").dataset.region = "descent";
   $("play-title-txt").textContent = `Abstieg · Ebene ${depth}`;
   const base = new GameState(level);
   const game = new GameState(level, Math.round(base.limitMs * 0.72));
