@@ -133,13 +133,13 @@ export class CascadeView {
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const pad = 12;
 
-    const beltW = Math.max(46, Math.min(64, cssWidth * 0.17));
+    const beltW = Math.max(62, Math.min(92, cssWidth * 0.24));
     const boardAreaW = cssWidth - beltW - pad * 3;
     const maxBoardH = Math.max(220, viewportH - 210);
 
     const cell = Math.max(
-      18,
-      Math.floor(Math.min(boardAreaW / this.game.cols, maxBoardH / this.game.rows, 46)),
+      16,
+      Math.floor(Math.min(boardAreaW / this.game.cols, maxBoardH / this.game.rows, 44)),
     );
     const boardW = cell * this.game.cols;
     const boardH = cell * this.game.rows;
@@ -221,7 +221,6 @@ export class CascadeView {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    const belt = this.beltMetrics(L);
     // faint band guides
     ctx.strokeStyle = "rgba(255,255,255,0.05)";
     for (let i = 1; i < 3; i++) {
@@ -231,9 +230,9 @@ export class CascadeView {
       ctx.lineTo(L.beltX + L.beltW - 6, y);
       ctx.stroke();
     }
-    for (const s of this.game.belt) {
-      if (this.drag && this.drag.shard.id === s.id) continue;
-      this.drawShardCentered(s, L.beltX + L.beltW / 2, belt.cy(s.y), belt.shardCell);
+    for (const p of this.beltPositions(L)) {
+      if (this.drag && this.drag.shard.id === p.shard.id) continue;
+      this.drawShardCentered(p.shard, p.cx, p.cy, p.cell);
     }
 
     // hold slot
@@ -256,14 +255,21 @@ export class CascadeView {
     if (this.drag) this.drawDrag(L);
   }
 
-  private beltMetrics(L: Layout): { bandH: number; shardCell: number; cy: (y: number) => number } {
-    const bandH = L.beltH / 3.2;
-    const shardCell = Math.max(7, Math.min(bandH / 5.2, L.beltW / 5.2));
-    return {
-      bandH,
-      shardCell,
-      cy: (y: number) => L.beltTop + bandH / 2 + y * (L.beltH - bandH),
-    };
+  /** Screen positions for every belt shard, sorted top-to-bottom, with a
+   *  guaranteed minimum gap so they can never visually overlap. */
+  private beltPositions(L: Layout): Array<{ shard: Shard; cx: number; cy: number; cell: number; bandH: number }> {
+    const bandH = L.beltH / 3.15;
+    const shardCell = Math.max(9, Math.min(bandH / 4.6, L.beltW / 4.6));
+    const cx = L.beltX + L.beltW / 2;
+    const rawCy = (y: number) => L.beltTop + bandH / 2 + Math.max(0, Math.min(1, y)) * (L.beltH - bandH);
+
+    const sorted = [...this.game.belt].sort((a, b) => a.y - b.y);
+    let last = -Infinity;
+    return sorted.map((shard) => {
+      const cy = Math.max(rawCy(shard.y), last + bandH);
+      last = cy;
+      return { shard, cx, cy, cell: shardCell, bandH };
+    });
   }
 
   private drawShardCentered(shard: Shard, cx: number, cy: number, cell: number): void {
@@ -335,26 +341,18 @@ export class CascadeView {
   }
 
   private beltHit(x: number, y: number, L: Layout): Shard | null {
-    if (x < L.beltX - 6 || x > L.beltX + L.beltW + 6) return null;
-    const belt = this.beltMetrics(L);
-    // nearest shard whose band contains y
+    // generous: anywhere in the belt column (with slack) grabs the nearest shard
+    if (x < L.beltX - 18 || x > L.cssWidth) return null;
     let best: Shard | null = null;
-    let bestDist = belt.bandH * 0.62;
-    for (const s of this.game.belt) {
-      const dist = Math.abs(y - belt.cy(s.y));
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = s;
+    let bestDist = Infinity;
+    for (const p of this.beltPositions(L)) {
+      const d = Math.abs(y - p.cy);
+      if (d < bestDist) {
+        bestDist = d;
+        best = p.shard;
       }
     }
-    if (best) return best;
-    for (const s of this.game.belt) {
-      const cy = belt.cy(s.y);
-      if (x >= L.beltX && x <= L.beltX + L.beltW && y >= cy - belt.bandH / 2 && y <= cy + belt.bandH / 2) {
-        return s;
-      }
-    }
-    return null;
+    return best; // any tap in the column picks the closest shard
   }
 
   private onDown = (e: PointerEvent): void => {

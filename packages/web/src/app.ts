@@ -13,7 +13,7 @@ import { dailyLevel, descentLevel } from "./levelgen.js";
 import * as store from "./progress.js";
 import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
-import { Scenery } from "./scenery.js";
+import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { GameView } from "./view.js";
 
@@ -49,6 +49,22 @@ function refreshLight(): void {
   const frac = Math.min(1, store.totalStars(store.load()) / Math.max(1, max));
   // steep early curve so the first region visibly warms the world
   scenery.setLight(0.14 + 0.86 * Math.pow(frac, 0.6));
+}
+
+const REGION_THEME: Record<string, SceneTheme> = {
+  garden: "garden",
+  workshop: "workshop",
+  courtyard: "courtyard",
+};
+
+function renderTopPills(): void {
+  const s = store.load();
+  const l = store.lives();
+  const hearts = "❤".repeat(l.count) + "🤍".repeat(store.MAX_LIVES - l.count);
+  $("home-lives").textContent = l.count >= store.MAX_LIVES ? hearts : `${hearts}  ${fmt(l.msToNext)}`;
+  $("home-shards").textContent = `✦ ${s.shards}`;
+  $("home-stars").innerHTML = `<b>★ ${store.totalStars(s)}</b>`;
+  $("play-lives").textContent = hearts;
 }
 
 let mode: "campaign" | "daily" | "descent" = "campaign";
@@ -96,9 +112,10 @@ function regionStars(r: Region): { got: number; max: number } {
 function renderHome(): void {
   if (!manifest) return;
   refreshLight();
+  scenery.setTheme("menu");
+  renderTopPills();
   const s = store.load();
   const total = store.totalStars(s);
-  $("home-stars").innerHTML = `<b>★ ${total}</b> / ${manifest.levels.length * 3}`;
   $("home-status").textContent = "Jeder Stern bringt ein Stück Welt zurück ins Licht.";
 
   const host = $("regions");
@@ -153,6 +170,7 @@ interface OverlayOpts {
   title: string;
   stars?: number;
   sub?: string;
+  rewards?: string[];
   nextLabel: string;
   onNext: () => void;
   quitLabel?: string;
@@ -164,12 +182,14 @@ function showOverlay(o: OverlayOpts): void {
   starsEl.hidden = o.stars === undefined;
   [...starsEl.children].forEach((c, i) => c.classList.toggle("on", i < (o.stars ?? 0)));
   $("ov-sub").innerHTML = o.sub ?? "";
+  $("ov-rewards").innerHTML = (o.rewards ?? []).map((r) => `<div>${r}</div>`).join("");
   const next = $<HTMLButtonElement>("ov-next");
   const quit = $<HTMLButtonElement>("ov-quit");
   next.textContent = o.nextLabel;
   quit.textContent = o.quitLabel ?? "Übersicht";
   next.onclick = o.onNext;
   quit.onclick = o.onQuit;
+  $("pause-overlay").classList.remove("show");
   const ov = $("play-overlay");
   ov.classList.remove("show");
   void ov.offsetWidth;
@@ -201,6 +221,13 @@ function renderJokers(): void {
   $<HTMLButtonElement>("jk-solvent").disabled = j.solvent <= 0;
 }
 
+function fireJokerButton(kind: JokerKind): void {
+  const el = $(`jk-${kind}`);
+  el.classList.remove("fire");
+  void el.offsetWidth;
+  el.classList.add("fire");
+}
+
 function useJoker(kind: JokerKind): void {
   if (!activeGame || !gameView || activeGame.isWon() || activeGame.timedOut) return;
   if (kind === "hint" && !gameView.showHint()) {
@@ -208,6 +235,8 @@ function useJoker(kind: JokerKind): void {
     return;
   }
   if (!store.spendJoker(kind)) return;
+  fireJokerButton(kind);
+  sfx.pickUp();
   if (kind === "time") {
     activeGame.extendLimit(20_000);
     toast("+20 Sekunden");
@@ -232,16 +261,63 @@ function mountGame(game: GameState, cb: { onWin: (s: number, ms: number) => void
 }
 
 function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
-  if (freshly.length > 0) toast(`Erfolg: ${freshly[0]!.name}`);
+  for (const a of freshly) toast(`Erfolg freigeschaltet: ${a.name}`);
+}
+
+/** Collect the reward lines for a story-level win, applying side effects. */
+function collectStoryRewards(levelId: string, stars: number, ms: number, usedUndo: boolean, region?: Region): string[] {
+  const lines: string[] = [];
+  const earned = store.recordLevel(levelId, stars, ms, usedUndo);
+  lines.push(`✦ +${earned} Lichtsplitter`);
+  refreshLight();
+  celebrate(syncAchievements());
+  for (const m of store.claimMilestones()) {
+    lines.push(`🏆 Meilenstein ${m.threshold}★ · ✦ +${m.shards}, Joker +2`);
+    scenery.pulse();
+  }
+  if (region) {
+    const { got, max } = regionStars(region);
+    if (got >= max && store.grantRegionReward(region.id)) {
+      lines.push(`✨ ${region.name} erwacht! Joker-Vorrat aufgefüllt, ✦ +25, Leben voll`);
+      scenery.pulse();
+    }
+  }
+  renderTopPills();
+  return lines;
+}
+
+function livesGate(): boolean {
+  if (store.lives().count > 0) return true;
+  showScreen("play");
+  showOverlay({
+    title: "Keine Leben",
+    sub: `Ein Leben kehrt in <b>${fmt(store.lives().msToNext)}</b> zurück.`,
+    rewards: [`✦ ${store.load().shards} Splitter · 30 für ein Leben`],
+    nextLabel: store.load().shards >= 30 ? "Leben kaufen (30 ✦)" : "Zurück",
+    onNext: () => {
+      if (store.spendShards(30)) {
+        store.refillLives();
+        toast("Leben aufgefüllt");
+        if (mode === "campaign" && campaignAt) playCampaign(campaignAt.region, campaignAt.index);
+        else if (mode === "descent") startDescent();
+      } else {
+        setTab("home");
+      }
+    },
+    onQuit: () => setTab("home"),
+  });
+  return false;
 }
 
 // Campaign
 async function playCampaign(region: Region, index: number): Promise<void> {
   mode = "campaign";
   campaignAt = { region, index };
+  if (!livesGate()) return;
   const entry = region.levels[index];
   if (!entry) return;
-  $("play-title-txt").textContent = `${region.name} · ${index + 1}`;
+  scenery.setTheme(REGION_THEME[region.id] ?? "menu");
+  $("play-title-txt").textContent = `${region.name} · ${index + 1} / ${region.levels.length}`;
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -251,30 +327,34 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const game = new GameState(level);
   mountGame(game, {
     onWin: (stars, ms) => {
-      store.recordLevel(entry.id, stars, ms, game.usedUndo);
-      celebrate(syncAchievements());
-      refreshLight();
-      const { got, max } = regionStars(region);
-      const justCompletedRegion = got >= max && store.grantRegionReward(region.id);
-      if (justCompletedRegion) toast(`${region.name} erleuchtet! +Joker`);
+      const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
       const hasNext = index + 1 < region.levels.length;
       showOverlay({
-        title: "Gelöst!",
+        title: stars === 3 ? "Makellos!" : "Gelöst!",
         stars,
-        sub: `Zeit <b>${fmt(ms)}</b> · <b>${fmt(game.remainingMs())}</b> übrig`,
+        sub: `Zeit <b>${fmt(ms)}</b>`,
+        rewards,
         nextLabel: hasNext ? "Weiter ›" : "Region ✓",
         onNext: () => (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region))),
         onQuit: () => openRegion(regions.indexOf(region)),
       });
     },
-    onTimeout: () =>
+    onTimeout: () => {
+      store.spendLife();
+      renderTopPills();
+      const l = store.lives();
       showOverlay({
         title: "Das Licht flackert aus",
-        sub: "Diesmal war die Uhr schneller.",
-        nextLabel: "Nochmal",
-        onNext: () => playCampaign(region, index),
+        sub:
+          l.count > 0
+            ? `Noch <b>${l.count}</b> Leben.`
+            : `Kein Leben mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`,
+        nextLabel: l.count > 0 ? "Nochmal" : "Übersicht",
+        onNext: () =>
+          l.count > 0 ? playCampaign(region, index) : openRegion(regions.indexOf(region)),
         onQuit: () => openRegion(regions.indexOf(region)),
-      }),
+      });
+    },
   });
 }
 
@@ -299,18 +379,25 @@ async function playDaily(): Promise<void> {
     toast("Konnte kein Tagesrätsel erzeugen");
     return;
   }
-  $("play-title-txt").textContent = "Täglich";
+  scenery.setTheme("garden");
+  $("play-title-txt").textContent = "Tägliche Scherbe";
   const game = new GameState(level);
   mountGame(game, {
     onWin: (stars, ms) => {
-      store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
+      const earned = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
+      store.addShards(5);
       celebrate(syncAchievements());
+      renderTopPills();
       showOverlay({
         title: "Gelöst!",
         stars,
-        sub: after > before ? `Streak <b>🔥 ${after}</b>` : `Zeit <b>${fmt(ms)}</b>`,
+        sub: `Zeit <b>${fmt(ms)}</b>`,
+        rewards: [
+          `✦ +${earned + 5} Lichtsplitter`,
+          after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
+        ],
         nextLabel: "Fertig",
         onNext: () => setTab("daily"),
         onQuit: () => setTab("daily"),
@@ -319,6 +406,7 @@ async function playDaily(): Promise<void> {
     onTimeout: () =>
       showOverlay({
         title: "Das Licht flackert aus",
+        sub: "Das Tagesrätsel bleibt — versuch es nochmal.",
         nextLabel: "Nochmal",
         onNext: playDaily,
         onQuit: () => setTab("daily"),
@@ -333,13 +421,16 @@ function renderDescent(): void {
   $("descent-runs").textContent = String(s.descent.runs);
 }
 function startDescent(): void {
+  mode = "descent";
+  if (!livesGate()) return;
   descentState = { seed: `run-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, depth: 1 };
-  playDescentLevel();
+  void playDescentLevel();
 }
 async function playDescentLevel(): Promise<void> {
   mode = "descent";
   if (!descentState) return;
   const { seed, depth } = descentState;
+  scenery.setTheme("workshop");
   toast("Fenster wird gebaut …");
   await yieldPaint();
   const level = descentLevel(depth, seed);
@@ -347,36 +438,43 @@ async function playDescentLevel(): Promise<void> {
     endDescent();
     return;
   }
-  $("play-title-txt").textContent = `Ebene ${depth}`;
+  $("play-title-txt").textContent = `Abstieg · Ebene ${depth}`;
   const base = new GameState(level);
   const game = new GameState(level, Math.round(base.limitMs * 0.72));
   mountGame(game, {
-    onWin: () => {
+    onWin: (stars, ms) => {
       descentState!.depth = depth + 1;
       store.recordDescent(depth);
+      store.addShards(depth);
       celebrate(syncAchievements());
+      renderTopPills();
       showOverlay({
-        title: `Ebene ${depth} ✓`,
-        sub: `<b>${fmt(game.remainingMs())}</b> übrig`,
+        title: `Ebene ${depth} geschafft`,
+        stars,
+        sub: `Zeit <b>${fmt(ms)}</b>`,
+        rewards: [`✦ +${depth} Lichtsplitter`],
         nextLabel: "Tiefer ›",
         onNext: playDescentLevel,
         quitLabel: "Aufhören",
-        onQuit: endDescent,
+        onQuit: () => endDescent(depth),
       });
     },
     onTimeout: () => {
       store.recordDescent(depth);
       celebrate(syncAchievements());
+      renderTopPills();
       endDescent(depth);
     },
   });
 }
 function endDescent(reachedDepth?: number): void {
   const depth = reachedDepth ?? descentState?.depth ?? 0;
+  const best = store.load().descent.bestDepth;
   descentState = null;
   showOverlay({
     title: "Abstieg beendet",
-    sub: `Du kamst bis <b>Ebene ${depth}</b>.`,
+    sub: `Ebene <b>${depth}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
+    rewards: [`✦ +${depth} Lichtsplitter gesammelt`],
     nextLabel: "Neuer Lauf",
     onNext: startDescent,
     onQuit: () => setTab("descent"),
@@ -391,6 +489,7 @@ function renderCascade(): void {
 }
 function startCascade(): void {
   teardownGame();
+  scenery.setTheme("garden");
   $("k-overlay").classList.remove("show");
   const game = new CascadeState(`kaskade-${Date.now()}`);
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
@@ -439,6 +538,7 @@ function renderCollection(): void {
       return d;
     }),
   );
+  renderShop();
   $("achievements").replaceChildren(
     ...ACHIEVEMENTS.map((a) => {
       const done = a.done(s);
@@ -446,6 +546,39 @@ function renderCollection(): void {
       d.className = `ach${done ? " done" : " locked"}`;
       d.innerHTML = `<div class="ic">${a.icon}</div><div><div class="t">${a.name}</div><div class="h">${a.hint}</div></div>`;
       return d;
+    }),
+  );
+}
+
+const SHOP: Array<{ label: string; cost: number; buy: () => void }> = [
+  { label: "💡 Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
+  { label: "⏱ +20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
+  { label: "🧪 Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+  { label: "❤ Leben auffüllen", cost: 30, buy: () => store.refillLives() },
+];
+
+function renderShop(): void {
+  const s = store.load();
+  $("shop-shards").textContent = `✦ ${s.shards}`;
+  $("shop").replaceChildren(
+    ...SHOP.map((item) => {
+      const row = document.createElement("div");
+      row.className = "item";
+      const btn = document.createElement("button");
+      btn.textContent = `${item.cost} ✦`;
+      btn.disabled = s.shards < item.cost;
+      if (item.label.startsWith("❤") && s.lives.count >= store.MAX_LIVES) btn.disabled = true;
+      btn.addEventListener("click", () => {
+        if (store.spendShards(item.cost)) {
+          item.buy();
+          toast("Gekauft");
+          renderShop();
+          renderTopPills();
+        }
+      });
+      row.innerHTML = `<span class="lbl">${item.label}</span>`;
+      row.append(btn);
+      return row;
     }),
   );
 }
@@ -468,15 +601,30 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")
   btn.addEventListener("click", () => setTab(btn.dataset.tab as Tab));
 }
 $("region-back").addEventListener("click", () => setTab("home"));
-$("play-back").addEventListener("click", () => {
+
+function leavePlay(): void {
   if (mode === "campaign" && campaignAt) openRegion(regions.indexOf(campaignAt.region));
   else if (mode === "daily") setTab("daily");
+  else if (descentState) endDescent(descentState.depth);
   else setTab("descent");
+}
+function restartLevel(): void {
+  if (mode === "campaign" && campaignAt) void playCampaign(campaignAt.region, campaignAt.index);
+  else if (mode === "daily") void playDaily();
+  else void playDescentLevel();
+}
+$("play-pause").addEventListener("click", () => {
+  const ov = $("pause-overlay");
+  ov.classList.toggle("show");
 });
-$("play-reset").addEventListener("click", () => {
-  if (mode === "campaign" && campaignAt) playCampaign(campaignAt.region, campaignAt.index);
-  else if (mode === "daily") playDaily();
-  else playDescentLevel();
+$("ps-resume").addEventListener("click", () => $("pause-overlay").classList.remove("show"));
+$("ps-restart").addEventListener("click", () => {
+  $("pause-overlay").classList.remove("show");
+  restartLevel();
+});
+$("ps-quit").addEventListener("click", () => {
+  $("pause-overlay").classList.remove("show");
+  leavePlay();
 });
 $("daily-play").addEventListener("click", playDaily);
 $("descent-play").addEventListener("click", startDescent);
@@ -487,6 +635,10 @@ $("k-again").addEventListener("click", startCascade);
 $("jk-hint").addEventListener("click", () => useJoker("hint"));
 $("jk-time").addEventListener("click", () => useJoker("time"));
 $("jk-solvent").addEventListener("click", () => useJoker("solvent"));
+
+window.setInterval(() => {
+  if (!$("screen-home").hidden) renderTopPills();
+}, 4000);
 
 async function boot(): Promise<void> {
   try {

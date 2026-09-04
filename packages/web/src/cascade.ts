@@ -156,7 +156,15 @@ export class CascadeState {
   /** Move a belt shard into the hold slot, bumping any held shard back to the belt. */
   toHold(shard: Shard): void {
     this.belt = this.belt.filter((s) => s.id !== shard.id);
-    if (this.hold) this.belt.unshift({ ...this.hold, y: 0 });
+    if (this.hold) {
+      if (this.belt.length < MAX_ON_BELT) {
+        this.belt.unshift({ ...this.hold, y: 0 });
+      } else {
+        // no room to put the old one back — lose it
+        this.misses += 1;
+        this.multiplier = 1;
+      }
+    }
     this.hold = shard;
   }
   takeHold(): Shard | null {

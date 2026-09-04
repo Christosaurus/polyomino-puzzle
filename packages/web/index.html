@@ -130,17 +130,32 @@
         justify-content: space-between;
         gap: 10px;
       }
-      .star-count {
+      .pills {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .pill {
         font-weight: 800;
-        font-size: 15px;
+        font-size: 13px;
         background: var(--panel);
         border: 1px solid var(--hairline);
-        padding: 5px 12px;
+        padding: 5px 10px;
         border-radius: 999px;
         backdrop-filter: blur(6px);
+        white-space: nowrap;
       }
-      .star-count b {
+      .pill.star b {
         color: var(--lumen);
+      }
+      .pill#home-lives,
+      #play-lives {
+        color: #ff8aa8;
+      }
+      #home-shards,
+      #play-shards {
+        color: #8fd0ff;
       }
 
       /* ── Journey (home) ─────────────────────────────── */
@@ -341,14 +356,14 @@
 
       .board-wrap {
         position: relative;
-        background: var(--panel);
+        background: color-mix(in srgb, var(--surface) 55%, transparent);
         border: 1px solid var(--hairline);
         border-radius: 20px;
         box-shadow: var(--shadow);
         overflow: hidden;
         touch-action: none;
         padding: 4px;
-        backdrop-filter: blur(4px);
+        backdrop-filter: blur(2px);
       }
       canvas {
         display: block;
@@ -356,38 +371,94 @@
       }
       .play-foot {
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
-        margin-top: 10px;
-        gap: 8px;
+        margin-top: 12px;
       }
       .jokers {
         display: flex;
-        gap: 8px;
+        gap: 12px;
       }
       .joker {
         position: relative;
-        padding: 9px 12px;
-        font-size: 15px;
-        border-radius: 12px;
+        width: 82px;
+        padding: 12px 6px 10px;
+        border-radius: 18px;
         background: var(--panel);
+        border: 1px solid var(--hairline);
         backdrop-filter: blur(6px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        overflow: visible;
+      }
+      .joker .ji {
+        font-size: 26px;
+        line-height: 1;
+      }
+      .joker .jl {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        color: var(--ink-dim);
       }
       .joker .c {
         position: absolute;
-        top: -6px;
-        right: -6px;
-        min-width: 17px;
-        height: 17px;
-        padding: 0 4px;
+        top: -8px;
+        right: -8px;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 5px;
         border-radius: 999px;
-        background: var(--lumen);
+        background: linear-gradient(180deg, #ffd469, var(--lumen));
         color: #1a1300;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: 0 3px 10px -2px var(--lumen);
+      }
+      .joker.fire {
+        animation: jfire 0.5s ease;
+      }
+      .joker.fire::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 20px;
+        border: 2px solid var(--lumen);
+        animation: jring 0.55s ease forwards;
+      }
+      @keyframes jfire {
+        30% {
+          transform: scale(1.22) rotate(-4deg);
+        }
+        60% {
+          transform: scale(0.94);
+        }
+      }
+      @keyframes jring {
+        from {
+          opacity: 0.9;
+          transform: scale(0.8);
+        }
+        to {
+          opacity: 0;
+          transform: scale(1.5);
+        }
+      }
+      .rewards {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--lumen);
+      }
+      .rewards:empty {
+        display: none;
       }
 
       /* overlays */
@@ -498,6 +569,30 @@
         font-size: 12px;
         color: var(--ink-dim);
       }
+      .shop {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .shop .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: var(--panel);
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
+        padding: 10px 12px;
+        backdrop-filter: blur(6px);
+      }
+      .shop .item .lbl {
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .shop .item button {
+        font-size: 13px;
+        padding: 8px 12px;
+      }
       .statgrid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -583,7 +678,11 @@
       <section class="screen" id="screen-home">
         <div class="topbar">
           <h1>Lumen</h1>
-          <span class="star-count" id="home-stars"></span>
+          <div class="pills">
+            <span class="pill" id="home-lives">❤ 5</span>
+            <span class="pill" id="home-shards">✦ 0</span>
+            <span class="pill star" id="home-stars"></span>
+          </div>
         </div>
         <p class="muted" id="home-status">Wird geladen …</p>
         <div class="journey" id="regions"></div>
@@ -637,15 +736,22 @@
       <section class="screen" id="screen-collection" hidden>
         <h1>Sammlung</h1>
         <div class="statgrid" id="stats"></div>
+
+        <h2 style="margin-top:8px">Vorrat <span class="pill" id="shop-shards" style="color:#8fd0ff">✦ 0</span></h2>
+        <div class="shop" id="shop"></div>
+
         <h2 style="margin-top:8px">Erfolge</h2>
         <div id="achievements" style="display:flex;flex-direction:column;gap:8px"></div>
       </section>
 
       <section class="screen play" id="screen-play" hidden>
         <div class="hud">
-          <div><button class="ghost" id="play-back">‹</button></div>
+          <div><button class="ghost" id="play-pause">⏸</button></div>
           <div class="clock" id="play-clock">0:00</div>
-          <div class="right metric" id="play-title"><small>Level</small><span id="play-title-txt">–</span></div>
+          <div class="right"><span class="pill" id="play-lives">❤ 5</span></div>
+        </div>
+        <div class="hud" style="grid-template-columns:1fr;margin-top:-6px">
+          <div class="metric" style="text-align:center"><small id="play-title-txt">Level</small></div>
         </div>
         <div class="board-wrap" id="play-wrap">
           <canvas id="play-canvas"></canvas>
@@ -654,20 +760,30 @@
               <h3 id="ov-title">Gelöst!</h3>
               <div class="ostars" id="ov-stars"><span>★</span><span>★</span><span>★</span></div>
               <div class="sub" id="ov-sub"></div>
+              <div class="rewards" id="ov-rewards"></div>
               <div class="btns">
                 <button class="ghost" id="ov-quit">Übersicht</button>
                 <button class="primary" id="ov-next">Weiter ›</button>
               </div>
             </div>
           </div>
+          <div class="overlay" id="pause-overlay">
+            <div class="ocard">
+              <h3>Pause</h3>
+              <div class="btns" style="flex-direction:column;width:100%">
+                <button class="primary" id="ps-resume">Weiter spielen</button>
+                <button id="ps-restart">Level neu starten</button>
+                <button class="ghost" id="ps-quit">Zurück zur Übersicht</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="play-foot">
           <div class="jokers">
-            <button class="joker" id="jk-hint" title="Tipp">💡<span class="c" id="jk-hint-c">0</span></button>
-            <button class="joker" id="jk-time" title="+20 Sekunden">⏱<span class="c" id="jk-time-c">0</span></button>
-            <button class="joker" id="jk-solvent" title="Falsche Teile lösen">🧪<span class="c" id="jk-solvent-c">0</span></button>
+            <button class="joker" id="jk-hint" title="Tipp"><span class="ji">💡</span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
+            <button class="joker" id="jk-time" title="+20 Sekunden"><span class="ji">⏱</span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
+            <button class="joker" id="jk-solvent" title="Falsche Teile lösen"><span class="ji">🧪</span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
           </div>
-          <button class="ghost" id="play-reset">Neu</button>
         </div>
       </section>
 

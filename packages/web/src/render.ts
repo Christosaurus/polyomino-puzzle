@@ -1,26 +1,24 @@
 /**
- * Shared 2.5-D drawing primitives — used by every canvas view.
+ * Shared drawing primitives.
  *
- * The "3-D" is faux: each piece is an extruded body (a dark base offset
- * downward, a lit top face with a gloss) sitting in a recessed well, with a soft
- * contact shadow. No perspective transform, so hit-testing stays simple.
+ * Pieces are rendered as connected glossy spheres — the IQ-Puzzler look: each
+ * cell is a shaded ball, adjacent balls of the same piece are joined by a smooth
+ * neck, and the whole thing casts one soft shadow.
  */
 
 import { shade } from "./colors.js";
 
 export interface TileOpts {
   alpha?: number;
-  /** Extra scale about the tile centre (placement pop). */
+  /** Extra scale about the piece centre (placement pop). */
   scale?: number;
-  /** Extra height of the extruded body, in cell fractions (0.16 default). */
+  /** Unused for spheres; kept for call-site compatibility. */
   depth?: number;
   /** Coloured outer glow radius. */
   glow?: number;
-  /** Override the top-face colour (e.g. red for an invalid drop). */
+  /** Override the ball colour. */
   tint?: string;
 }
-
-const CORNER = 0.2;
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -43,7 +41,7 @@ function roundRect(
   ctx.closePath();
 }
 
-/** A recessed grid well at cell (col,row) in the board frame. */
+/** A soft recessed grid well. */
 export function drawWell(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -51,28 +49,28 @@ export function drawWell(
   cell: number,
   fill: string,
 ): void {
-  const r = cell * CORNER;
+  const r = cell * 0.32;
   roundRect(ctx, x + 2, y + 2, cell - 4, cell - 4, r);
   ctx.fillStyle = fill;
   ctx.fill();
-  // inner shadow: a darker inset along the top-left
   ctx.save();
   roundRect(ctx, x + 2, y + 2, cell - 4, cell - 4, r);
   ctx.clip();
-  ctx.strokeStyle = "rgba(0,0,0,0.22)";
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = "rgba(0,0,0,0.28)";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(x + 3, y + cell - 4);
-  ctx.lineTo(x + 3, y + 3);
-  ctx.lineTo(x + cell - 4, y + 3);
+  ctx.arc(x + cell / 2, y + cell / 2, cell * 0.4, Math.PI * 0.75, Math.PI * 1.75);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.beginPath();
+  ctx.arc(x + cell / 2, y + cell / 2, cell * 0.4, Math.PI * 1.9, Math.PI * 2.7);
   ctx.stroke();
   ctx.restore();
 }
 
 /**
- * Draw an extruded polyomino body. `cells` are absolute cell coordinates
- * `[row, col]`; `ox,oy` is the pixel origin of cell (0,0); `cell` is the pixel
- * size of a cell.
+ * Draw a polyomino as connected spheres. `cells` are absolute `[row, col]`;
+ * `ox,oy` is the pixel origin of cell (0,0); `cell` is the pixel size.
  */
 export function drawPieceBody(
   ctx: CanvasRenderingContext2D,
@@ -86,103 +84,117 @@ export function drawPieceBody(
   if (cells.length === 0) return;
   const alpha = opts.alpha ?? 1;
   const scale = opts.scale ?? 1;
-  const depth = Math.max(2, cell * (opts.depth ?? 0.16));
-  const r = cell * CORNER;
-  const present = new Set(cells.map(([cr, cc]) => `${cr},${cc}`));
+  const base = opts.tint ?? color;
+  const R = cell * 0.5; // ball radius (balls just touch across a cell)
+  const neck = cell * 0.44;
 
-  let sr = 0;
-  let sc = 0;
-  for (const [cr, cc] of cells) {
-    sr += cr;
-    sc += cc;
+  const present = new Set(cells.map(([r, c]) => `${r},${c}`));
+  const centre = (r: number, c: number): [number, number] => [
+    ox + (c + 0.5) * cell,
+    oy + (r + 0.5) * cell,
+  ];
+
+  let sx = 0;
+  let sy = 0;
+  for (const [r, c] of cells) {
+    const [cx, cy] = centre(r, c);
+    sx += cx;
+    sy += cy;
   }
-  const cx = ox + (sc / cells.length + 0.5) * cell;
-  const cy = oy + (sr / cells.length + 0.5) * cell;
+  const pcx = sx / cells.length;
+  const pcy = sy / cells.length;
 
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.translate(cx, cy);
+  ctx.translate(pcx, pcy);
   ctx.scale(scale, scale);
-  ctx.translate(-cx, -cy);
+  ctx.translate(-pcx, -pcy);
 
-  const cellRect = (cr: number, cc: number, dy: number): void =>
-    roundRect(ctx, ox + cc * cell + 2, oy + cr * cell + 2 + dy, cell - 4, cell - 4, r);
-
-  // contact shadow
+  // ── one soft shadow for the whole piece ──
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.32)";
-  ctx.shadowBlur = depth * 2.4;
-  ctx.shadowOffsetY = depth * 0.9;
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  for (const [cr, cc] of cells) cellRect(cr, cc, depth);
-  ctx.fill();
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = cell * 0.34;
+  ctx.shadowOffsetY = cell * 0.16;
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  for (const [r, c] of cells) {
+    const [cx, cy] = centre(r, c);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.92, 0, 6.28);
+    ctx.fill();
+  }
   ctx.restore();
 
-  // extruded base (dark), only the parts that peek out below/right
-  ctx.fillStyle = shade(color, -0.4);
-  for (const [cr, cc] of cells) cellRect(cr, cc, depth);
-  ctx.fill();
+  // ── necks between adjacent balls (drawn under the balls) ──
+  ctx.fillStyle = shade(base, -0.05);
+  for (const [r, c] of cells) {
+    const [cx, cy] = centre(r, c);
+    if (present.has(`${r},${c + 1}`)) {
+      const [nx, ny] = centre(r, c + 1);
+      ctx.beginPath();
+      ctx.roundRect?.(cx, cy - neck / 2, nx - cx, neck, neck / 2);
+      if (!ctx.roundRect) ctx.rect(cx, cy - neck / 2, nx - cx, neck);
+      ctx.fill();
+    }
+    if (present.has(`${r + 1},${c}`)) {
+      const [nx, ny] = centre(r + 1, c);
+      ctx.beginPath();
+      ctx.roundRect?.(cx - neck / 2, cy, neck, ny - cy, neck / 2);
+      if (!ctx.roundRect) ctx.rect(cx - neck / 2, cy, neck, ny - cy);
+      ctx.fill();
+    }
+  }
 
-  // top face
+  // ── the balls ──
   if (opts.glow) {
-    ctx.shadowColor = color;
+    ctx.shadowColor = base;
     ctx.shadowBlur = opts.glow;
   }
-  for (const [cr, cc] of cells) {
-    const x = ox + cc * cell;
-    const y = oy + cr * cell;
-    const grad = ctx.createLinearGradient(0, y, 0, y + cell);
-    grad.addColorStop(0, shade(opts.tint ?? color, 0.34));
-    grad.addColorStop(0.55, opts.tint ?? color);
-    grad.addColorStop(1, shade(opts.tint ?? color, -0.1));
-    roundRect(ctx, x + 2, y + 2, cell - 4, cell - 4, r);
-    ctx.fillStyle = grad;
+  const hi = shade(base, 0.62);
+  const mid = base;
+  const edge = shade(base, -0.42);
+  for (const [r, c] of cells) {
+    const [cx, cy] = centre(r, c);
+    const g = ctx.createRadialGradient(
+      cx - R * 0.34,
+      cy - R * 0.4,
+      R * 0.1,
+      cx,
+      cy,
+      R * 1.05,
+    );
+    g.addColorStop(0, hi);
+    g.addColorStop(0.35, mid);
+    g.addColorStop(1, edge);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.97, 0, 6.28);
     ctx.fill();
   }
   ctx.shadowBlur = 0;
 
-  // gloss highlight per cell
-  ctx.globalAlpha = alpha * 0.5;
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
-  for (const [cr, cc] of cells) {
-    const x = ox + cc * cell;
-    const y = oy + cr * cell;
-    roundRect(ctx, x + cell * 0.16, y + cell * 0.14, cell * 0.42, cell * 0.22, cell * 0.12);
+  // ── specular highlight ──
+  for (const [r, c] of cells) {
+    const [cx, cy] = centre(r, c);
+    const s = ctx.createRadialGradient(
+      cx - R * 0.32,
+      cy - R * 0.4,
+      0,
+      cx - R * 0.32,
+      cy - R * 0.4,
+      R * 0.55,
+    );
+    s.addColorStop(0, "rgba(255,255,255,0.9)");
+    s.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = s;
+    ctx.beginPath();
+    ctx.ellipse(cx - R * 0.3, cy - R * 0.38, R * 0.42, R * 0.3, -0.5, 0, 6.28);
     ctx.fill();
   }
-  ctx.globalAlpha = alpha;
-
-  // crisp boundary
-  ctx.strokeStyle = shade(color, -0.28);
-  ctx.lineWidth = 2;
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  for (const [cr, cc] of cells) {
-    const x = ox + cc * cell;
-    const y = oy + cr * cell;
-    if (!present.has(`${cr - 1},${cc}`)) {
-      ctx.moveTo(x + 2, y + 2);
-      ctx.lineTo(x + cell - 2, y + 2);
-    }
-    if (!present.has(`${cr + 1},${cc}`)) {
-      ctx.moveTo(x + 2, y + cell - 2);
-      ctx.lineTo(x + cell - 2, y + cell - 2);
-    }
-    if (!present.has(`${cr},${cc - 1}`)) {
-      ctx.moveTo(x + 2, y + 2);
-      ctx.lineTo(x + 2, y + cell - 2);
-    }
-    if (!present.has(`${cr},${cc + 1}`)) {
-      ctx.moveTo(x + cell - 2, y + 2);
-      ctx.lineTo(x + cell - 2, y + cell - 2);
-    }
-  }
-  ctx.stroke();
 
   ctx.restore();
 }
 
-/** Stroke the outline of a set of cells (used for the target frame). */
+/** Stroke the outline of a set of cells (the target frame). */
 export function strokeCellOutline(
   ctx: CanvasRenderingContext2D,
   has: (row: number, col: number) => boolean,

@@ -13,6 +13,9 @@ export interface LevelResult {
 export type JokerKind = "hint" | "time" | "solvent";
 export type Jokers = Record<JokerKind, number>;
 
+export const MAX_LIVES = 5;
+export const LIFE_REGEN_MS = 20 * 60_000;
+
 export interface SaveData {
   levels: Record<string, LevelResult>;
   daily: { lastDayDone: string; streak: number; bestStreak: number };
@@ -20,8 +23,13 @@ export interface SaveData {
   cascade: { bestScore: number; bestCleared: number; runs: number };
   achievements: string[];
   jokers: Jokers;
-  /** Region ids whose completion joker reward has been granted. */
+  /** Region ids whose completion reward has been granted. */
   regionRewards: string[];
+  /** Highest milestone threshold already claimed. */
+  milestone: number;
+  /** Light shards — the soft currency. */
+  shards: number;
+  lives: { count: number; nextAt: number };
   stats: { solved: number; totalMs: number; noUndoStreak: number; bestNoUndoStreak: number };
 }
 
@@ -33,6 +41,9 @@ const EMPTY: SaveData = {
   achievements: [],
   jokers: { hint: 3, time: 2, solvent: 2 },
   regionRewards: [],
+  milestone: 0,
+  shards: 0,
+  lives: { count: MAX_LIVES, nextAt: 0 },
   stats: { solved: 0, totalMs: 0, noUndoStreak: 0, bestNoUndoStreak: 0 },
 };
 
@@ -51,6 +62,9 @@ export function load(): SaveData {
       achievements: parsed.achievements ?? [],
       jokers: { ...EMPTY.jokers, ...parsed.jokers },
       regionRewards: parsed.regionRewards ?? [],
+      milestone: parsed.milestone ?? 0,
+      shards: parsed.shards ?? 0,
+      lives: { ...EMPTY.lives, ...parsed.lives },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -85,13 +99,17 @@ export function totalStars(data: SaveData): number {
     .reduce((s, [, r]) => s + r.stars, 0);
 }
 
-/** Record a campaign/daily level completion; keeps the better result. */
-export function recordLevel(levelId: string, stars: number, ms: number, usedUndo: boolean): SaveData {
-  return update((d) => {
+/** Record a campaign/daily level completion; keeps the better result. Returns shards earned. */
+export function recordLevel(levelId: string, stars: number, ms: number, usedUndo: boolean): number {
+  let earned = 0;
+  update((d) => {
     const prev = d.levels[levelId];
+    const firstClear = !prev;
     if (!prev || stars > prev.stars || (stars === prev.stars && ms < prev.bestMs)) {
       d.levels[levelId] = { stars, bestMs: ms };
     }
+    earned = stars + (firstClear ? 3 : 1);
+    d.shards += earned;
     d.stats.solved += 1;
     d.stats.totalMs += ms;
     if (usedUndo) {
@@ -101,6 +119,7 @@ export function recordLevel(levelId: string, stars: number, ms: number, usedUndo
       d.stats.bestNoUndoStreak = Math.max(d.stats.bestNoUndoStreak, d.stats.noUndoStreak);
     }
   });
+  return earned;
 }
 
 export function recordDaily(now = new Date()): SaveData {
@@ -129,6 +148,61 @@ export function recordCascade(score: number, cleared: number): SaveData {
   });
 }
 
+// ── Lives ──────────────────────────────────────────────────────────────────
+/** Apply regen, return the live view. */
+export function lives(now = Date.now()): { count: number; msToNext: number } {
+  const d = load();
+  const l = d.lives;
+  if (l.count >= MAX_LIVES) return { count: MAX_LIVES, msToNext: 0 };
+  let { count, nextAt } = l;
+  if (nextAt === 0) nextAt = now + LIFE_REGEN_MS;
+  while (count < MAX_LIVES && now >= nextAt) {
+    count += 1;
+    nextAt += LIFE_REGEN_MS;
+  }
+  if (count !== l.count || nextAt !== l.nextAt) {
+    update((s) => {
+      s.lives.count = count;
+      s.lives.nextAt = count >= MAX_LIVES ? 0 : nextAt;
+    });
+  }
+  return { count, msToNext: count >= MAX_LIVES ? 0 : Math.max(0, nextAt - now) };
+}
+
+/** Try to consume a life. Returns false if empty. */
+export function spendLife(now = Date.now()): boolean {
+  const { count } = lives(now);
+  if (count <= 0) return false;
+  update((s) => {
+    if (s.lives.count >= MAX_LIVES) s.lives.nextAt = now + LIFE_REGEN_MS;
+    s.lives.count = Math.max(0, s.lives.count - 1);
+  });
+  return true;
+}
+
+export function refillLives(): void {
+  update((s) => {
+    s.lives.count = MAX_LIVES;
+    s.lives.nextAt = 0;
+  });
+}
+
+export function addShards(n: number): void {
+  update((s) => {
+    s.shards += n;
+  });
+}
+export function spendShards(n: number): boolean {
+  let ok = false;
+  update((s) => {
+    if (s.shards >= n) {
+      s.shards -= n;
+      ok = true;
+    }
+  });
+  return ok;
+}
+
 export function spendJoker(kind: JokerKind): boolean {
   let ok = false;
   update((d) => {
@@ -140,16 +214,49 @@ export function spendJoker(kind: JokerKind): boolean {
   return ok;
 }
 
-/** Grant a region-completion reward once: one of each joker. Returns true if newly granted. */
+/** Grant a region-completion reward once. Returns true if newly granted. */
 export function grantRegionReward(regionId: string): boolean {
   let granted = false;
   update((d) => {
     if (d.regionRewards.includes(regionId)) return;
     d.regionRewards.push(regionId);
-    d.jokers.hint += 2;
-    d.jokers.time += 1;
-    d.jokers.solvent += 1;
+    d.jokers.hint += 3;
+    d.jokers.time += 2;
+    d.jokers.solvent += 2;
+    d.shards += 25;
+    d.lives.count = MAX_LIVES;
+    d.lives.nextAt = 0;
     granted = true;
   });
   return granted;
+}
+
+export interface Milestone {
+  threshold: number;
+  shards: number;
+  joker: JokerKind;
+  label: string;
+}
+
+/** Claim every star-milestone the player has passed. Returns the newly claimed ones. */
+export function claimMilestones(): Milestone[] {
+  const fresh: Milestone[] = [];
+  update((d) => {
+    const stars = totalStars(d);
+    let t = d.milestone + 6;
+    while (t <= stars) {
+      const m: Milestone = {
+        threshold: t,
+        shards: 15 + (t / 6) * 5,
+        joker: (["hint", "time", "solvent"] as const)[(t / 6) % 3]!,
+        label: `${t} Sterne`,
+      };
+      d.shards += m.shards;
+      d.jokers[m.joker] += 2;
+      d.milestone = t;
+      fresh.push(m);
+      t += 6;
+    }
+  });
+  return fresh;
 }
