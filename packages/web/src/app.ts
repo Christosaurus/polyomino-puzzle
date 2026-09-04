@@ -511,9 +511,11 @@ function renderDaily(): void {
   $("daily-streak").textContent = `🔥 ${s.daily.streak}`;
   $("daily-best").textContent = String(s.daily.bestStreak);
   const done = s.daily.lastDayDone === store.todayKey();
-  $<HTMLButtonElement>("daily-play").textContent = done ? "Heute nochmal" : "Heute spielen";
+  const playBtn = $<HTMLButtonElement>("daily-play");
+  playBtn.textContent = done ? "Heute erledigt ✓" : "Heute spielen";
+  playBtn.disabled = done;
   $("daily-note").textContent = done
-    ? "Heute schon geschafft — Streak gesichert."
+    ? "Geschafft — komm morgen für das nächste Fenster wieder."
     : isWeeklyChallengeDay()
     ? "🔒 Wochen-Herausforderung: ein Teil des Fensters startet gesperrt."
     : "Ein neues Fenster jeden Tag — für alle gleich.";

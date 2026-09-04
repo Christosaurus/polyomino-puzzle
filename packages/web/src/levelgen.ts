@@ -10,24 +10,27 @@ import { SHAPES, shapesForPieceCount } from "./shapes.js";
  */
 export function makeLevel(seed: string, difficulty: number, preferPieces?: number): Level | null {
   const rng = rngFromSeed(seed);
-  const pool =
-    preferPieces && shapesForPieceCount(preferPieces).length > 0
-      ? shapesForPieceCount(preferPieces)
-      : SHAPES;
-  const order = rng.shuffle([...pool]);
-
-  for (const entry of order) {
-    const res = generateLevel({
-      shape: entry.shape,
-      rng: rngFromSeed(`${seed}:${entry.cells}`),
-      seed,
-      maxAttempts: 160,
-      maxSolverNodes: 400_000,
-      now: () => new Date(),
-    });
-    if (res.level) {
-      res.level.difficulty = Math.max(1, Math.min(5, difficulty));
-      return res.level;
+  const preferred = preferPieces ? shapesForPieceCount(preferPieces) : [];
+  // try the preferred piece-count first, but never let a sparse/awkward pool
+  // (e.g. the catalog has only one 2-piece shape, and a bare 2x5 rectangle
+  // almost never has a unique pentomino-pair tiling) fail the whole level —
+  // fall back to the full catalog rather than returning null.
+  const pools = preferred.length > 0 ? [preferred, SHAPES] : [SHAPES];
+  for (const pool of pools) {
+    const order = rng.shuffle([...pool]);
+    for (const entry of order) {
+      const res = generateLevel({
+        shape: entry.shape,
+        rng: rngFromSeed(`${seed}:${entry.cells}`),
+        seed,
+        maxAttempts: 160,
+        maxSolverNodes: 400_000,
+        now: () => new Date(),
+      });
+      if (res.level) {
+        res.level.difficulty = Math.max(1, Math.min(5, difficulty));
+        return res.level;
+      }
     }
   }
   return null;
@@ -40,11 +43,14 @@ export function dailyLevel(day: string): Level | null {
 
 /**
  * Descent level for a given depth — grows in pieces and difficulty. The first
- * few depths stay deliberately tiny so a run opens with a couple of easy,
- * confidence-building clears before it starts asking anything of you.
+ * few depths stay at the smallest reliably-generatable size (3 pentominoes —
+ * the catalog's only 2-piece shape, a bare 2x5 rectangle, essentially never
+ * has a unique tiling, so `makeLevel` returns null for it almost every time)
+ * so a run opens with a couple of easy, confidence-building clears before it
+ * starts asking anything of you.
  */
 export function descentLevel(depth: number, runSeed: string): Level | null {
-  const pieces = Math.min(11, 2 + Math.floor((depth - 1) / 2));
+  const pieces = Math.min(11, 3 + Math.floor((depth - 1) / 3));
   const difficulty = Math.min(5, 1 + Math.floor((depth - 1) / 3));
   return makeLevel(`${runSeed}:d${depth}`, difficulty, pieces);
 }

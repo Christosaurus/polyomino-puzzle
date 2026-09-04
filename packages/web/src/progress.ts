@@ -90,8 +90,18 @@ export function update(fn: (data: SaveData) => void): SaveData {
   return data;
 }
 
+/**
+ * Calendar-day key in the player's own local timezone. `toISOString()` would
+ * use UTC, which quietly shifts the "day" for anyone not on UTC — e.g. for a
+ * German player (UTC+1/+2), the local evening still reads as "tomorrow" in
+ * UTC for an hour or two after local midnight has already passed, which is
+ * exactly backwards from what a daily streak should feel like.
+ */
 export function todayKey(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** Campaign stars only — daily results are stored under a `daily:` prefix and excluded. */
