@@ -249,6 +249,27 @@
         font-size: 17px;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
       }
+      /* painted icon art (art-refs/PROMPT-icons.md) replacing emoji glyphs */
+      .icon-img {
+        display: block;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+      }
+      .pill .icon-img {
+        width: 18px;
+        height: 18px;
+      }
+      .joker .ji .icon-img {
+        width: 32px;
+        height: 32px;
+      }
+      #tabbar button .ic .icon-img {
+        width: 24px;
+        height: 24px;
+      }
+      button.icon .icon-img {
+        width: 22px;
+        height: 22px;
+      }
       .topbar {
         display: flex;
         align-items: center;
@@ -973,8 +994,8 @@
       <section class="screen" id="screen-home">
         <div class="topbar">
           <div class="avatar" id="home-avatar">🙂</div>
-          <span class="pill" id="home-shards"><span class="ic">✦</span>0</span>
-          <span class="pill" id="home-lives"><span class="ic">❤</span>5</span>
+          <span class="pill" id="home-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
+          <span class="pill" id="home-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <span class="grow"></span>
           <button class="icon" id="home-settings">⚙</button>
         </div>
@@ -1033,7 +1054,7 @@
       <section class="screen" id="screen-collection" hidden>
         <h1>Sammlung</h1>
         <div class="statgrid" id="stats"></div>
-        <h2 style="margin-top:6px">Vorrat <span class="pill" id="shop-shards"><span class="ic">✦</span>0</span></h2>
+        <h2 style="margin-top:6px">Vorrat <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
         <div class="shop" id="shop"></div>
         <h2 style="margin-top:6px">Erfolge</h2>
         <div id="achievements"></div>
@@ -1041,18 +1062,18 @@
 
       <section class="screen play" id="screen-play" hidden>
         <div class="hud">
-          <span class="pill" id="play-lives"><span class="ic">❤</span>5</span>
+          <span class="pill" id="play-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <div class="clock" id="play-clock"><span id="play-clock-txt">0:00</span><small id="play-title-txt">Level</small></div>
-          <button class="icon" id="play-pause">⏸</button>
+          <button class="icon" id="play-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
         <div class="board-wrap" id="play-wrap">
           <canvas id="play-canvas"></canvas>
         </div>
         <div class="play-foot">
           <div class="jokers">
-            <button class="joker" id="jk-hint"><span class="ji">💡</span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
-            <button class="joker" id="jk-time"><span class="ji">⏱️</span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
-            <button class="joker" id="jk-solvent"><span class="ji">🧪</span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
+            <button class="joker" id="jk-hint"><span class="ji"><img class="icon-img" src="ui/hint.webp" alt="" /></span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
+            <button class="joker" id="jk-time"><span class="ji"><img class="icon-img" src="ui/time.webp" alt="" /></span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
+            <button class="joker" id="jk-solvent"><span class="ji"><img class="icon-img" src="ui/solvent.webp" alt="" /></span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
           </div>
         </div>
       </section>
@@ -1061,7 +1082,7 @@
         <div class="hud">
           <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
           <div class="clock" id="k-clock">1:30</div>
-          <button class="icon" id="k-pause">⏸</button>
+          <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
         <div class="hud" style="grid-template-columns:1fr 1fr;margin-top:-6px">
           <span class="metric"><small>Multiplikator</small><span id="k-mult">×1.0</span></span>
@@ -1123,11 +1144,11 @@
       </div>
 
       <nav id="tabbar">
-        <button data-tab="home" class="on"><span class="ic">🏠</span>Start</button>
-        <button data-tab="daily"><span class="ic">📅</span>Täglich</button>
-        <button data-tab="descent"><span class="ic">⛏️</span>Abstieg</button>
-        <button data-tab="cascade"><span class="ic">⚡</span>Kaskade</button>
-        <button data-tab="collection"><span class="ic">🎁</span>Sammlung</button>
+        <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Start</button>
+        <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Täglich</button>
+        <button data-tab="descent"><span class="ic"><img class="icon-img" src="ui/descent.webp" alt="" /></span>Abstieg</button>
+        <button data-tab="cascade"><span class="ic"><img class="icon-img" src="ui/cascade.webp" alt="" /></span>Kaskade</button>
+        <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span>Sammlung</button>
       </nav>
 
       <div class="toast" id="toast"></div>
