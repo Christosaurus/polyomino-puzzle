@@ -8,6 +8,12 @@
 
 export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard";
 
+/** Hand-painted backdrops. Each theme has a night + day plate we cross-fade
+ *  by `light`. Themes without art fall back to the procedural scene. */
+const PAINTED: Partial<Record<SceneTheme, { night: string; day: string }>> = {
+  garden: { night: "bg/garten-nacht.webp", day: "bg/garten-tag.webp" },
+};
+
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 type RGB = [number, number, number];
 const mix = (a: RGB, b: RGB, t: number): string =>
@@ -77,21 +83,33 @@ export class Scenery {
   private flowers: Flower[] = [];
   private fireflies: Firefly[] = [];
   private birds: Bird[] = [];
+  private plates = new Map<SceneTheme, { night: HTMLImageElement; day: HTMLImageElement }>();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
+    this.loadPlates();
     this.seed();
     this.resize();
     window.addEventListener("resize", () => this.resize());
-    const loop = (): void => {
-      this.shown += (this.light - this.shown) * 0.04;
-      this.themeT += (this.themeIndex() - this.themeT) * 0.14;
-      if (this.flash > 0) this.flash -= 0.02;
+    let last = performance.now();
+    const step = (): void => {
+      const now = performance.now();
+      // frame-rate independent easing so a throttled tab still settles
+      const k = Math.min(3, (now - last) / 16.67);
+      last = now;
+      this.shown += (this.light - this.shown) * 0.04 * k;
+      this.themeT += (this.themeIndex() - this.themeT) * 0.14 * k;
+      if (this.flash > 0) this.flash -= 0.02 * k;
       this.draw();
+    };
+    const loop = (): void => {
+      step();
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
+    // fallback: rAF is starved when the tab/pane isn't painting
+    window.setInterval(step, 200);
   }
 
   setLight(v: number): void {
@@ -106,6 +124,24 @@ export class Scenery {
   }
   private themeIndex(): number {
     return this.theme === "menu" ? 0 : 1;
+  }
+
+  private loadPlates(): void {
+    const base = import.meta.env.BASE_URL;
+    for (const [theme, srcs] of Object.entries(PAINTED) as [SceneTheme, { night: string; day: string }][]) {
+      const night = new Image();
+      const day = new Image();
+      night.src = base + srcs.night;
+      day.src = base + srcs.day;
+      this.plates.set(theme, { night, day });
+    }
+  }
+
+  private plateFor(theme: SceneTheme): { night: HTMLImageElement; day: HTMLImageElement } | null {
+    const p = this.plates.get(theme);
+    if (!p) return null;
+    if (!p.night.complete || !p.night.naturalWidth || !p.day.complete || !p.day.naturalWidth) return null;
+    return p;
   }
 
   private seed(): void {
@@ -153,9 +189,13 @@ export class Scenery {
   }
 
   private draw(): void {
-    const gardenMix = Math.max(0, Math.min(1, this.themeT));
-    if (gardenMix < 0.5) this.drawMenu(1 - gardenMix * 2);
-    else this.drawGarden((gardenMix - 0.5) * 2);
+    const mix01 = Math.max(0, Math.min(1, this.themeT));
+    if (mix01 < 0.999) this.drawMenu(1 - mix01);
+    if (mix01 > 0.001) {
+      const plate = this.theme !== "menu" ? this.plateFor(this.theme) : null;
+      if (plate) this.drawPlate(plate, mix01);
+      else this.drawGarden(mix01);
+    }
     if (this.flash > 0) {
       const f = this.flash * this.flash;
       const g = this.ctx.createRadialGradient(
@@ -171,6 +211,58 @@ export class Scenery {
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, this.w, this.h);
     }
+  }
+
+  // ── Hand-painted backdrop ────────────────────────────────────────────────
+  private drawPlate(
+    plate: { night: HTMLImageElement; day: HTMLImageElement },
+    alpha: number,
+  ): void {
+    const { ctx, w, h } = this;
+    const now = performance.now() / 1000;
+    const day = this.shown; // 0 shadow → 1 full light
+
+    const cover = (img: HTMLImageElement): void => {
+      const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, (w - dw) / 2, 0, dw, dh); // anchored top: keep the board niche in place
+    };
+
+    ctx.globalAlpha = alpha;
+    cover(plate.night);
+    if (day > 0.001) {
+      ctx.globalAlpha = alpha * day;
+      cover(plate.day);
+    }
+    ctx.globalAlpha = 1;
+
+    // drifting fireflies for a little life over the static art
+    const fcount = Math.round(10 + 8 * day);
+    ctx.fillStyle = "#ffe9a0";
+    ctx.shadowColor = "#ffcf6b";
+    ctx.shadowBlur = 9;
+    for (let i = 0; i < fcount; i++) {
+      const f = this.fireflies[i % this.fireflies.length]!;
+      const fx = ((f.x + now * 0.012 * f.sp + i * 0.13) % 1.05) * w;
+      const fy = (((f.y + i * 0.05) % 0.9) + 0.06 + Math.sin(now * f.sp + f.ph) * 0.02) * h;
+      const bl = 0.2 + 0.8 * Math.abs(Math.sin(now * 1.8 * f.sp + f.ph));
+      ctx.globalAlpha = alpha * bl * (0.4 + 0.35 * (1 - day));
+      ctx.beginPath();
+      ctx.arc(fx, fy, 2, 0, 6.28);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    // readability veil: darken the very top (HUD) and bottom (foot), leave the middle clear
+    const v = ctx.createLinearGradient(0, 0, 0, h);
+    v.addColorStop(0, `rgba(10,12,30,${0.4 * alpha})`);
+    v.addColorStop(0.32, `rgba(10,12,30,${0.05 * alpha})`);
+    v.addColorStop(0.75, `rgba(10,12,30,${0.05 * alpha})`);
+    v.addColorStop(1, `rgba(10,12,30,${0.34 * alpha})`);
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, w, h);
   }
 
   // ── Menu: the village ────────────────────────────────────────────────────
