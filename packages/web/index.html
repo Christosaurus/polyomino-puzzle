@@ -53,6 +53,15 @@
         --ink-2: #ddd6ff;
         --ink-dim: #a99fe6;
         --stroke: #201356;
+        /* the game's main contrast pair: purple surfaces, dark-gold text on
+           anything light enough that plain white would wash out */
+        --ink-warm: #4a2e00;
+        --chunky-shadow:
+          -1.5px -1.5px 0 var(--stroke),
+          1.5px -1.5px 0 var(--stroke),
+          -1.5px 1.5px 0 var(--stroke),
+          1.5px 1.5px 0 var(--stroke),
+          0 3px 0 rgba(0, 0, 0, 0.3);
         /* canvas tokens (board / belt) */
         --cell: #251a72;
         --board-edge: #8b73f0;
@@ -188,7 +197,7 @@
           inset 0 -5px 0 rgba(0, 0, 0, 0.28),
           0 6px 0 -1px var(--border-lo),
           0 12px 18px -8px rgba(0, 0, 0, 0.55);
-        text-shadow: 0 2px 0 var(--stroke);
+        text-shadow: var(--chunky-shadow);
         transition: transform 0.06s var(--tap), box-shadow 0.06s ease;
       }
       button:active {
@@ -204,6 +213,8 @@
       }
       button.go {
         background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent-lo));
+        color: var(--ink-warm);
+        text-shadow: var(--chunky-shadow);
       }
       button.go,
       button.go:active {
@@ -223,8 +234,8 @@
       }
       button.gold {
         background: linear-gradient(180deg, #ffd15e, #eda01c);
-        color: #4a2e00;
-        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+        color: var(--ink-warm);
+        text-shadow: var(--chunky-shadow);
         box-shadow:
           inset 0 2px 0 rgba(255, 255, 255, 0.55),
           inset 0 -5px 0 rgba(0, 0, 0, 0.18),
