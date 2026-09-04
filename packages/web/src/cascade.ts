@@ -11,14 +11,14 @@
 import { PENTOMINOES, type PentominoName, type Rng, rngFromSeed } from "@polyomino/puzzle-core";
 import { PIECE_NAMES } from "./colors.js";
 
-export const CASCADE_ROWS = 6;
-export const CASCADE_COLS = 7;
+export const CASCADE_ROWS = 8;
+export const CASCADE_COLS = 6;
 const DURATION_MS = 90_000;
 const BASE_SPAWN_MS = 2600;
 const MIN_SPAWN_MS = 1300;
-const BELT_TRAVEL_MS = 13_000; // time for a shard to ride top→bottom
+const BELT_TRAVEL_MS = 15_000; // time for a shard to ride top→bottom
 const MAX_ON_BELT = 3;
-const MIN_GAP_Y = 0.34; // spacing between shards on the belt
+const MIN_GAP_Y = 0.36; // spacing between shards on the belt
 
 export interface Pos {
   row: number;
@@ -64,6 +64,8 @@ export class CascadeState {
   private spawnTimer = 0;
   private spawnInterval = BASE_SPAWN_MS;
   private endedAt: number | null = null;
+  private pausedAt: number | null = null;
+  private pausedTotal = 0;
 
   constructor(seed: string) {
     this.rng = rngFromSeed(seed);
@@ -85,9 +87,24 @@ export class CascadeState {
   get isStarted(): boolean {
     return this.started !== null;
   }
+  get isPaused(): boolean {
+    return this.pausedAt !== null;
+  }
+  pause(): void {
+    if (this.pausedAt === null && this.started !== null && this.endedAt === null) {
+      this.pausedAt = performance.now();
+    }
+  }
+  resume(): void {
+    if (this.pausedAt !== null) {
+      this.pausedTotal += performance.now() - this.pausedAt;
+      this.pausedAt = null;
+    }
+  }
   elapsedMs(): number {
     if (this.started === null) return 0;
-    return (this.endedAt ?? performance.now()) - this.started;
+    const end = this.endedAt ?? this.pausedAt ?? performance.now();
+    return end - this.started - this.pausedTotal;
   }
   remainingMs(): number {
     return Math.max(0, DURATION_MS + this.extraMs - this.elapsedMs());
@@ -111,7 +128,7 @@ export class CascadeState {
   // ── Belt ─────────────────────────────────────────────────────────────────
   /** Advance the belt; drop shards that reach the bottom. */
   tick(dt: number): void {
-    if (!this.isStarted || this.isOver) return;
+    if (!this.isStarted || this.isOver || this.isPaused) return;
     const speed = dt / (BELT_TRAVEL_MS / 1000);
     for (const s of this.belt) s.y += speed;
 

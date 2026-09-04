@@ -47,6 +47,8 @@ export class GameState {
   private readonly solutionCells = new Map<PentominoName, Array<[number, number]>>();
   private startedAt: number | null = null;
   private endedAt: number | null = null;
+  private pausedAt: number | null = null;
+  private pausedTotal = 0;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -117,9 +119,22 @@ export class GameState {
     return this.startedAt !== null;
   }
 
+  pause(): void {
+    if (this.pausedAt === null && this.startedAt !== null && this.endedAt === null) {
+      this.pausedAt = performance.now();
+    }
+  }
+  resume(): void {
+    if (this.pausedAt !== null) {
+      this.pausedTotal += performance.now() - this.pausedAt;
+      this.pausedAt = null;
+    }
+  }
+
   elapsedMs(): number {
     if (this.startedAt === null) return 0;
-    return (this.endedAt ?? performance.now()) - this.startedAt;
+    const end = this.endedAt ?? this.pausedAt ?? performance.now();
+    return end - this.startedAt - this.pausedTotal;
   }
   remainingMs(): number {
     return Math.max(0, this.limitMs - this.elapsedMs());
@@ -199,6 +214,8 @@ export class GameState {
     }
     this.startedAt = null;
     this.endedAt = null;
+    this.pausedAt = null;
+    this.pausedTotal = 0;
     this.usedUndo = false;
   }
 }

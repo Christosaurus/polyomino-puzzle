@@ -40,6 +40,7 @@ let manifest: Manifest | null = null;
 let regions: Region[] = [];
 let gameView: GameView | null = null;
 let cascadeView: CascadeView | null = null;
+let cascadeGame: CascadeState | null = null;
 let clockTimer = 0;
 const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
 
@@ -97,6 +98,7 @@ function teardownGame(): void {
   gameView = null;
   cascadeView?.destroy();
   cascadeView = null;
+  cascadeGame = null;
   activeGame = null;
   if (clockTimer) window.clearInterval(clockTimer);
   clockTimer = 0;
@@ -491,7 +493,9 @@ function startCascade(): void {
   teardownGame();
   scenery.setTheme("garden");
   $("k-overlay").classList.remove("show");
+  $("k-pause-overlay").classList.remove("show");
   const game = new CascadeState(`kaskade-${Date.now()}`);
+  cascadeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
@@ -602,11 +606,48 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")
 }
 $("region-back").addEventListener("click", () => setTab("home"));
 
-function leavePlay(): void {
+function doLeave(): void {
   if (mode === "campaign" && campaignAt) openRegion(regions.indexOf(campaignAt.region));
   else if (mode === "daily") setTab("daily");
   else if (descentState) endDescent(descentState.depth);
   else setTab("descent");
+}
+function leavePlay(): void {
+  const g = activeGame;
+  const inProgress = !!g && g.started && !g.isWon() && !g.timedOut;
+  const resume = (): void => {
+    hideOverlay();
+    activeGame?.resume();
+  };
+  if (inProgress && mode === "campaign") {
+    activeGame?.pause();
+    showOverlay({
+      title: "Level verlassen?",
+      sub: "Du verlierst <b>1 Leben</b> und den Fortschritt in diesem Fenster.",
+      nextLabel: "Trotzdem raus",
+      onNext: () => {
+        store.spendLife();
+        renderTopPills();
+        doLeave();
+      },
+      quitLabel: "Weiterspielen",
+      onQuit: resume,
+    });
+    return;
+  }
+  if (inProgress && mode === "descent") {
+    activeGame?.pause();
+    showOverlay({
+      title: "Abstieg abbrechen?",
+      sub: "Der Lauf endet hier.",
+      nextLabel: "Abbrechen",
+      onNext: doLeave,
+      quitLabel: "Weiterspielen",
+      onQuit: resume,
+    });
+    return;
+  }
+  doLeave();
 }
 function restartLevel(): void {
   if (mode === "campaign" && campaignAt) void playCampaign(campaignAt.region, campaignAt.index);
@@ -615,9 +656,15 @@ function restartLevel(): void {
 }
 $("play-pause").addEventListener("click", () => {
   const ov = $("pause-overlay");
-  ov.classList.toggle("show");
+  const show = !ov.classList.contains("show");
+  ov.classList.toggle("show", show);
+  if (show) activeGame?.pause();
+  else activeGame?.resume();
 });
-$("ps-resume").addEventListener("click", () => $("pause-overlay").classList.remove("show"));
+$("ps-resume").addEventListener("click", () => {
+  $("pause-overlay").classList.remove("show");
+  activeGame?.resume();
+});
 $("ps-restart").addEventListener("click", () => {
   $("pause-overlay").classList.remove("show");
   restartLevel();
@@ -629,9 +676,27 @@ $("ps-quit").addEventListener("click", () => {
 $("daily-play").addEventListener("click", playDaily);
 $("descent-play").addEventListener("click", startDescent);
 $("cascade-play").addEventListener("click", startCascade);
-$("k-back").addEventListener("click", () => setTab("cascade"));
 $("k-quit").addEventListener("click", () => setTab("cascade"));
 $("k-again").addEventListener("click", startCascade);
+$("k-pause").addEventListener("click", () => {
+  const ov = $("k-pause-overlay");
+  const show = !ov.classList.contains("show");
+  ov.classList.toggle("show", show);
+  if (show) cascadeGame?.pause();
+  else cascadeGame?.resume();
+});
+$("kp-resume").addEventListener("click", () => {
+  $("k-pause-overlay").classList.remove("show");
+  cascadeGame?.resume();
+});
+$("kp-restart").addEventListener("click", () => {
+  $("k-pause-overlay").classList.remove("show");
+  startCascade();
+});
+$("kp-quit").addEventListener("click", () => {
+  $("k-pause-overlay").classList.remove("show");
+  setTab("cascade");
+});
 $("jk-hint").addEventListener("click", () => useJoker("hint"));
 $("jk-time").addEventListener("click", () => useJoker("time"));
 $("jk-solvent").addEventListener("click", () => useJoker("solvent"));

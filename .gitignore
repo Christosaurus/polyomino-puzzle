@@ -12,3 +12,6 @@ coverage/
 /packages/level-gen-cli/levels/
 
 dist/
+
+# art reference material (working files)
+/art-refs/

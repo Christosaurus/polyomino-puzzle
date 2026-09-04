@@ -789,7 +789,7 @@
 
       <section class="screen play" id="screen-kaskade" hidden>
         <div class="hud">
-          <div><button class="ghost" id="k-back">‹</button></div>
+          <div><button class="ghost" id="k-pause">⏸</button></div>
           <div class="clock" id="k-clock">1:30</div>
           <div class="right metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></div>
         </div>
@@ -806,6 +806,16 @@
               <div class="btns">
                 <button class="ghost" id="k-quit">Übersicht</button>
                 <button class="primary" id="k-again">Nochmal</button>
+              </div>
+            </div>
+          </div>
+          <div class="overlay" id="k-pause-overlay">
+            <div class="ocard">
+              <h3>Pause</h3>
+              <div class="btns" style="flex-direction:column;width:100%">
+                <button class="primary" id="kp-resume">Weiter</button>
+                <button id="kp-restart">Neu starten</button>
+                <button class="ghost" id="kp-quit">Zurück zur Übersicht</button>
               </div>
             </div>
           </div>
