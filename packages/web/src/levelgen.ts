@@ -38,9 +38,13 @@ export function dailyLevel(day: string): Level | null {
   return makeLevel(`daily:${day}`, 3);
 }
 
-/** Descent level for a given depth — grows in pieces and difficulty. */
+/**
+ * Descent level for a given depth — grows in pieces and difficulty. The first
+ * few depths stay deliberately tiny so a run opens with a couple of easy,
+ * confidence-building clears before it starts asking anything of you.
+ */
 export function descentLevel(depth: number, runSeed: string): Level | null {
-  const pieces = Math.min(11, 3 + Math.floor(depth / 2));
-  const difficulty = Math.min(5, 1 + Math.floor(depth / 3));
+  const pieces = Math.min(11, 2 + Math.floor((depth - 1) / 2));
+  const difficulty = Math.min(5, 1 + Math.floor((depth - 1) / 3));
   return makeLevel(`${runSeed}:d${depth}`, difficulty, pieces);
 }

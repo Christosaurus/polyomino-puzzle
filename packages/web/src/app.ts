@@ -261,6 +261,26 @@ interface OverlayOpts {
   quitLabel?: string;
   onQuit: () => void;
 }
+/** Sparkles flying out from the star row — bigger for a cleaner win. */
+function spawnBurst(host: HTMLElement, n: number): void {
+  const glyphs = ["✦", "★", "✨"];
+  const colors = ["var(--gold)", "var(--aqua)", "var(--pink)"];
+  host.replaceChildren();
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement("i");
+    const ang = (Math.PI * 2 * i) / n + (Math.random() - 0.5) * 0.6;
+    const dist = 70 + Math.random() * 70;
+    el.textContent = glyphs[i % glyphs.length]!;
+    el.style.setProperty("--tx", `${Math.cos(ang) * dist}px`);
+    el.style.setProperty("--ty", `${Math.sin(ang) * dist - 20}px`);
+    el.style.setProperty("--bs", `${14 + Math.random() * 14}px`);
+    el.style.setProperty("--bc", colors[i % colors.length]!);
+    el.style.setProperty("--bd", `${(Math.random() * 0.15).toFixed(2)}s`);
+    el.style.setProperty("--bt", `${(0.7 + Math.random() * 0.5).toFixed(2)}s`);
+    host.append(el);
+  }
+}
+
 function showOverlay(o: OverlayOpts): void {
   $("ov-title").textContent = o.title;
   const starsEl = $("ov-stars");
@@ -276,9 +296,19 @@ function showOverlay(o: OverlayOpts): void {
   quit.onclick = o.onQuit;
   $("pause-overlay").classList.remove("show");
   const ov = $("play-overlay");
+  const card = ov.querySelector<HTMLElement>(".ocard")!;
+  const burstHost = $("ov-burst");
+  card.classList.remove("win-flash");
+  const stars = o.stars ?? 0;
+  if (stars > 0) spawnBurst(burstHost, stars === 3 ? 16 : stars === 2 ? 10 : 6);
+  else burstHost.replaceChildren();
   ov.classList.remove("show");
   void ov.offsetWidth;
   ov.classList.add("show");
+  if (stars === 3) {
+    void card.offsetWidth;
+    card.classList.add("win-flash");
+  }
 }
 function hideOverlay(): void {
   $("play-overlay").classList.remove("show");
@@ -536,9 +566,16 @@ async function playDescentLevel(): Promise<void> {
     return;
   }
   $("screen-play").dataset.region = "descent";
-  $("play-title-txt").textContent = `Abstieg · Ebene ${depth}`;
+  const best = store.load().descent.bestDepth;
+  $("play-title-txt").textContent =
+    depth > best && best > 0
+      ? `Abstieg · Ebene ${depth} · 🏆 neue Bestmarke!`
+      : `Abstieg · Ebene ${depth} · Rekord ${best}`;
   const base = new GameState(level);
-  const game = new GameState(level, Math.round(base.limitMs * 0.72));
+  // early depths stay generous on time so the run opens with easy wins; the
+  // squeeze tightens in as it goes
+  const timeFactor = depth <= 3 ? 0.95 : Math.max(0.62, 0.95 - (depth - 3) * 0.03);
+  const game = new GameState(level, Math.round(base.limitMs * timeFactor));
   mountGame(game, {
     onWin: (stars, ms) => {
       descentState!.depth = depth + 1;
@@ -590,8 +627,12 @@ function startCascade(): void {
   scenery.setTheme("garden");
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
+  $("k-score-txt").classList.remove("new-record");
   const game = new CascadeState(`kaskade-${Date.now()}`);
   cascadeGame = game;
+  const bestScore = store.load().cascade.bestScore;
+  let newRecord = false;
+  let challengeWonUntil = 0;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
@@ -601,25 +642,53 @@ function startCascade(): void {
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
+      if (h.score > bestScore) {
+        newRecord = true;
+        $("k-score-txt").classList.add("new-record");
+      }
+
+      if (game.consumeChallengeWin()) {
+        challengeWonUntil = performance.now() + 1800;
+        sfx.win();
+        toast(`⚡ Herausforderung gemeistert — +${Math.round(15)} Sekunden!`);
+      }
+      const cEl = $("k-challenge");
+      if (game.challenge) {
+        const left = game.challenge.target - game.challenge.progress;
+        cEl.hidden = false;
+        cEl.classList.remove("won");
+        $("k-challenge-txt").textContent = `Räume ${left} Reihe${left === 1 ? "" : "n"} für +15s`;
+        $("k-challenge-clock").textContent = fmt(game.challengeRemainingMs());
+      } else if (performance.now() < challengeWonUntil) {
+        cEl.hidden = false;
+        cEl.classList.add("won");
+        $("k-challenge-txt").textContent = "Geschafft! +15 Sekunden";
+        $("k-challenge-clock").textContent = "";
+      } else {
+        cEl.hidden = true;
+      }
     },
     onEnd: (r) => {
       store.recordCascade(r.score, r.cleared);
       celebrate(syncAchievements());
       $("k-result").innerHTML =
         `<b>${r.score}</b> Punkte · ${r.cleared} Reihen` +
-        (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "");
+        (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
+        (newRecord ? ` · 🏆 neue Bestmarke!` : "");
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
       ov.classList.add("show");
     },
   });
+  $("k-best").textContent = String(bestScore);
   showScreen("kaskade");
   window.scrollTo(0, 0);
 }
 
 // ── Sammlung ───────────────────────────────────────────────────────────────
 function renderCollection(): void {
+  scenery.setTheme("collection");
   const s = store.load();
   const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
   const stats: [string, string][] = [

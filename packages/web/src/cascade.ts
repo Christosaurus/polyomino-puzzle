@@ -43,6 +43,20 @@ export interface CascadeResult {
   perfectClears: number;
 }
 
+/** A short-lived bonus objective: clear N rows before the deadline for +time. */
+export interface Challenge {
+  target: number;
+  progress: number;
+  /** `elapsedMs()` value at which the challenge expires. */
+  deadline: number;
+  rewardMs: number;
+  label: string;
+}
+const CHALLENGE_COOLDOWN_MIN = 10_000;
+const CHALLENGE_COOLDOWN_JITTER = 6_000;
+const CHALLENGE_WINDOW_MS = 14_000;
+const CHALLENGE_REWARD_MS = 15_000;
+
 export class CascadeState {
   readonly rows = CASCADE_ROWS;
   readonly cols = CASCADE_COLS;
@@ -59,6 +73,8 @@ export class CascadeState {
   misses = 0;
   /** Row indices cleared by the most recent `place()` — for the view's flash. */
   lastCleared: number[] = [];
+  /** The active mini-challenge, if any — cleared automatically on success or timeout. */
+  challenge: Challenge | null = null;
 
   private rng: Rng;
   private nextId = 1;
@@ -70,6 +86,8 @@ export class CascadeState {
   private endedAt: number | null = null;
   private pausedAt: number | null = null;
   private pausedTotal = 0;
+  private nextChallengeAt = 8000;
+  private challengeWon = false;
 
   constructor(seed: string) {
     this.rng = rngFromSeed(seed);
@@ -164,6 +182,33 @@ export class CascadeState {
       this.spawnTimer = 0;
       this.belt.push(this.makeShard(0));
     }
+
+    // mini-challenges: a short window to clear a couple of rows for bonus time
+    if (this.challenge) {
+      if (this.elapsedMs() >= this.challenge.deadline) {
+        this.challenge = null;
+        this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
+      }
+    } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 4000) {
+      const target = 2;
+      this.challenge = {
+        target,
+        progress: 0,
+        deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
+        rewardMs: CHALLENGE_REWARD_MS,
+        label: `${target} Reihen`,
+      };
+    }
+  }
+
+  challengeRemainingMs(): number {
+    return this.challenge ? Math.max(0, this.challenge.deadline - this.elapsedMs()) : 0;
+  }
+  /** True once, right after a challenge is won — consume it to trigger a celebration. */
+  consumeChallengeWin(): boolean {
+    const v = this.challengeWon;
+    this.challengeWon = false;
+    return v;
   }
 
   cells(shard: Shard): ReadonlyArray<readonly [number, number]> {
@@ -254,6 +299,16 @@ export class CascadeState {
       this.cleared += rows;
       this.score += 12 * rows * rows * this.multiplier;
       this.multiplier = Math.min(6, this.multiplier + 0.4 * rows);
+      if (this.challenge) {
+        this.challenge.progress += rows;
+        if (this.challenge.progress >= this.challenge.target) {
+          this.extraMs += this.challenge.rewardMs;
+          this.score += 80 * this.multiplier;
+          this.challengeWon = true;
+          this.challenge = null;
+          this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
+        }
+      }
     }
     if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
       // perfect clear (only counts if we actually cleared something)

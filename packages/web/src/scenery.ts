@@ -6,7 +6,7 @@
  * in shadow (birds, bees, flowers that open as the light returns).
  */
 
-export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard";
+export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard" | "collection";
 
 /** Hand-painted backdrops. Each theme has a night + day plate we cross-fade
  *  by `light`. Themes without art fall back to the procedural scene. */
@@ -195,6 +195,7 @@ export class Scenery {
     if (mix01 > 0.001) {
       const plate = this.theme !== "menu" ? this.plateFor(this.theme) : null;
       if (plate) this.drawPlate(plate, mix01);
+      else if (this.theme === "collection") this.drawVault(mix01);
       else this.drawGarden(mix01);
     }
     if (this.flash > 0) {
@@ -552,6 +553,71 @@ export class Scenery {
     }
 
     this.veil(alpha * 0.5);
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Sammlung: a warm cabinet-of-light vault ─────────────────────────────
+  private drawVault(alpha: number): void {
+    const { ctx, w, h } = this;
+    const t = 0.5 + 0.5 * this.shown; // this room stays warm even before the world lights up
+    const now = performance.now() / 1000;
+    ctx.globalAlpha = alpha;
+
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, mix([40, 24, 54], [58, 34, 20], t));
+    sky.addColorStop(0.5, mix([30, 18, 40], [92, 54, 24], t));
+    sky.addColorStop(1, mix([20, 12, 28], [46, 26, 16], t));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // soft spotlight where the board niche sits
+    const gx = w * 0.5;
+    const gy = h * 0.4;
+    const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, w * 0.65);
+    glow.addColorStop(0, `rgba(255, 201, 110, ${0.22 + 0.18 * t})`);
+    glow.addColorStop(1, "rgba(255, 201, 110, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+
+    // two shelves along the bottom, each holding a row of glowing shards
+    const shelfY = [0.78, 0.9];
+    for (const sy of shelfY) {
+      ctx.fillStyle = mix([18, 10, 22], [54, 30, 16], t);
+      ctx.fillRect(0, sy * h, w, h * 0.03);
+    }
+    for (let i = 0; i < 14; i++) {
+      const row = i % 2;
+      const x = ((i * 0.71) % 1) * w;
+      const y = shelfY[row]! * h - h * 0.02;
+      const bob = Math.sin(now * 1.2 + i) * 2;
+      ctx.globalAlpha = alpha * (0.5 + 0.5 * t);
+      ctx.fillStyle = "#ffd36b";
+      ctx.shadowColor = "#ffc23b";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(x, y + bob, 4, 0, 6.28);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = alpha;
+
+    // motes drifting slowly upward, like light shaken loose from the shelves
+    for (const f of this.fireflies) {
+      const fy = (1 - ((now * 0.03 * f.sp + f.y) % 1)) * h;
+      const fx = (f.x + Math.sin(now * 0.4 + f.ph) * 0.02) * w;
+      const bl = 0.3 + 0.7 * Math.abs(Math.sin(now * 1.6 * f.sp + f.ph));
+      ctx.globalAlpha = alpha * bl * (0.4 + 0.3 * t);
+      ctx.fillStyle = "#ffe9a0";
+      ctx.shadowColor = "#ffcf6b";
+      ctx.shadowBlur = 7;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.8, 0, 6.28);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = alpha;
+
+    this.veil(alpha * 0.45);
     ctx.globalAlpha = 1;
   }
 
