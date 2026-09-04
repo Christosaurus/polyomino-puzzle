@@ -1037,18 +1037,20 @@
         color: #fff;
       }
       #tabbar button.on .ic {
-        transform: translateY(-14px) scale(1.18);
+        transform: translateY(-6px) scale(1.1);
         filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
       }
+      /* the active tab's whole content (icon + label) sits inside one raised,
+         gold-ringed badge — big enough to actually contain both */
       #tabbar button.on::before {
         content: "";
         position: absolute;
-        top: -18px;
+        top: -22px;
         left: 50%;
         transform: translateX(-50%);
-        width: 58px;
-        height: 58px;
-        border-radius: 999px;
+        width: 78px;
+        height: 88px;
+        border-radius: 30px;
         background: linear-gradient(180deg, #7d68ea, #4a38b8);
         border: 3px solid var(--gold);
         box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.5);
