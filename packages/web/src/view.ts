@@ -50,6 +50,7 @@ interface DragState {
 export interface GameViewCallbacks {
   onWin: (stars: number, ms: number) => void;
   onTimeout: () => void;
+  onUnlock?: () => void;
 }
 
 export class GameView {
@@ -74,6 +75,7 @@ export class GameView {
   private hintCells: Array<[number, number]> = [];
   private hintUntil = 0;
   private nowMs = 0;
+  private unlockFlashT = -1;
 
   constructor(canvas: HTMLCanvasElement, wrap: HTMLElement, game: GameState, cb: GameViewCallbacks) {
     this.canvas = canvas;
@@ -103,6 +105,7 @@ export class GameView {
     this.confetti.clear();
     this.hintCells = [];
     this.hintUntil = 0;
+    this.unlockFlashT = -1;
     this.kick();
   }
 
@@ -166,6 +169,15 @@ export class GameView {
     if (this.shake) {
       this.shake.t += dt * 1000;
       if (this.shake.t >= SHAKE_MS) this.shake = null;
+    }
+    if (this.unlockFlashT >= 0) {
+      this.unlockFlashT += dt;
+      if (this.unlockFlashT > 0.9) this.unlockFlashT = -1;
+    }
+    if (this.game.consumeUnlock()) {
+      this.unlockFlashT = 0;
+      sfx.win();
+      this.cb.onUnlock?.();
     }
     if (this.winT >= 0) {
       this.winT += dt;
@@ -249,6 +261,41 @@ export class GameView {
     const wellFill = cssVar("--cell");
     for (const [r, c] of this.game.shape.cells) {
       drawWell(ctx, b.x + c * b.cell, b.y + r * b.cell, b.cell, wellFill);
+    }
+    if (this.game.hasFrozenZone && !this.game.isFrozenUnlocked) {
+      ctx.save();
+      ctx.fillStyle = "rgba(10, 8, 30, 0.62)";
+      for (const [r, c] of this.game.shape.cells) {
+        if (!this.game.isFrozen(r, c)) continue;
+        const x = b.x + c * b.cell;
+        const y = b.y + r * b.cell;
+        ctx.fillRect(x + 1, y + 1, b.cell - 2, b.cell - 2);
+      }
+      ctx.font = `${Math.round(b.cell * 0.42)}px serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.globalAlpha = 0.85;
+      for (const [r, c] of this.game.shape.cells) {
+        if (!this.game.isFrozen(r, c)) continue;
+        // only draw the lock once per frozen "island cluster" cell — cheap
+        // enough to just draw on cells whose left+top neighbours aren't frozen
+        if (this.game.isFrozen(r - 1, c) || this.game.isFrozen(r, c - 1)) continue;
+        ctx.fillText("🔒", b.x + c * b.cell + b.cell / 2, b.y + r * b.cell + b.cell / 2);
+      }
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+    if (this.unlockFlashT >= 0) {
+      const p = this.unlockFlashT / 0.9;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - p) * 0.8;
+      ctx.fillStyle = cssVar("--lumen");
+      for (const [r, c] of this.game.shape.cells) {
+        ctx.fillRect(b.x + c * b.cell, b.y + r * b.cell, b.cell, b.cell);
+      }
+      ctx.restore();
     }
     strokeCellOutline(
       ctx,

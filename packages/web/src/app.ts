@@ -4,7 +4,7 @@
  * "fill the frame" modes and the Kaskade screen.
  */
 
-import { type Level, parseLevel } from "@polyomino/puzzle-core";
+import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
 import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
@@ -362,7 +362,10 @@ function useJoker(kind: JokerKind): void {
   renderJokers();
 }
 
-function mountGame(game: GameState, cb: { onWin: (s: number, ms: number) => void; onTimeout: () => void }): void {
+function mountGame(
+  game: GameState,
+  cb: { onWin: (s: number, ms: number) => void; onTimeout: () => void; onUnlock?: () => void },
+): void {
   teardownGame();
   hideOverlay();
   activeGame = game;
@@ -485,6 +488,23 @@ async function playCampaign(region: Region, index: number): Promise<void> {
 }
 
 // Daily
+/** Sundays are the weekly "Herausforderung" — same daily window, plus a frozen zone. */
+function isWeeklyChallengeDay(): boolean {
+  return new Date().getDay() === 0;
+}
+/** Descent/Daily twist: lock part of the board until the rest is cleared. Returns whether it took. */
+function maybeFreeze(game: GameState, seed: string): boolean {
+  return game.applyFrozenTwist(rngFromSeed(seed));
+}
+const DAILY_MILESTONES: Array<{ days: number; shards: number }> = [
+  { days: 3, shards: 10 },
+  { days: 7, shards: 20 },
+  { days: 14, shards: 35 },
+  { days: 30, shards: 60 },
+  { days: 60, shards: 100 },
+  { days: 100, shards: 150 },
+];
+
 function renderDaily(): void {
   scenery.setTheme("garden");
   const s = store.load();
@@ -494,6 +514,8 @@ function renderDaily(): void {
   $<HTMLButtonElement>("daily-play").textContent = done ? "Heute nochmal" : "Heute spielen";
   $("daily-note").textContent = done
     ? "Heute schon geschafft — Streak gesichert."
+    : isWeeklyChallengeDay()
+    ? "🔒 Wochen-Herausforderung: ein Teil des Fensters startet gesperrt."
     : "Ein neues Fenster jeden Tag — für alle gleich.";
 }
 async function playDaily(): Promise<void> {
@@ -508,14 +530,19 @@ async function playDaily(): Promise<void> {
   }
   scenery.setTheme("garden");
   $("screen-play").dataset.region = "daily";
-  $("play-title-txt").textContent = "Tägliche Scherbe";
+  $("play-title-txt").textContent = isWeeklyChallengeDay() ? "Tägliche Scherbe · 🔒 Woche" : "Tägliche Scherbe";
   const game = new GameState(level);
+  if (isWeeklyChallengeDay() && maybeFreeze(game, `daily:${day}:frozen`)) {
+    toast("🔒 Wochen-Herausforderung: löse zuerst den offenen Teil!");
+  }
   mountGame(game, {
     onWin: (stars, ms) => {
       const earned = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
       store.addShards(5);
+      const milestone = DAILY_MILESTONES.find((m) => m.days === after && after > before);
+      if (milestone) store.addShards(milestone.shards);
       celebrate(syncAchievements());
       renderTopPills();
       showOverlay({
@@ -525,11 +552,13 @@ async function playDaily(): Promise<void> {
         rewards: [
           `✦ +${earned + 5} Lichtsplitter`,
           after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
+          ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
         ],
         nextLabel: "Fertig",
         onNext: () => setTab("daily"),
         onQuit: () => setTab("daily"),
       });
+      if (milestone) scenery.pulse();
     },
     onTimeout: () =>
       showOverlay({
@@ -539,6 +568,7 @@ async function playDaily(): Promise<void> {
         onNext: playDaily,
         onQuit: () => setTab("daily"),
       }),
+    onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
   });
 }
 
@@ -578,6 +608,12 @@ async function playDescentLevel(): Promise<void> {
   // squeeze tightens in as it goes
   const timeFactor = depth <= 3 ? 0.95 : Math.max(0.62, 0.95 - (depth - 3) * 0.03);
   const game = new GameState(level, Math.round(base.limitMs * timeFactor));
+  // every 4th level from depth 4 on, part of the window starts locked — solve
+  // the open part first to free it, one extra beat of tension on a run
+  const isFrozenLevel = depth >= 4 && depth % 4 === 0;
+  if (isFrozenLevel && maybeFreeze(game, `${seed}:d${depth}:frozen`)) {
+    toast("🔒 Ein Teil des Fensters ist gesperrt — löse zuerst den Rest!");
+  }
   mountGame(game, {
     onWin: (stars, ms) => {
       descentState!.depth = depth + 1;
@@ -596,6 +632,7 @@ async function playDescentLevel(): Promise<void> {
         onQuit: () => endDescent(depth),
       });
     },
+    onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
     onTimeout: () => {
       store.recordDescent(depth);
       celebrate(syncAchievements());

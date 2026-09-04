@@ -14,6 +14,7 @@ import {
   levelShape,
   PENTOMINOES,
   type PentominoName,
+  type Rng,
   type Shape,
 } from "@polyomino/puzzle-core";
 
@@ -49,6 +50,9 @@ export class GameState {
   private endedAt: number | null = null;
   private pausedAt: number | null = null;
   private pausedTotal = 0;
+  private frozenCells: Set<string> | null = null;
+  private frozenUnlocked = true;
+  private justUnlocked = false;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -77,11 +81,72 @@ export class GameState {
     this.limitMs += ms;
   }
 
+  /** Descent/Daily twist: lock part of the board until the rest is solved. */
+  setFrozenZone(cells: Set<string> | null): void {
+    this.frozenCells = cells && cells.size > 0 ? cells : null;
+    this.frozenUnlocked = this.frozenCells === null;
+  }
+  /**
+   * Pick a frozen zone made of whole solution pieces (never a raw geometric
+   * split) — freezing must land exactly on piece boundaries, otherwise a
+   * piece straddling the line could never be placed (blocked while locked)
+   * yet is required to unlock (needed to cover its share of the open area),
+   * deadlocking the level. Needs at least 3 pieces so both sides are
+   * non-trivial. Returns whether a twist was actually applied.
+   */
+  applyFrozenTwist(rng: Rng): boolean {
+    const names = rng.shuffle([...this.solutionCells.keys()]);
+    if (names.length < 3) return false;
+    const total = this.shape.size;
+    const frozen = new Set<string>();
+    let frozenCount = 0;
+    let frozenPieces = 0;
+    for (const name of names) {
+      if (frozenPieces > 0 && frozenPieces >= names.length - 1) break; // keep at least one open piece
+      const cells = this.solutionCells.get(name)!;
+      const nextFrac = (frozenCount + cells.length) / total;
+      if (frozenPieces > 0 && nextFrac > 0.65) break;
+      for (const [r, c] of cells) frozen.add(`${r},${c}`);
+      frozenCount += cells.length;
+      frozenPieces += 1;
+      if (frozenCount / total >= 0.35 && rng.next() < 0.5) break;
+    }
+    if (frozenPieces === 0 || frozenPieces >= names.length) return false;
+    this.setFrozenZone(frozen);
+    return true;
+  }
+  get hasFrozenZone(): boolean {
+    return this.frozenCells !== null;
+  }
+  get isFrozenUnlocked(): boolean {
+    return this.frozenUnlocked;
+  }
+  isFrozen(r: number, c: number): boolean {
+    return !this.frozenUnlocked && (this.frozenCells?.has(`${r},${c}`) ?? false);
+  }
+  /** True once, right after the frozen zone opens — consume it to celebrate. */
+  consumeUnlock(): boolean {
+    const v = this.justUnlocked;
+    this.justUnlocked = false;
+    return v;
+  }
+  private checkUnlock(): void {
+    if (this.frozenUnlocked || !this.frozenCells) return;
+    const occ = this.occupied();
+    for (const key of this.shapeCells) {
+      if (this.frozenCells.has(key)) continue;
+      if (!occ.has(key)) return; // an open cell is still unfilled
+    }
+    this.frozenUnlocked = true;
+    this.justUnlocked = true;
+  }
+
   /** A piece that is either unplaced or sitting somewhere other than its solution spot. */
   firstUnsolved(): { piece: PieceState; cells: Array<[number, number]> } | null {
     for (const piece of this.pieces) {
       const target = this.solutionCells.get(piece.name);
       if (!target) continue;
+      if (!this.frozenUnlocked && target.some(([r, c]) => this.isFrozen(r, c))) continue;
       const here = piece.pos
         ? this.cellsAt(piece, piece.pos)
             .map(([r, c]): [number, number] => [r, c])
@@ -177,6 +242,7 @@ export class GameState {
     for (const [r, c] of this.cellsAt(piece, pos)) {
       const key = `${r},${c}`;
       if (!this.shapeCells.has(key) || blocked.has(key)) return false;
+      if (this.isFrozen(r, c)) return false;
     }
     return true;
   }
@@ -184,6 +250,7 @@ export class GameState {
   place(piece: PieceState, pos: Pos): boolean {
     if (!this.canPlace(piece, pos)) return false;
     piece.pos = { ...pos };
+    this.checkUnlock();
     return true;
   }
   removeToTray(piece: PieceState): void {
@@ -217,5 +284,7 @@ export class GameState {
     this.pausedAt = null;
     this.pausedTotal = 0;
     this.usedUndo = false;
+    this.justUnlocked = false;
+    if (this.frozenCells) this.frozenUnlocked = false;
   }
 }
