@@ -8,6 +8,8 @@ const KEY = "polyomino.save.v2";
 export interface LevelResult {
   stars: number;
   bestMs: number;
+  /** Consecutive timeouts on this level since the last win — drives the pity assist. */
+  fails?: number;
 }
 
 export type JokerKind = "hint" | "time" | "solvent";
@@ -107,7 +109,10 @@ export function recordLevel(levelId: string, stars: number, ms: number, usedUndo
     const firstClear = !prev;
     if (!prev || stars > prev.stars || (stars === prev.stars && ms < prev.bestMs)) {
       d.levels[levelId] = { stars, bestMs: ms };
+    } else {
+      d.levels[levelId] = { ...prev };
     }
+    d.levels[levelId]!.fails = 0; // a win always clears the pity streak
     earned = stars + (firstClear ? 3 : 1);
     d.shards += earned;
     d.stats.solved += 1;
@@ -120,6 +125,32 @@ export function recordLevel(levelId: string, stars: number, ms: number, usedUndo
     }
   });
   return earned;
+}
+
+const PITY_THRESHOLD = 2;
+
+/** A level timed out. Track it so a repeat run can offer a free assist. */
+export function recordFail(levelId: string): number {
+  let fails = 0;
+  update((d) => {
+    const prev = d.levels[levelId];
+    fails = (prev?.fails ?? 0) + 1;
+    d.levels[levelId] = { stars: prev?.stars ?? 0, bestMs: prev?.bestMs ?? Infinity, fails };
+  });
+  return fails;
+}
+
+/** True once a level has failed enough in a row to earn a free hint + more time. */
+export function pity(levelId: string): boolean {
+  return (load().levels[levelId]?.fails ?? 0) >= PITY_THRESHOLD;
+}
+
+/** Consume the pity assist so it doesn't re-trigger next attempt regardless of outcome. */
+export function clearPity(levelId: string): void {
+  update((d) => {
+    const prev = d.levels[levelId];
+    if (prev) prev.fails = 0;
+  });
 }
 
 export function recordDaily(now = new Date()): SaveData {

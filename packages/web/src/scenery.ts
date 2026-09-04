@@ -119,9 +119,9 @@ export class Scenery {
   setTheme(t: SceneTheme): void {
     this.theme = t;
   }
-  /** brief bright bloom, for milestone / region moments */
-  pulse(): void {
-    this.flash = 1;
+  /** brief bright bloom — every win gets a small one, milestones/regions the full bloom */
+  pulse(intensity = 1): void {
+    this.flash = Math.max(this.flash, intensity);
   }
   private themeIndex(): number {
     return this.theme === "menu" ? 0 : 1;

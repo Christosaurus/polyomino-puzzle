@@ -45,11 +45,13 @@ let clockTimer = 0;
 const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
 
 /** How lit the world is (0..1), from campaign stars. */
-function refreshLight(): void {
+function lightFrac(): number {
   const max = (manifest?.levels.length ?? 15) * 3;
-  const frac = Math.min(1, store.totalStars(store.load()) / Math.max(1, max));
+  return Math.min(1, store.totalStars(store.load()) / Math.max(1, max));
+}
+function refreshLight(): void {
   // steep early curve so the first region visibly warms the world
-  scenery.setLight(0.14 + 0.86 * Math.pow(frac, 0.6));
+  scenery.setLight(0.14 + 0.86 * Math.pow(lightFrac(), 0.6));
 }
 
 const REGION_THEME: Record<string, SceneTheme> = {
@@ -195,7 +197,9 @@ function renderHome(): void {
   renderTopPills();
   const s = store.load();
   const total = store.totalStars(s);
-  $("home-status").textContent = "Jeder Stern bringt ein Stück Welt zurück ins Licht.";
+  const pct = Math.round(lightFrac() * 100);
+  $("home-status").innerHTML =
+    `Jeder Stern bringt ein Stück Welt zurück ins Licht. <b>Licht: ${pct}%</b>`;
 
   const host = $("regions");
   host.replaceChildren();
@@ -350,6 +354,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   const earned = store.recordLevel(levelId, stars, ms, usedUndo);
   lines.push(`✦ +${earned} Lichtsplitter`);
   refreshLight();
+  scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
   for (const m of store.claimMilestones()) {
     lines.push(`🏆 Meilenstein ${m.threshold}★ · ✦ +${m.shards}, Joker +2`);
@@ -406,6 +411,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     return;
   }
   const game = new GameState(level);
+  const assisted = store.pity(entry.id);
   mountGame(game, {
     onWin: (stars, ms) => {
       const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
@@ -422,6 +428,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     },
     onTimeout: () => {
       store.spendLife();
+      store.recordFail(entry.id);
       renderTopPills();
       const l = store.lives();
       showOverlay({
@@ -437,6 +444,14 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       });
     },
   });
+  if (assisted) {
+    // this level has bitten twice in a row — soften the next attempt so it
+    // doesn't just become a wall the player bounces off and quits at
+    store.clearPity(entry.id);
+    game.extendLimit(Math.round(game.limitMs * 0.3));
+    gameView?.showHint();
+    toast("Diese Stelle ist knifflig — mehr Zeit & ein Tipp gratis 💡");
+  }
 }
 
 // Daily
