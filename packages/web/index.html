@@ -338,6 +338,49 @@
         font-size: 24px;
         text-shadow: 0 2px 0 var(--stroke);
       }
+
+      /* ── Täglich / Abstieg / Kaskade — each its own accent + icon ───── */
+      #screen-daily {
+        --accent: var(--gold);
+        --accent-lo: var(--gold-lo);
+      }
+      #screen-descent {
+        --accent: var(--sky);
+        --accent-lo: var(--sky-lo);
+      }
+      #screen-cascade {
+        --accent: var(--grape-bright);
+        --accent-lo: var(--grape-bright-lo);
+      }
+      .mode-screen {
+        justify-content: center;
+      }
+      .mode-icon {
+        align-self: center;
+        width: 76px;
+        height: 76px;
+        border-radius: 22px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 55%, var(--panel-inset)), var(--panel-inset));
+        border: 3px solid var(--accent);
+        box-shadow: 0 0 26px 4px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow);
+        margin-bottom: -4px;
+      }
+      .mode-icon .icon-img {
+        width: 44px;
+        height: 44px;
+      }
+      .mode-card {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+        box-shadow:
+          inset 0 3px 0 rgba(255, 255, 255, 0.22),
+          0 0 30px -6px color-mix(in srgb, var(--accent) 55%, transparent),
+          var(--shadow);
+      }
+      .mode-card .big {
+        color: var(--accent);
+      }
       .banner {
         align-self: center;
         margin-bottom: -6px;
@@ -1140,9 +1183,10 @@
         <div class="grid" id="region-levels"></div>
       </section>
 
-      <section class="screen" id="screen-daily" hidden>
+      <section class="screen mode-screen" id="screen-daily" hidden>
+        <div class="mode-icon"><img class="icon-img" src="ui/daily.webp" alt="" /></div>
         <h1>Tägliche Scherbe</h1>
-        <div class="card" id="daily-card">
+        <div class="card mode-card" id="daily-card">
           <div class="row">
             <div><div class="big" id="daily-streak">🔥 0</div><div class="muted">Tage in Folge</div></div>
             <div style="text-align:right"><div class="big" id="daily-best">0</div><div class="muted">Bester Streak</div></div>
@@ -1152,9 +1196,10 @@
         </div>
       </section>
 
-      <section class="screen" id="screen-descent" hidden>
+      <section class="screen mode-screen" id="screen-descent" hidden>
+        <div class="mode-icon"><img class="icon-img" src="ui/descent.webp" alt="" /></div>
         <h1>Abstieg</h1>
-        <div class="card">
+        <div class="card mode-card">
           <div class="row">
             <div><div class="big" id="descent-best">Ebene 0</div><div class="muted">Bestmarke</div></div>
             <div style="text-align:right"><div class="big" id="descent-runs">0</div><div class="muted">Läufe</div></div>
@@ -1164,9 +1209,10 @@
         </div>
       </section>
 
-      <section class="screen" id="screen-cascade" hidden>
+      <section class="screen mode-screen" id="screen-cascade" hidden>
+        <div class="mode-icon"><img class="icon-img" src="ui/cascade.webp" alt="" /></div>
         <h1>Kaskade</h1>
-        <div class="card">
+        <div class="card mode-card">
           <div class="row">
             <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>

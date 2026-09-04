@@ -486,6 +486,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
 
 // Daily
 function renderDaily(): void {
+  scenery.setTheme("garden");
   const s = store.load();
   $("daily-streak").textContent = `🔥 ${s.daily.streak}`;
   $("daily-best").textContent = String(s.daily.bestStreak);
@@ -543,6 +544,7 @@ async function playDaily(): Promise<void> {
 
 // Descent
 function renderDescent(): void {
+  scenery.setTheme("workshop");
   const s = store.load();
   $("descent-best").textContent = `Ebene ${s.descent.bestDepth}`;
   $("descent-runs").textContent = String(s.descent.runs);
@@ -618,6 +620,7 @@ function endDescent(reachedDepth?: number): void {
 
 // ── Kaskade ────────────────────────────────────────────────────────────────
 function renderCascade(): void {
+  scenery.setTheme("surge");
   const s = store.load();
   $("cascade-best").textContent = String(s.cascade.bestScore);
   $("cascade-cleared").textContent = String(s.cascade.bestCleared);

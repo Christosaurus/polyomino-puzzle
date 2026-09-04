@@ -6,7 +6,7 @@
  * in shadow (birds, bees, flowers that open as the light returns).
  */
 
-export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard" | "collection";
+export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard" | "collection" | "surge";
 
 /** Hand-painted backdrops. Each theme has a night + day plate we cross-fade
  *  by `light`. Themes without art fall back to the procedural scene. */
@@ -196,6 +196,7 @@ export class Scenery {
       const plate = this.theme !== "menu" ? this.plateFor(this.theme) : null;
       if (plate) this.drawPlate(plate, mix01);
       else if (this.theme === "collection") this.drawVault(mix01);
+      else if (this.theme === "surge") this.drawSurge(mix01);
       else this.drawGarden(mix01);
     }
     if (this.flash > 0) {
@@ -618,6 +619,77 @@ export class Scenery {
     ctx.globalAlpha = alpha;
 
     this.veil(alpha * 0.45);
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Kaskade: a racing surge of light ────────────────────────────────────
+  private drawSurge(alpha: number): void {
+    const { ctx, w, h } = this;
+    const t = 0.4 + 0.6 * this.shown;
+    const now = performance.now() / 1000;
+    ctx.globalAlpha = alpha;
+
+    const sky = ctx.createLinearGradient(0, 0, w, h);
+    sky.addColorStop(0, mix([10, 8, 34], [30, 20, 70], t));
+    sky.addColorStop(0.5, mix([16, 10, 46], [46, 26, 96], t));
+    sky.addColorStop(1, mix([8, 14, 40], [20, 40, 78], t));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // racing speed-lines, diagonal, looping
+    const lanes: Array<{ y: number; sp: number; hue: RGB }> = [];
+    for (let i = 0; i < 9; i++) {
+      lanes.push({
+        y: (i + 0.5) / 9,
+        sp: 0.14 + (i % 3) * 0.07,
+        hue: i % 3 === 0 ? [69, 193, 255] : i % 3 === 1 ? [168, 117, 255] : [47, 217, 207],
+      });
+    }
+    for (const lane of lanes) {
+      const prog = (now * lane.sp) % 1.4;
+      const x = w * (prog - 0.2);
+      const y = lane.y * h;
+      const len = w * 0.32;
+      const grad = ctx.createLinearGradient(x - len, y, x, y);
+      grad.addColorStop(0, "rgba(255,255,255,0)");
+      grad.addColorStop(1, `rgba(${lane.hue[0]},${lane.hue[1]},${lane.hue[2]},${0.5 * (0.4 + 0.6 * t)})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = h * 0.006;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x - len, y - h * 0.02);
+      ctx.lineTo(x, y + h * 0.02);
+      ctx.stroke();
+    }
+
+    // a soft pulsing energy core, off-centre
+    const cx = w * 0.72;
+    const cy = h * 0.28;
+    const pulse = 0.5 + 0.5 * Math.sin(now * 1.8);
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * (0.32 + 0.04 * pulse));
+    core.addColorStop(0, `rgba(168,117,255,${0.28 + 0.1 * pulse})`);
+    core.addColorStop(1, "rgba(168,117,255,0)");
+    ctx.fillStyle = core;
+    ctx.fillRect(0, 0, w, h);
+
+    // drifting sparks, quick and bright
+    for (let i = 0; i < this.fireflies.length; i++) {
+      const f = this.fireflies[i]!;
+      const fx = ((f.x + now * 0.09 * f.sp + i * 0.09) % 1.05) * w;
+      const fy = (f.y + Math.sin(now * f.sp * 2 + f.ph) * 0.03) * h;
+      const bl = 0.3 + 0.7 * Math.abs(Math.sin(now * 3 * f.sp + f.ph));
+      ctx.globalAlpha = alpha * bl * (0.5 + 0.3 * t);
+      ctx.fillStyle = i % 2 === 0 ? "#9fe8ff" : "#d9c2ff";
+      ctx.shadowColor = i % 2 === 0 ? "#45c1ff" : "#a875ff";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.6, 0, 6.28);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = alpha;
+
+    this.veil(alpha * 0.4);
     ctx.globalAlpha = 1;
   }
 
