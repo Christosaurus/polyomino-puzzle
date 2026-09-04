@@ -16,8 +16,9 @@ export const CASCADE_COLS = 6;
 const DURATION_MS = 90_000;
 const BASE_SPAWN_MS = 2200;
 const MIN_SPAWN_MS = 950;
-const BELT_TRAVEL_MS_START = 10_500; // time for a shard to ride top→bottom, at run start
-const BELT_TRAVEL_MS_END = 6_200; // ...and by the end of the run — the belt speeds up
+const BELT_TRAVEL_MS_START = 11_000; // time for a shard to ride top→bottom, at run start
+const BELT_TRAVEL_MS_END = 5_400; // ...and by the end of the run — the belt speeds up
+export const CASCADE_LIVES = 3;
 const MAX_ON_BELT = 3;
 const MIN_GAP_Y = 0.36; // spacing between shards on the belt
 /** Every Nth spawn is the "Blitzstein" — a rare, deliberate novelty, not raw RNG. */
@@ -41,6 +42,7 @@ export interface CascadeResult {
   cleared: number;
   covered: number;
   perfectClears: number;
+  livesLeft: number;
 }
 
 /** A short-lived bonus objective: clear N rows before the deadline for +time. */
@@ -71,6 +73,8 @@ export class CascadeState {
   cleared = 0;
   perfectClears = 0;
   misses = 0;
+  /** A shard reaching the bottom unplaced costs one of these; hit 0 and the run ends. */
+  lives = CASCADE_LIVES;
   /** Row indices cleared by the most recent `place()` — for the view's flash. */
   lastCleared: number[] = [];
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
@@ -136,7 +140,7 @@ export class CascadeState {
     return Math.max(0, DURATION_MS + this.extraMs - this.elapsedMs());
   }
   get isOver(): boolean {
-    return this.isStarted && this.remainingMs() <= 0;
+    return this.isStarted && (this.remainingMs() <= 0 || this.lives <= 0);
   }
   finish(): void {
     if (this.endedAt === null) this.endedAt = performance.now();
@@ -148,6 +152,7 @@ export class CascadeState {
       cleared: this.cleared,
       covered: this.coveredCells(),
       perfectClears: this.perfectClears,
+      livesLeft: this.lives,
     };
   }
 
@@ -166,6 +171,9 @@ export class CascadeState {
       this.belt = this.belt.filter((s) => s.y < 1);
       this.misses += fell.length;
       this.multiplier = 1;
+      // the whole point now: every shard on the belt is meant to get used —
+      // let one ride off unplaced and it costs a life, same as failing a move
+      this.lives = Math.max(0, this.lives - fell.length);
       this.spawnInterval = Math.max(MIN_SPAWN_MS, this.spawnInterval * 0.97);
     }
 

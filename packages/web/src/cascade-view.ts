@@ -42,7 +42,7 @@ interface Drag {
 
 export interface CascadeCallbacks {
   onEnd: (result: ReturnType<CascadeState["result"]>) => void;
-  onHud: (s: { score: number; mult: number; cleared: number; ms: number }) => void;
+  onHud: (s: { score: number; mult: number; cleared: number; ms: number; lives: number }) => void;
 }
 
 export class CascadeView {
@@ -120,7 +120,8 @@ export class CascadeView {
     if (this.game.isOver && !this.ended) {
       this.ended = true;
       this.game.finish();
-      sfx.win();
+      if (this.game.lives <= 0) sfx.invalid();
+      else sfx.win();
       this.cb.onEnd(this.game.result());
     }
     this.cb.onHud({
@@ -128,6 +129,7 @@ export class CascadeView {
       mult: this.game.multiplier,
       cleared: this.game.cleared,
       ms: this.game.remainingMs(),
+      lives: this.game.lives,
     });
   }
 
@@ -137,9 +139,11 @@ export class CascadeView {
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const pad = 10;
 
-    const beltW = Math.round(Math.max(70, Math.min(100, cssW * 0.24)));
+    // narrower and with a smaller hold slot than before — a leaner, more
+    // elongated conveyor with a longer visible travel path
+    const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
     const boardAreaW = cssW - beltW - pad * 3;
-    const maxH = Math.max(320, viewportH - 184);
+    const maxH = Math.max(320, viewportH - 216); // hud rows + the new lives strip + pad
 
     const cell = Math.max(
       22,
@@ -152,7 +156,7 @@ export class CascadeView {
 
     const beltX = cssW - beltW - pad;
     const beltTop = pad;
-    const holdSize = beltW;
+    const holdSize = Math.round(beltW * 0.8);
     const beltH = boardH - holdSize - 10;
     const holdY = beltTop + beltH + 10;
 

@@ -670,6 +670,7 @@ function startCascade(): void {
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
+  for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.remove("lost");
   const game = new CascadeState(`kaskade-${Date.now()}`);
   cascadeGame = game;
   const bestScore = store.load().cascade.bestScore;
@@ -688,6 +689,7 @@ function startCascade(): void {
         newRecord = true;
         $("k-score-txt").classList.add("new-record");
       }
+      for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
       if (game.consumeChallengeWin()) {
         challengeWonUntil = performance.now() + 1800;
@@ -713,6 +715,7 @@ function startCascade(): void {
     onEnd: (r) => {
       store.recordCascade(r.score, r.cleared);
       celebrate(syncAchievements());
+      $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
         `<b>${r.score}</b> Punkte · ${r.cleared} Reihen` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
