@@ -14,9 +14,11 @@ import { PIECE_NAMES } from "./colors.js";
 export const CASCADE_ROWS = 6;
 export const CASCADE_COLS = 7;
 const DURATION_MS = 90_000;
-const BASE_SPAWN_MS = 2100;
-const MIN_SPAWN_MS = 850;
-const BELT_TRAVEL_MS = 9000; // time for a shard to ride top→bottom
+const BASE_SPAWN_MS = 2600;
+const MIN_SPAWN_MS = 1300;
+const BELT_TRAVEL_MS = 13_000; // time for a shard to ride top→bottom
+const MAX_ON_BELT = 3;
+const MIN_GAP_Y = 0.34; // spacing between shards on the belt
 
 export interface Pos {
   row: number;
@@ -65,8 +67,7 @@ export class CascadeState {
 
   constructor(seed: string) {
     this.rng = rngFromSeed(seed);
-    // seed the belt, spaced out
-    this.belt.push(this.makeShard(0.55), this.makeShard(0.25), this.makeShard(0.0));
+    this.belt.push(this.makeShard(0.72), this.makeShard(0.38), this.makeShard(0.04));
   }
 
   private makeShard(y: number): Shard {
@@ -126,8 +127,12 @@ export class CascadeState {
     this.multiplier = Math.max(1, this.multiplier - dt * 0.12);
 
     this.spawnTimer += dt * 1000;
-    const topClear = this.belt.every((s) => s.y > 0.12);
-    if (this.spawnTimer >= this.spawnInterval && this.belt.length < 5 && topClear) {
+    const topGap = this.belt.length === 0 ? 1 : Math.min(...this.belt.map((s) => s.y));
+    if (
+      this.spawnTimer >= this.spawnInterval &&
+      this.belt.length < MAX_ON_BELT &&
+      topGap >= MIN_GAP_Y
+    ) {
       this.spawnTimer = 0;
       this.belt.push(this.makeShard(0));
     }
@@ -151,7 +156,7 @@ export class CascadeState {
   /** Move a belt shard into the hold slot, bumping any held shard back to the belt. */
   toHold(shard: Shard): void {
     this.belt = this.belt.filter((s) => s.id !== shard.id);
-    if (this.hold) this.belt.unshift({ ...this.hold, y: -0.05 });
+    if (this.hold) this.belt.unshift({ ...this.hold, y: 0 });
     this.hold = shard;
   }
   takeHold(): Shard | null {

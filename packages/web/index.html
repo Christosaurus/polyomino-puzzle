@@ -16,19 +16,18 @@
     <style>
       :root {
         color-scheme: dark;
-        --bg-1: #0c0f1a;
-        --bg-2: #070912;
         --surface: #151a2b;
         --surface-2: #1d2338;
-        --hairline: #2b3350;
+        --hairline: #333c5c;
         --cell: #232a41;
-        --board-edge: #3b4568;
+        --board-edge: #47527d;
         --ink: #eef2ff;
-        --ink-dim: #8f9ac2;
+        --ink-dim: #9aa4cc;
         --lumen: #ffc23d;
         --accent: #5b6bff;
         --good: #3ddc84;
         --bad: #ff5470;
+        --panel: color-mix(in srgb, var(--surface) 84%, transparent);
         --shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.7);
       }
       * {
@@ -38,19 +37,28 @@
       [hidden] {
         display: none !important;
       }
-      html,
+      html {
+        background: #0a0d1a;
+      }
       body {
         margin: 0;
-        height: 100%;
-        background: radial-gradient(120% 80% at 50% 0%, var(--bg-1), var(--bg-2));
-        background-attachment: fixed;
+        min-height: 100%;
+        background: transparent;
         color: var(--ink);
         font-family: "Hanken Grotesk", system-ui, sans-serif;
         overscroll-behavior: none;
         -webkit-user-select: none;
         user-select: none;
       }
+      #scenery {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
       #app {
+        position: relative;
+        z-index: 1;
         max-width: 620px;
         margin: 0 auto;
         min-height: 100dvh;
@@ -59,7 +67,7 @@
       }
       .screen {
         flex: 1;
-        padding: calc(env(safe-area-inset-top) + 16px) 16px 96px;
+        padding: calc(env(safe-area-inset-top) + 18px) 16px 100px;
         display: flex;
         flex-direction: column;
         gap: 16px;
@@ -75,6 +83,7 @@
         font-size: 26px;
         letter-spacing: -0.02em;
         margin: 0;
+        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
       }
       h2 {
         font-family: "Unbounded", sans-serif;
@@ -100,6 +109,9 @@
       button:active {
         transform: scale(0.96);
       }
+      button:disabled {
+        opacity: 0.4;
+      }
       button.primary {
         background: linear-gradient(180deg, #6b79ff, #4b5bf0);
         border-color: transparent;
@@ -121,35 +133,96 @@
       .star-count {
         font-weight: 800;
         font-size: 15px;
+        background: var(--panel);
+        border: 1px solid var(--hairline);
+        padding: 5px 12px;
+        border-radius: 999px;
+        backdrop-filter: blur(6px);
       }
       .star-count b {
         color: var(--lumen);
       }
 
-      /* cards */
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--hairline);
-        border-radius: 18px;
-        padding: 18px;
-        box-shadow: var(--shadow);
+      /* ── Journey (home) ─────────────────────────────── */
+      .journey {
+        position: relative;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 0;
+        padding-left: 34px;
       }
-      .card.locked {
+      .journey::before {
+        content: "";
+        position: absolute;
+        left: 15px;
+        top: 30px;
+        bottom: 30px;
+        width: 4px;
+        border-radius: 2px;
+        background: linear-gradient(180deg, var(--lumen), color-mix(in srgb, var(--lumen) 20%, var(--hairline)));
         opacity: 0.55;
       }
-      .card .row {
+      .station {
+        position: relative;
+        padding: 14px 0;
+      }
+      .station::before {
+        content: "";
+        position: absolute;
+        left: -27px;
+        top: 26px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--surface);
+        border: 3px solid var(--hairline);
+      }
+      .station.done::before {
+        background: var(--lumen);
+        border-color: var(--lumen);
+        box-shadow: 0 0 14px var(--lumen);
+      }
+      .station.current::before {
+        border-color: var(--lumen);
+        animation: ping 1.4s ease-in-out infinite;
+      }
+      @keyframes ping {
+        50% {
+          box-shadow: 0 0 0 6px color-mix(in srgb, var(--lumen) 22%, transparent);
+        }
+      }
+      .st-card {
+        background: var(--panel);
+        border: 1px solid var(--hairline);
+        border-radius: 18px;
+        padding: 16px 18px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .station.locked .st-card {
+        opacity: 0.5;
+      }
+      .st-card .row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
       }
-      .card .big {
+      .st-card .name {
         font-family: "Unbounded", sans-serif;
         font-weight: 800;
-        font-size: 22px;
+        font-size: 20px;
+      }
+      .st-card .want {
+        font-weight: 800;
+        color: var(--ink-dim);
+        white-space: nowrap;
+      }
+      .st-card .want b {
+        color: var(--lumen);
       }
       .progress {
         height: 7px;
@@ -163,7 +236,30 @@
         background: linear-gradient(90deg, var(--lumen), #ff9d3d);
       }
 
-      /* region + level grids */
+      /* cards (daily/descent/cascade) */
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--hairline);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .card .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .card .big {
+        font-family: "Unbounded", sans-serif;
+        font-weight: 800;
+        font-size: 22px;
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
@@ -177,9 +273,10 @@
         align-items: center;
         justify-content: center;
         gap: 5px;
-        background: var(--surface);
+        background: var(--panel);
         border: 1px solid var(--hairline);
         border-radius: 15px;
+        backdrop-filter: blur(6px);
       }
       .lvl .n {
         font-family: "Unbounded", sans-serif;
@@ -198,7 +295,7 @@
         border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline));
       }
 
-      /* HUD (shared) */
+      /* HUD */
       .hud {
         display: grid;
         grid-template-columns: 1fr auto 1fr;
@@ -215,8 +312,9 @@
         font-size: 24px;
         padding: 4px 14px;
         border-radius: 999px;
-        background: var(--surface);
+        background: var(--panel);
         border: 1px solid var(--hairline);
+        backdrop-filter: blur(6px);
       }
       .clock.warn {
         color: var(--bad);
@@ -243,13 +341,14 @@
 
       .board-wrap {
         position: relative;
-        background: var(--surface);
+        background: var(--panel);
         border: 1px solid var(--hairline);
         border-radius: 20px;
         box-shadow: var(--shadow);
         overflow: hidden;
         touch-action: none;
         padding: 4px;
+        backdrop-filter: blur(4px);
       }
       canvas {
         display: block;
@@ -259,10 +358,36 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 8px;
+        margin-top: 10px;
+        gap: 8px;
       }
-      .play-foot .muted {
-        font-size: 12px;
+      .jokers {
+        display: flex;
+        gap: 8px;
+      }
+      .joker {
+        position: relative;
+        padding: 9px 12px;
+        font-size: 15px;
+        border-radius: 12px;
+        background: var(--panel);
+        backdrop-filter: blur(6px);
+      }
+      .joker .c {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        border-radius: 999px;
+        background: var(--lumen);
+        color: #1a1300;
+        font-size: 11px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       /* overlays */
@@ -272,7 +397,7 @@
         display: none;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+        background: color-mix(in srgb, #0a0d1a 82%, transparent);
         backdrop-filter: blur(4px);
       }
       .overlay.show {
@@ -338,18 +463,18 @@
         gap: 10px;
       }
 
-      /* achievements */
       .ach {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 12px 14px;
-        background: var(--surface);
+        background: var(--panel);
         border: 1px solid var(--hairline);
         border-radius: 14px;
+        backdrop-filter: blur(6px);
       }
       .ach.locked {
-        opacity: 0.45;
+        opacity: 0.42;
       }
       .ach .ic {
         font-size: 20px;
@@ -379,10 +504,11 @@
         gap: 10px;
       }
       .stat {
-        background: var(--surface);
+        background: var(--panel);
         border: 1px solid var(--hairline);
         border-radius: 14px;
         padding: 14px;
+        backdrop-filter: blur(6px);
       }
       .stat b {
         font-family: "Unbounded", sans-serif;
@@ -394,7 +520,6 @@
         font-size: 12px;
       }
 
-      /* tab bar */
       #tabbar {
         position: fixed;
         left: 0;
@@ -405,8 +530,8 @@
         max-width: 620px;
         margin: 0 auto;
         padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px);
-        background: color-mix(in srgb, var(--bg-2) 88%, transparent);
-        backdrop-filter: blur(12px);
+        background: color-mix(in srgb, #0a0d1a 82%, transparent);
+        backdrop-filter: blur(14px);
         border-top: 1px solid var(--hairline);
       }
       #tabbar button {
@@ -432,7 +557,7 @@
       .toast {
         position: fixed;
         left: 50%;
-        bottom: 96px;
+        bottom: 100px;
         transform: translateX(-50%) translateY(20px);
         z-index: 40;
         background: var(--surface);
@@ -453,20 +578,19 @@
     </style>
   </head>
   <body>
+    <canvas id="scenery"></canvas>
     <div id="app">
-      <!-- ── Spielen: regions ── -->
       <section class="screen" id="screen-home">
         <div class="topbar">
           <h1>Lumen</h1>
           <span class="star-count" id="home-stars"></span>
         </div>
         <p class="muted" id="home-status">Wird geladen …</p>
-        <div id="regions" style="display:flex;flex-direction:column;gap:12px"></div>
+        <div class="journey" id="regions"></div>
       </section>
 
-      <!-- ── Region → levels ── -->
       <section class="screen" id="screen-region" hidden>
-        <button class="ghost" id="region-back">‹ Regionen</button>
+        <button class="ghost" id="region-back">‹ Der Weg</button>
         <div>
           <h1 id="region-name"></h1>
           <p class="muted" id="region-sub"></p>
@@ -474,64 +598,42 @@
         <div class="grid" id="region-levels"></div>
       </section>
 
-      <!-- ── Täglich ── -->
       <section class="screen" id="screen-daily" hidden>
         <h1>Tägliche Scherbe</h1>
         <div class="card" id="daily-card">
           <div class="row">
-            <div>
-              <div class="big" id="daily-streak">🔥 0</div>
-              <div class="muted">Tage in Folge</div>
-            </div>
-            <div style="text-align:right">
-              <div class="big" id="daily-best">0</div>
-              <div class="muted">Bester Streak</div>
-            </div>
+            <div><div class="big" id="daily-streak">🔥 0</div><div class="muted">Tage in Folge</div></div>
+            <div style="text-align:right"><div class="big" id="daily-best">0</div><div class="muted">Bester Streak</div></div>
           </div>
           <p class="muted" id="daily-note">Ein neues Fenster jeden Tag — für alle gleich.</p>
           <button class="primary" id="daily-play">Heute spielen</button>
         </div>
       </section>
 
-      <!-- ── Abstieg ── -->
       <section class="screen" id="screen-descent" hidden>
         <h1>Abstieg</h1>
         <div class="card">
           <div class="row">
-            <div>
-              <div class="big" id="descent-best">Ebene 0</div>
-              <div class="muted">Bestmarke</div>
-            </div>
-            <div style="text-align:right">
-              <div class="big" id="descent-runs">0</div>
-              <div class="muted">Läufe</div>
-            </div>
+            <div><div class="big" id="descent-best">Ebene 0</div><div class="muted">Bestmarke</div></div>
+            <div style="text-align:right"><div class="big" id="descent-runs">0</div><div class="muted">Läufe</div></div>
           </div>
           <p class="muted">Fenster für Fenster hinab. Jedes schwerer, jede Uhr kürzer. Ein Fehlschlag beendet den Lauf.</p>
           <button class="primary" id="descent-play">Abstieg beginnen</button>
         </div>
       </section>
 
-      <!-- ── Kaskade ── -->
       <section class="screen" id="screen-cascade" hidden>
         <h1>Kaskade</h1>
         <div class="card">
           <div class="row">
-            <div>
-              <div class="big" id="cascade-best">0</div>
-              <div class="muted">Höchste Punktzahl</div>
-            </div>
-            <div style="text-align:right">
-              <div class="big" id="cascade-cleared">0</div>
-              <div class="muted">Meiste Reihen</div>
-            </div>
+            <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
+            <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
           </div>
           <p class="muted">90 Sekunden. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
           <button class="primary" id="cascade-play">Kaskade starten</button>
         </div>
       </section>
 
-      <!-- ── Sammlung ── -->
       <section class="screen" id="screen-collection" hidden>
         <h1>Sammlung</h1>
         <div class="statgrid" id="stats"></div>
@@ -539,7 +641,6 @@
         <div id="achievements" style="display:flex;flex-direction:column;gap:8px"></div>
       </section>
 
-      <!-- ── Play (campaign / daily / descent) ── -->
       <section class="screen play" id="screen-play" hidden>
         <div class="hud">
           <div><button class="ghost" id="play-back">‹</button></div>
@@ -561,12 +662,15 @@
           </div>
         </div>
         <div class="play-foot">
-          <span class="muted">Antippen dreht · ziehen platziert</span>
+          <div class="jokers">
+            <button class="joker" id="jk-hint" title="Tipp">💡<span class="c" id="jk-hint-c">0</span></button>
+            <button class="joker" id="jk-time" title="+20 Sekunden">⏱<span class="c" id="jk-time-c">0</span></button>
+            <button class="joker" id="jk-solvent" title="Falsche Teile lösen">🧪<span class="c" id="jk-solvent-c">0</span></button>
+          </div>
           <button class="ghost" id="play-reset">Neu</button>
         </div>
       </section>
 
-      <!-- ── Kaskade play ── -->
       <section class="screen play" id="screen-kaskade" hidden>
         <div class="hud">
           <div><button class="ghost" id="k-back">‹</button></div>
@@ -593,7 +697,7 @@
       </section>
 
       <nav id="tabbar">
-        <button data-tab="home" class="on"><span class="ic">◆</span>Spielen</button>
+        <button data-tab="home" class="on"><span class="ic">◆</span>Der Weg</button>
         <button data-tab="daily"><span class="ic">☀</span>Täglich</button>
         <button data-tab="descent"><span class="ic">▼</span>Abstieg</button>
         <button data-tab="cascade"><span class="ic">⚡</span>Kaskade</button>

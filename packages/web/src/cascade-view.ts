@@ -221,11 +221,19 @@ export class CascadeView {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    const shardCell = L.beltW * 0.3;
+    const belt = this.beltMetrics(L);
+    // faint band guides
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    for (let i = 1; i < 3; i++) {
+      const y = L.beltTop + i * (L.beltH / 3);
+      ctx.beginPath();
+      ctx.moveTo(L.beltX + 6, y);
+      ctx.lineTo(L.beltX + L.beltW - 6, y);
+      ctx.stroke();
+    }
     for (const s of this.game.belt) {
       if (this.drag && this.drag.shard.id === s.id) continue;
-      const cy = L.beltTop + shardCell * 1.6 + s.y * (L.beltH - shardCell * 3.2);
-      this.drawShardCentered(s, L.beltX + L.beltW / 2, cy, shardCell);
+      this.drawShardCentered(s, L.beltX + L.beltW / 2, belt.cy(s.y), belt.shardCell);
     }
 
     // hold slot
@@ -246,6 +254,16 @@ export class CascadeView {
 
     // drag ghost
     if (this.drag) this.drawDrag(L);
+  }
+
+  private beltMetrics(L: Layout): { bandH: number; shardCell: number; cy: (y: number) => number } {
+    const bandH = L.beltH / 3.2;
+    const shardCell = Math.max(7, Math.min(bandH / 5.2, L.beltW / 5.2));
+    return {
+      bandH,
+      shardCell,
+      cy: (y: number) => L.beltTop + bandH / 2 + y * (L.beltH - bandH),
+    };
   }
 
   private drawShardCentered(shard: Shard, cx: number, cy: number, cell: number): void {
@@ -317,15 +335,22 @@ export class CascadeView {
   }
 
   private beltHit(x: number, y: number, L: Layout): Shard | null {
-    const shardCell = L.beltW * 0.3;
+    if (x < L.beltX - 6 || x > L.beltX + L.beltW + 6) return null;
+    const belt = this.beltMetrics(L);
+    // nearest shard whose band contains y
+    let best: Shard | null = null;
+    let bestDist = belt.bandH * 0.62;
     for (const s of this.game.belt) {
-      const cy = L.beltTop + shardCell * 1.6 + s.y * (L.beltH - shardCell * 3.2);
-      if (
-        x >= L.beltX &&
-        x <= L.beltX + L.beltW &&
-        y >= cy - shardCell * 1.6 &&
-        y <= cy + shardCell * 1.6
-      ) {
+      const dist = Math.abs(y - belt.cy(s.y));
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = s;
+      }
+    }
+    if (best) return best;
+    for (const s of this.game.belt) {
+      const cy = belt.cy(s.y);
+      if (x >= L.beltX && x <= L.beltX + L.beltW && y >= cy - belt.bandH / 2 && y <= cy + belt.bandH / 2) {
         return s;
       }
     }

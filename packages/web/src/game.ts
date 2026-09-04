@@ -39,10 +39,12 @@ export class GameState {
   readonly level: Level;
   readonly shape: Shape;
   readonly pieces: PieceState[];
-  readonly limitMs: number;
+  limitMs: number;
   usedUndo = false;
 
   private readonly shapeCells: Set<string>;
+  /** Piece name → its solution cells in the shape frame, sorted. */
+  private readonly solutionCells = new Map<PentominoName, Array<[number, number]>>();
   private startedAt: number | null = null;
   private endedAt: number | null = null;
 
@@ -57,6 +59,55 @@ export class GameState {
       orientationIndex: 0,
       pos: null,
     }));
+    const { originRow, originCol } = level.shape;
+    for (const s of level.solution) {
+      this.solutionCells.set(
+        s.pieceId,
+        s.cells
+          .map(([r, c]): [number, number] => [r - originRow, c - originCol])
+          .sort((a, b) => a[0] - b[0] || a[1] - b[1]),
+      );
+    }
+  }
+
+  /** Add time (joker). */
+  extendLimit(ms: number): void {
+    this.limitMs += ms;
+  }
+
+  /** A piece that is either unplaced or sitting somewhere other than its solution spot. */
+  firstUnsolved(): { piece: PieceState; cells: Array<[number, number]> } | null {
+    for (const piece of this.pieces) {
+      const target = this.solutionCells.get(piece.name);
+      if (!target) continue;
+      const here = piece.pos
+        ? this.cellsAt(piece, piece.pos)
+            .map(([r, c]): [number, number] => [r, c])
+            .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+        : null;
+      const matches =
+        here !== null && here.every(([r, c], i) => r === target[i]![0] && c === target[i]![1]);
+      if (!matches) return { piece, cells: target };
+    }
+    return null;
+  }
+
+  /** Solvent joker: pull every incorrectly placed piece back to the tray. Returns how many. */
+  clearIncorrect(): number {
+    let n = 0;
+    for (const piece of this.pieces) {
+      if (!piece.pos) continue;
+      const target = this.solutionCells.get(piece.name);
+      const here = this.cellsAt(piece, piece.pos)
+        .map(([r, c]): [number, number] => [r, c])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const ok = target && here.every(([r, c], i) => r === target[i]![0] && c === target[i]![1]);
+      if (!ok) {
+        piece.pos = null;
+        n += 1;
+      }
+    }
+    return n;
   }
 
   markStarted(): void {

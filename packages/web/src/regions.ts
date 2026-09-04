@@ -20,8 +20,8 @@ export interface Region {
 
 const META = [
   { id: "garden", name: "Der Garten", subtitle: "Wo das Licht zuerst zurückkehrt", starsToUnlock: 0 },
-  { id: "workshop", name: "Die Werkstatt", subtitle: "Enger, kantiger, knäuliger", starsToUnlock: 7 },
-  { id: "courtyard", name: "Der Farbhof", subtitle: "Große Fenster, wenig Zeit", starsToUnlock: 18 },
+  { id: "workshop", name: "Die Werkstatt", subtitle: "Enger, kantiger, knäuliger", starsToUnlock: 12 },
+  { id: "courtyard", name: "Der Farbhof", subtitle: "Große Fenster, wenig Zeit", starsToUnlock: 30 },
 ];
 
 export function buildRegions(manifest: Manifest): Region[] {

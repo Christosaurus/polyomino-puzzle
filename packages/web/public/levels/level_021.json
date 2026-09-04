@@ -1,29 +1,28 @@
 {
   "schemaVersion": 1,
-  "id": "level_009",
-  "difficulty": 2,
+  "id": "level_021",
+  "difficulty": 4,
   "shape": {
     "originRow": 0,
     "originCol": 0,
     "rows": [
-      "#####",
-      "#####",
-      "#####",
-      "#####",
-      "#####"
+      "##########",
+      "##########",
+      "##########"
     ]
   },
   "pieces": [
-    "U",
-    "W",
+    "V",
+    "Y",
     "L",
-    "P",
-    "V"
+    "N",
+    "F",
+    "P"
   ],
   "allowReflection": true,
   "solution": [
     {
-      "pieceId": "W",
+      "pieceId": "V",
       "cells": [
         [
           0,
@@ -34,8 +33,8 @@
           0
         ],
         [
-          1,
-          1
+          2,
+          0
         ],
         [
           2,
@@ -68,12 +67,12 @@
         ],
         [
           1,
-          4
+          1
         ]
       ]
     },
     {
-      "pieceId": "U",
+      "pieceId": "N",
       "cells": [
         [
           1,
@@ -88,37 +87,62 @@
           3
         ],
         [
-          3,
-          2
-        ],
-        [
-          3,
-          3
-        ]
-      ]
-    },
-    {
-      "pieceId": "V",
-      "cells": [
-        [
           2,
           4
         ],
         [
-          3,
+          2,
+          5
+        ]
+      ]
+    },
+    {
+      "pieceId": "F",
+      "cells": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
           4
         ],
         [
-          4,
-          2
+          1,
+          5
         ],
         [
-          4,
-          3
+          1,
+          6
         ],
         [
-          4,
-          4
+          2,
+          6
+        ]
+      ]
+    },
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          0,
+          8
+        ],
+        [
+          0,
+          9
+        ],
+        [
+          1,
+          7
         ]
       ]
     },
@@ -126,34 +150,34 @@
       "pieceId": "P",
       "cells": [
         [
+          1,
+          8
+        ],
+        [
+          1,
+          9
+        ],
+        [
           2,
-          0
+          7
         ],
         [
-          3,
-          0
+          2,
+          8
         ],
         [
-          3,
-          1
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          4,
-          1
+          2,
+          9
         ]
       ]
     }
   ],
   "meta": {
     "generatorVersion": "0.1.0",
-    "seed": "lumen-1#33",
+    "seed": "lumen-1#34",
     "solutionCountChecked": 2,
     "distinctSolutions": 1,
-    "solverNodes": 258,
-    "createdAt": "2026-09-04T08:16:13.791Z"
+    "solverNodes": 510,
+    "createdAt": "2026-09-04T08:16:13.816Z"
   }
 }

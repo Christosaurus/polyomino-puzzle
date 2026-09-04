@@ -10,12 +10,18 @@ export interface LevelResult {
   bestMs: number;
 }
 
+export type JokerKind = "hint" | "time" | "solvent";
+export type Jokers = Record<JokerKind, number>;
+
 export interface SaveData {
   levels: Record<string, LevelResult>;
   daily: { lastDayDone: string; streak: number; bestStreak: number };
   descent: { bestDepth: number; runs: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
   achievements: string[];
+  jokers: Jokers;
+  /** Region ids whose completion joker reward has been granted. */
+  regionRewards: string[];
   stats: { solved: number; totalMs: number; noUndoStreak: number; bestNoUndoStreak: number };
 }
 
@@ -25,6 +31,8 @@ const EMPTY: SaveData = {
   descent: { bestDepth: 0, runs: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
   achievements: [],
+  jokers: { hint: 3, time: 2, solvent: 2 },
+  regionRewards: [],
   stats: { solved: 0, totalMs: 0, noUndoStreak: 0, bestNoUndoStreak: 0 },
 };
 
@@ -41,6 +49,8 @@ export function load(): SaveData {
       descent: { ...EMPTY.descent, ...parsed.descent },
       cascade: { ...EMPTY.cascade, ...parsed.cascade },
       achievements: parsed.achievements ?? [],
+      jokers: { ...EMPTY.jokers, ...parsed.jokers },
+      regionRewards: parsed.regionRewards ?? [],
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -68,8 +78,11 @@ export function todayKey(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+/** Campaign stars only — daily results are stored under a `daily:` prefix and excluded. */
 export function totalStars(data: SaveData): number {
-  return Object.values(data.levels).reduce((s, r) => s + r.stars, 0);
+  return Object.entries(data.levels)
+    .filter(([id]) => !id.startsWith("daily:"))
+    .reduce((s, [, r]) => s + r.stars, 0);
 }
 
 /** Record a campaign/daily level completion; keeps the better result. */
@@ -114,4 +127,29 @@ export function recordCascade(score: number, cleared: number): SaveData {
     d.cascade.bestScore = Math.max(d.cascade.bestScore, score);
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
   });
+}
+
+export function spendJoker(kind: JokerKind): boolean {
+  let ok = false;
+  update((d) => {
+    if (d.jokers[kind] > 0) {
+      d.jokers[kind] -= 1;
+      ok = true;
+    }
+  });
+  return ok;
+}
+
+/** Grant a region-completion reward once: one of each joker. Returns true if newly granted. */
+export function grantRegionReward(regionId: string): boolean {
+  let granted = false;
+  update((d) => {
+    if (d.regionRewards.includes(regionId)) return;
+    d.regionRewards.push(regionId);
+    d.jokers.hint += 2;
+    d.jokers.time += 1;
+    d.jokers.solvent += 1;
+    granted = true;
+  });
+  return granted;
 }

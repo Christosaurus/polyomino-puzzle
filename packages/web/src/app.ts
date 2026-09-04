@@ -11,7 +11,9 @@ import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentLevel } from "./levelgen.js";
 import * as store from "./progress.js";
+import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
+import { Scenery } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { GameView } from "./view.js";
 
@@ -39,10 +41,20 @@ let regions: Region[] = [];
 let gameView: GameView | null = null;
 let cascadeView: CascadeView | null = null;
 let clockTimer = 0;
+const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
+
+/** How lit the world is (0..1), from campaign stars. */
+function refreshLight(): void {
+  const max = (manifest?.levels.length ?? 15) * 3;
+  const frac = Math.min(1, store.totalStars(store.load()) / Math.max(1, max));
+  // steep early curve so the first region visibly warms the world
+  scenery.setLight(0.14 + 0.86 * Math.pow(frac, 0.6));
+}
 
 let mode: "campaign" | "daily" | "descent" = "campaign";
 let campaignAt: { region: Region; index: number } | null = null;
 let descentState: { seed: string; depth: number } | null = null;
+let activeGame: GameState | null = null;
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 function showScreen(name: ScreenName): void {
@@ -69,6 +81,7 @@ function teardownGame(): void {
   gameView = null;
   cascadeView?.destroy();
   cascadeView = null;
+  activeGame = null;
   if (clockTimer) window.clearInterval(clockTimer);
   clockTimer = 0;
 }
@@ -82,28 +95,35 @@ function regionStars(r: Region): { got: number; max: number } {
 
 function renderHome(): void {
   if (!manifest) return;
+  refreshLight();
   const s = store.load();
   const total = store.totalStars(s);
   $("home-stars").innerHTML = `<b>★ ${total}</b> / ${manifest.levels.length * 3}`;
-  $("home-status").textContent = "Bring das Licht zurück, Region für Region.";
+  $("home-status").textContent = "Jeder Stern bringt ein Stück Welt zurück ins Licht.";
 
   const host = $("regions");
   host.replaceChildren();
   regions.forEach((r, i) => {
     const locked = total < r.starsToUnlock;
     const { got, max } = regionStars(r);
-    const card = document.createElement("div");
-    card.className = `card${locked ? " locked" : ""}`;
-    card.innerHTML = `
-      <div class="row">
-        <div><div class="big">${r.name}</div><div class="muted">${r.subtitle}</div></div>
-        <div style="text-align:right">${
-          locked ? `🔒 ${r.starsToUnlock}★` : `<b style="color:var(--lumen)">★ ${got}</b><div class="muted">/ ${max}</div>`
-        }</div>
-      </div>
-      <div class="progress"><i style="width:${max ? (got / max) * 100 : 0}%"></i></div>`;
-    if (!locked) card.addEventListener("click", () => openRegion(i));
-    host.append(card);
+    const complete = got >= max && max > 0;
+    const station = document.createElement("div");
+    station.className = `station${locked ? " locked" : complete ? " done" : " current"}`;
+    station.innerHTML = `
+      <div class="st-card">
+        <div class="row">
+          <div class="name">${r.name}</div>
+          <div class="want">${
+            locked
+              ? `🔒 ${r.starsToUnlock}★`
+              : `<b>★ ${got}</b> / ${max}${complete ? " ✓" : ""}`
+          }</div>
+        </div>
+        <div class="muted">${locked ? `Noch ${r.starsToUnlock - total} Sterne bis hier.` : r.subtitle}</div>
+        <div class="progress"><i style="width:${max ? (got / max) * 100 : 0}%"></i></div>
+      </div>`;
+    if (!locked) station.addEventListener("click", () => openRegion(i));
+    host.append(station);
   });
 }
 
@@ -171,11 +191,41 @@ function startClock(game: GameState): void {
   clockTimer = window.setInterval(tick, 250);
 }
 
+function renderJokers(): void {
+  const j = store.load().jokers;
+  ($("jk-hint-c").textContent = String(j.hint));
+  ($("jk-time-c").textContent = String(j.time));
+  ($("jk-solvent-c").textContent = String(j.solvent));
+  $<HTMLButtonElement>("jk-hint").disabled = j.hint <= 0;
+  $<HTMLButtonElement>("jk-time").disabled = j.time <= 0;
+  $<HTMLButtonElement>("jk-solvent").disabled = j.solvent <= 0;
+}
+
+function useJoker(kind: JokerKind): void {
+  if (!activeGame || !gameView || activeGame.isWon() || activeGame.timedOut) return;
+  if (kind === "hint" && !gameView.showHint()) {
+    toast("Nichts mehr zu verraten");
+    return;
+  }
+  if (!store.spendJoker(kind)) return;
+  if (kind === "time") {
+    activeGame.extendLimit(20_000);
+    toast("+20 Sekunden");
+  }
+  if (kind === "solvent") {
+    const n = activeGame.clearIncorrect();
+    toast(n > 0 ? `${n} Teil${n > 1 ? "e" : ""} gelöst` : "Alles sitzt schon richtig");
+  }
+  renderJokers();
+}
+
 function mountGame(game: GameState, cb: { onWin: (s: number, ms: number) => void; onTimeout: () => void }): void {
   teardownGame();
   hideOverlay();
+  activeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __game: GameState }).__game = game;
   gameView = new GameView($<HTMLCanvasElement>("play-canvas"), $("play-wrap"), game, cb);
+  renderJokers();
   startClock(game);
   showScreen("play");
   window.scrollTo(0, 0);
@@ -203,6 +253,10 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     onWin: (stars, ms) => {
       store.recordLevel(entry.id, stars, ms, game.usedUndo);
       celebrate(syncAchievements());
+      refreshLight();
+      const { got, max } = regionStars(region);
+      const justCompletedRegion = got >= max && store.grantRegionReward(region.id);
+      if (justCompletedRegion) toast(`${region.name} erleuchtet! +Joker`);
       const hasNext = index + 1 < region.levels.length;
       showOverlay({
         title: "Gelöst!",
@@ -430,11 +484,15 @@ $("cascade-play").addEventListener("click", startCascade);
 $("k-back").addEventListener("click", () => setTab("cascade"));
 $("k-quit").addEventListener("click", () => setTab("cascade"));
 $("k-again").addEventListener("click", startCascade);
+$("jk-hint").addEventListener("click", () => useJoker("hint"));
+$("jk-time").addEventListener("click", () => useJoker("time"));
+$("jk-solvent").addEventListener("click", () => useJoker("solvent"));
 
 async function boot(): Promise<void> {
   try {
     manifest = (await (await fetch("levels/manifest.json")).json()) as Manifest;
     regions = buildRegions(manifest);
+    refreshLight();
     renderHome();
   } catch (err) {
     $("home-status").textContent = `Levels konnten nicht geladen werden (${(err as Error).message}).`;

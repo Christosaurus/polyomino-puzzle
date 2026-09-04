@@ -71,6 +71,9 @@ export class GameView {
   private winFired = false;
   private timeoutFired = false;
   private confetti = new Confetti();
+  private hintCells: Array<[number, number]> = [];
+  private hintUntil = 0;
+  private nowMs = 0;
 
   constructor(canvas: HTMLCanvasElement, wrap: HTMLElement, game: GameState, cb: GameViewCallbacks) {
     this.canvas = canvas;
@@ -98,7 +101,19 @@ export class GameView {
     this.winFired = false;
     this.timeoutFired = false;
     this.confetti.clear();
+    this.hintCells = [];
+    this.hintUntil = 0;
     this.kick();
+  }
+
+  /** Joker: glow the solution cells of the first unsolved piece. Returns false if there's nothing to hint. */
+  showHint(): boolean {
+    const target = this.game.firstUnsolved();
+    if (!target) return false;
+    this.hintCells = target.cells;
+    this.hintUntil = performance.now() + 4500;
+    sfx.pickUp();
+    return true;
   }
 
   destroy(): void {
@@ -142,6 +157,7 @@ export class GameView {
   private kick = (): void => this.render();
 
   private tick(dt: number): void {
+    this.nowMs = performance.now();
     for (const [key, t] of this.placeAnims) {
       const next = t + dt * 1000;
       if (next >= PLACE_ANIM_MS) this.placeAnims.delete(key);
@@ -244,6 +260,41 @@ export class GameView {
       cssVar("--board-edge"),
       3,
     );
+
+    // hint glow
+    if (this.hintCells.length && this.nowMs < this.hintUntil) {
+      const pulse = 0.45 + 0.4 * Math.sin(this.nowMs / 180);
+      ctx.save();
+      ctx.strokeStyle = cssVar("--lumen");
+      ctx.shadowColor = cssVar("--lumen");
+      ctx.shadowBlur = 16 * pulse + 6;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.6 + 0.4 * pulse;
+      const inSet = new Set(this.hintCells.map(([r, c]) => `${r},${c}`));
+      ctx.beginPath();
+      for (const [r, c] of this.hintCells) {
+        const x = b.x + c * b.cell;
+        const y = b.y + r * b.cell;
+        if (!inSet.has(`${r - 1},${c}`)) {
+          ctx.moveTo(x + 3, y + 3);
+          ctx.lineTo(x + b.cell - 3, y + 3);
+        }
+        if (!inSet.has(`${r + 1},${c}`)) {
+          ctx.moveTo(x + 3, y + b.cell - 3);
+          ctx.lineTo(x + b.cell - 3, y + b.cell - 3);
+        }
+        if (!inSet.has(`${r},${c - 1}`)) {
+          ctx.moveTo(x + 3, y + 3);
+          ctx.lineTo(x + 3, y + b.cell - 3);
+        }
+        if (!inSet.has(`${r},${c + 1}`)) {
+          ctx.moveTo(x + b.cell - 3, y + 3);
+          ctx.lineTo(x + b.cell - 3, y + b.cell - 3);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     const winPulse = this.winT >= 0 ? 1 + 0.045 * Math.sin(this.winT * 6) : 1;
     for (const piece of this.game.pieces) {
