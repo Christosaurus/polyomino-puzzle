@@ -437,7 +437,7 @@ export class CascadeView {
         if (d.from === "belt") this.game.removeFromBelt(d.shard.id);
         else this.game.hold = null;
         sfx.place();
-        navigator.vibrate?.(rows > 0 ? 24 : 8);
+        sfx.vibrate(rows > 0 ? 24 : 8);
         for (const r of this.game.lastCleared) this.flash.push({ row: r, t: 0 });
         return;
       }

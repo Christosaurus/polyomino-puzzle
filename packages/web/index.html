@@ -11,24 +11,45 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap"
     />
     <style>
       :root {
         color-scheme: dark;
-        --surface: #151a2b;
-        --surface-2: #1d2338;
-        --hairline: #333c5c;
-        --cell: #232a41;
-        --board-edge: #47527d;
-        --ink: #eef2ff;
-        --ink-dim: #9aa4cc;
-        --lumen: #ffc23d;
-        --accent: #5b6bff;
-        --good: #3ddc84;
-        --bad: #ff5470;
-        --panel: color-mix(in srgb, var(--surface) 84%, transparent);
-        --shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.7);
+        /* surfaces — a rich grape */
+        --grape: #5b46cf;
+        --grape-lo: #3b2c9e;
+        --grape-deep: #2a1f74;
+        --panel: linear-gradient(180deg, #6a54e0, #4a38b8);
+        --panel-inset: #2e2384;
+        --border: #2b1f74;
+        --border-lo: #221a5c;
+        /* signature: Lumen = light */
+        --gold: #ffc23b;
+        --gold-lo: #e08f12;
+        /* semantic */
+        --go: #3fd06b;
+        --go-lo: #22913f;
+        --stop: #ff5a52;
+        --stop-lo: #c9322b;
+        --sky: #3fb8ff;
+        --pink: #ff5aa0;
+        --ink: #ffffff;
+        --ink-2: #d9d3ff;
+        --ink-dim: #a99fe6;
+        --stroke: #241757;
+        /* canvas tokens (board / belt) */
+        --cell: #2c2178;
+        --board-edge: #7d68ea;
+        --surface: #3b2c9e;
+        --surface-2: #2c2178;
+        --hairline: #4a3ab0;
+        --lumen: #ffc23b;
+        --shadow: 0 14px 0 -4px rgba(20, 12, 60, 0.45), 0 26px 44px -18px rgba(10, 6, 40, 0.7);
+        --r-sm: 12px;
+        --r-md: 18px;
+        --r-lg: 26px;
+        --tap: cubic-bezier(0.2, 1.4, 0.4, 1);
       }
       * {
         box-sizing: border-box;
@@ -38,14 +59,15 @@
         display: none !important;
       }
       html {
-        background: #0a0d1a;
+        background: #241a54;
       }
       body {
         margin: 0;
         min-height: 100%;
         background: transparent;
         color: var(--ink);
-        font-family: "Hanken Grotesk", system-ui, sans-serif;
+        font-family: "Baloo 2", system-ui, sans-serif;
+        font-weight: 600;
         overscroll-behavior: none;
         -webkit-user-select: none;
         user-select: none;
@@ -67,201 +89,184 @@
       }
       .screen {
         flex: 1;
-        padding: calc(env(safe-area-inset-top) + 18px) 16px 100px;
+        padding: calc(env(safe-area-inset-top) + 14px) 14px 110px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 14px;
       }
       .screen.play {
         padding-bottom: 16px;
-        justify-content: center;
+        justify-content: flex-start;
       }
 
+      /* ── Type ──────────────────────────────────────── */
       h1 {
-        font-family: "Unbounded", sans-serif;
         font-weight: 800;
-        font-size: 26px;
-        letter-spacing: -0.02em;
+        font-size: 30px;
         margin: 0;
-        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.55);
+        text-align: center;
+        color: #fff;
+        text-shadow:
+          0 2px 0 var(--stroke),
+          0 3px 0 var(--stroke),
+          0 6px 12px rgba(0, 0, 0, 0.35);
+        letter-spacing: 0.01em;
       }
       h2 {
-        font-family: "Unbounded", sans-serif;
-        font-weight: 600;
+        font-weight: 800;
         font-size: 18px;
         margin: 0;
+        text-shadow: 0 2px 0 var(--stroke);
       }
       .muted {
         color: var(--ink-dim);
         font-size: 13px;
-      }
-      button {
-        font: inherit;
-        font-weight: 700;
-        color: var(--ink);
-        background: var(--surface);
-        border: 1px solid var(--hairline);
-        border-radius: 13px;
-        padding: 11px 16px;
-        cursor: pointer;
-        transition: transform 0.08s ease;
-      }
-      button:active {
-        transform: scale(0.96);
-      }
-      button:disabled {
-        opacity: 0.4;
-      }
-      button.primary {
-        background: linear-gradient(180deg, #6b79ff, #4b5bf0);
-        border-color: transparent;
-        box-shadow: 0 8px 22px -8px var(--accent);
-      }
-      button.ghost {
-        background: transparent;
-        border-color: transparent;
-        color: var(--ink-dim);
-        padding-left: 4px;
+        font-weight: 600;
+        text-align: center;
       }
 
+      /* ── Buttons ───────────────────────────────────── */
+      button {
+        font: inherit;
+        font-weight: 800;
+        color: #fff;
+        border: none;
+        border-radius: var(--r-md);
+        padding: 12px 20px;
+        cursor: pointer;
+        position: relative;
+        background: linear-gradient(180deg, #7d68ea, #5541c0);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.3),
+          inset 0 -5px 0 rgba(0, 0, 0, 0.28),
+          0 6px 0 -1px var(--border-lo),
+          0 12px 18px -8px rgba(0, 0, 0, 0.55);
+        text-shadow: 0 2px 0 var(--stroke);
+        transition: transform 0.06s var(--tap), box-shadow 0.06s ease;
+      }
+      button:active {
+        transform: translateY(4px);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.25),
+          inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+          0 2px 0 -1px var(--border-lo);
+      }
+      button:disabled {
+        filter: saturate(0.5) brightness(0.8);
+        opacity: 0.7;
+      }
+      button.go {
+        background: linear-gradient(180deg, #5ce58a, #2fb356);
+      }
+      button.go,
+      button.go:active {
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.4),
+          inset 0 -5px 0 rgba(0, 0, 0, 0.22),
+          0 6px 0 -1px var(--go-lo),
+          0 12px 18px -8px rgba(0, 0, 0, 0.5);
+      }
+      button.stop {
+        background: linear-gradient(180deg, #ff7a72, #db3a32);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.3),
+          inset 0 -5px 0 rgba(0, 0, 0, 0.22),
+          0 6px 0 -1px var(--stop-lo),
+          0 12px 18px -8px rgba(0, 0, 0, 0.5);
+      }
+      button.gold {
+        background: linear-gradient(180deg, #ffd15e, #eda01c);
+        color: #4a2e00;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.55),
+          inset 0 -5px 0 rgba(0, 0, 0, 0.18),
+          0 6px 0 -1px var(--gold-lo),
+          0 12px 18px -8px rgba(0, 0, 0, 0.5);
+      }
+      button.big {
+        padding: 16px 28px;
+        font-size: 19px;
+        border-radius: var(--r-lg);
+      }
+      /* icon button (undo, pause, gear, close) */
+      button.icon {
+        width: 46px;
+        height: 46px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        border-radius: 14px;
+      }
+      button.round {
+        border-radius: 999px;
+      }
+      button.close {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 18px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #ff7a72, #db3a32);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.3),
+          0 4px 0 -1px var(--stop-lo),
+          0 8px 14px -6px rgba(0, 0, 0, 0.5);
+      }
+
+      /* ── Pills / stats ─────────────────────────────── */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 800;
+        font-size: 15px;
+        color: #fff;
+        background: linear-gradient(180deg, #2a2072, #201858);
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        padding: 5px 12px;
+        border-radius: 999px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      .pill .ic {
+        font-size: 17px;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+      }
       .topbar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .pills {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-      .pill {
-        font-weight: 800;
-        font-size: 13px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        padding: 5px 10px;
-        border-radius: 999px;
-        backdrop-filter: blur(6px);
-        white-space: nowrap;
-      }
-      .pill.star b {
-        color: var(--lumen);
-      }
-      .pill#home-lives,
-      #play-lives {
-        color: #ff8aa8;
-      }
-      #home-shards,
-      #play-shards {
-        color: #8fd0ff;
-      }
-
-      /* ── Journey (home) ─────────────────────────────── */
-      .journey {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        padding-left: 34px;
-      }
-      .journey::before {
-        content: "";
-        position: absolute;
-        left: 15px;
-        top: 30px;
-        bottom: 30px;
-        width: 4px;
-        border-radius: 2px;
-        background: linear-gradient(180deg, var(--lumen), color-mix(in srgb, var(--lumen) 20%, var(--hairline)));
-        opacity: 0.55;
-      }
-      .station {
-        position: relative;
-        padding: 14px 0;
-      }
-      .station::before {
-        content: "";
-        position: absolute;
-        left: -27px;
-        top: 26px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: var(--surface);
-        border: 3px solid var(--hairline);
-      }
-      .station.done::before {
-        background: var(--lumen);
-        border-color: var(--lumen);
-        box-shadow: 0 0 14px var(--lumen);
-      }
-      .station.current::before {
-        border-color: var(--lumen);
-        animation: ping 1.4s ease-in-out infinite;
-      }
-      @keyframes ping {
-        50% {
-          box-shadow: 0 0 0 6px color-mix(in srgb, var(--lumen) 22%, transparent);
-        }
-      }
-      .st-card {
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 18px;
-        padding: 16px 18px;
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(8px);
-        display: flex;
-        flex-direction: column;
         gap: 8px;
       }
-      .station.locked .st-card {
-        opacity: 0.5;
+      .avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 15px;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--gold);
+        display: grid;
+        place-items: center;
+        font-size: 26px;
+        box-shadow: var(--shadow);
+        flex: none;
       }
-      .st-card .row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-      .st-card .name {
-        font-family: "Unbounded", sans-serif;
-        font-weight: 800;
-        font-size: 20px;
-      }
-      .st-card .want {
-        font-weight: 800;
-        color: var(--ink-dim);
-        white-space: nowrap;
-      }
-      .st-card .want b {
-        color: var(--lumen);
-      }
-      .progress {
-        height: 7px;
-        border-radius: 999px;
-        background: var(--surface-2);
-        overflow: hidden;
-      }
-      .progress i {
-        display: block;
-        height: 100%;
-        background: linear-gradient(90deg, var(--lumen), #ff9d3d);
+      .topbar .grow {
+        flex: 1;
       }
 
-      /* cards (daily/descent/cascade) */
+      /* ── Panels / cards ────────────────────────────── */
       .card {
         background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 18px;
+        border: 3px solid var(--border);
+        border-radius: var(--r-lg);
         padding: 18px;
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(8px);
+        box-shadow:
+          inset 0 3px 0 rgba(255, 255, 255, 0.22),
+          var(--shadow);
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
       }
       .card .row {
         display: flex;
@@ -270,15 +275,129 @@
         gap: 12px;
       }
       .card .big {
-        font-family: "Unbounded", sans-serif;
         font-weight: 800;
-        font-size: 22px;
+        font-size: 24px;
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      .banner {
+        align-self: center;
+        margin-bottom: -6px;
+        font-weight: 800;
+        font-size: 17px;
+        padding: 6px 22px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #ffd15e, #eda01c);
+        color: #4a2e00;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.55),
+          0 6px 0 -2px var(--gold-lo),
+          0 10px 16px -8px rgba(0, 0, 0, 0.5);
+        position: relative;
+        z-index: 2;
+      }
+      .progress {
+        height: 14px;
+        border-radius: 999px;
+        background: var(--panel-inset);
+        overflow: hidden;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        border: 2px solid rgba(0, 0, 0, 0.25);
+      }
+      .progress i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #ffe08a, #ffb43b);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6);
       }
 
+      /* ── Journey (Reise) ───────────────────────────── */
+      .journey {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-left: 30px;
+      }
+      .journey::before {
+        content: "";
+        position: absolute;
+        left: 12px;
+        top: 24px;
+        bottom: 24px;
+        width: 8px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #64d2ff, #2b7fe0);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 0 14px rgba(80, 180, 255, 0.5);
+      }
+      .station {
+        position: relative;
+        padding: 12px 0;
+      }
+      .station::before {
+        content: "";
+        position: absolute;
+        left: -25px;
+        top: 24px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--panel-inset);
+        border: 3px solid rgba(255, 255, 255, 0.2);
+      }
+      .station.done::before {
+        background: radial-gradient(circle at 35% 30%, #fff3c4, var(--gold));
+        border-color: #fff;
+        box-shadow: 0 0 14px var(--gold);
+      }
+      .station.current::before {
+        border-color: var(--gold);
+        animation: ping 1.3s ease-in-out infinite;
+      }
+      @keyframes ping {
+        50% {
+          box-shadow: 0 0 0 8px rgba(255, 194, 59, 0.28);
+        }
+      }
+      .st-card {
+        background: var(--panel);
+        border: 3px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: 15px 18px;
+        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.2), var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .station.locked .st-card {
+        filter: saturate(0.4) brightness(0.75);
+      }
+      .st-card .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .st-card .name {
+        font-weight: 800;
+        font-size: 21px;
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      .st-card .want {
+        font-weight: 800;
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+      .st-card .want b {
+        color: var(--gold);
+      }
+
+      /* ── Level grid ────────────────────────────────── */
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        gap: 12px;
       }
       .lvl {
         position: relative;
@@ -287,193 +406,187 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 5px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 15px;
-        backdrop-filter: blur(6px);
+        gap: 4px;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--border);
+        border-radius: var(--r-md);
+        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.22), inset 0 -5px 0 rgba(0, 0, 0, 0.22), 0 5px 0 -1px var(--border-lo);
+        font-weight: 800;
       }
       .lvl .n {
-        font-family: "Unbounded", sans-serif;
-        font-weight: 800;
-        font-size: 17px;
+        font-size: 19px;
+        text-shadow: 0 2px 0 var(--stroke);
       }
       .lvl .s {
-        font-size: 11px;
+        font-size: 12px;
         letter-spacing: 1px;
-        color: var(--hairline);
+        color: rgba(255, 255, 255, 0.22);
       }
       .lvl .s .on {
-        color: var(--lumen);
+        color: var(--gold);
+        text-shadow: 0 0 6px var(--gold);
       }
       .lvl.done {
-        border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline));
+        background: linear-gradient(180deg, #5cd8ff, #2f8fe0);
       }
 
-      /* HUD */
+      /* ── HUD (play / kaskade) ──────────────────────── */
       .hud {
         display: grid;
-        grid-template-columns: 1fr auto 1fr;
+        grid-template-columns: auto 1fr auto;
         align-items: center;
         gap: 8px;
-        margin-bottom: 8px;
       }
       .hud .right {
-        text-align: right;
+        justify-self: end;
       }
       .clock {
+        justify-self: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         font-variant-numeric: tabular-nums;
         font-weight: 800;
-        font-size: 24px;
-        padding: 4px 14px;
+        font-size: 26px;
+        color: #fff;
+        padding: 4px 20px;
         border-radius: 999px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        backdrop-filter: blur(6px);
+        background: linear-gradient(180deg, #2a2072, #201858);
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45);
+        text-shadow: 0 2px 0 var(--stroke);
+        min-width: 128px;
+      }
+      .clock small {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 0.04em;
+        text-shadow: 0 1px 0 var(--stroke);
       }
       .clock.warn {
-        color: var(--bad);
-        border-color: color-mix(in srgb, var(--bad) 45%, var(--hairline));
-        animation: pulse 0.9s ease-in-out infinite;
+        color: #ffd0cd;
+        border-color: var(--stop);
+        animation: pulse 0.85s ease-in-out infinite;
       }
       @keyframes pulse {
         50% {
-          transform: scale(1.06);
+          transform: scale(1.05);
         }
       }
-      .hud .metric {
+      .metric {
         font-weight: 800;
-        font-size: 15px;
+        font-size: 16px;
+        text-shadow: 0 2px 0 var(--stroke);
       }
-      .hud .metric small {
+      .metric small {
         display: block;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 10px;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--ink-dim);
       }
 
+      /* ── Board frame ───────────────────────────────── */
       .board-wrap {
         position: relative;
-        background: color-mix(in srgb, var(--surface) 55%, transparent);
-        border: 1px solid var(--hairline);
-        border-radius: 20px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
+        margin: 6px 0;
+        border-radius: 28px;
+        padding: 10px;
+        background: linear-gradient(180deg, #5b46cf, #3a2b9e);
+        border: 3px solid var(--border);
+        box-shadow:
+          inset 0 4px 0 rgba(255, 255, 255, 0.22),
+          inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+          var(--shadow);
         touch-action: none;
-        padding: 4px;
-        backdrop-filter: blur(2px);
+        overflow: hidden;
       }
       canvas {
         display: block;
         width: 100%;
       }
+
+      /* ── Jokers ────────────────────────────────────── */
       .play-foot {
         display: flex;
         justify-content: center;
-        align-items: center;
         margin-top: 12px;
       }
       .jokers {
         display: flex;
-        gap: 12px;
+        gap: 14px;
       }
       .joker {
-        position: relative;
-        width: 82px;
+        width: 88px;
         padding: 12px 6px 10px;
-        border-radius: 18px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        backdrop-filter: blur(6px);
+        border-radius: 20px;
+        background: linear-gradient(180deg, #5ce58a, #2fb356);
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
-        overflow: visible;
+        gap: 3px;
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.4),
+          inset 0 -5px 0 rgba(0, 0, 0, 0.22),
+          0 6px 0 -1px var(--go-lo);
       }
       .joker .ji {
-        font-size: 26px;
-        line-height: 1;
+        font-size: 28px;
+        filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.35));
       }
       .joker .jl {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
-        letter-spacing: 0.03em;
-        color: var(--ink-dim);
+        color: #fff;
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
       }
       .joker .c {
         position: absolute;
-        top: -8px;
-        right: -8px;
-        min-width: 22px;
-        height: 22px;
+        top: -9px;
+        right: -9px;
+        min-width: 24px;
+        height: 24px;
         padding: 0 5px;
         border-radius: 999px;
-        background: linear-gradient(180deg, #ffd469, var(--lumen));
-        color: #1a1300;
-        font-size: 12px;
+        background: linear-gradient(180deg, #ff7a72, #db3a32);
+        color: #fff;
+        font-size: 13px;
         font-weight: 800;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 3px 10px -2px var(--lumen);
+        border: 2px solid #fff;
+        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
       }
       .joker.fire {
-        animation: jfire 0.5s ease;
-      }
-      .joker.fire::after {
-        content: "";
-        position: absolute;
-        inset: -4px;
-        border-radius: 20px;
-        border: 2px solid var(--lumen);
-        animation: jring 0.55s ease forwards;
+        animation: jfire 0.45s ease;
       }
       @keyframes jfire {
         30% {
-          transform: scale(1.22) rotate(-4deg);
+          transform: scale(1.2) rotate(-5deg);
         }
         60% {
-          transform: scale(0.94);
+          transform: scale(0.93);
         }
-      }
-      @keyframes jring {
-        from {
-          opacity: 0.9;
-          transform: scale(0.8);
-        }
-        to {
-          opacity: 0;
-          transform: scale(1.5);
-        }
-      }
-      .rewards {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--lumen);
-      }
-      .rewards:empty {
-        display: none;
       }
 
-      /* overlays */
+      /* ── Overlays ──────────────────────────────────── */
       .overlay {
-        position: absolute;
+        position: fixed;
         inset: 0;
+        z-index: 30;
         display: none;
         align-items: center;
         justify-content: center;
-        background: color-mix(in srgb, #0a0d1a 82%, transparent);
-        backdrop-filter: blur(4px);
+        padding: 24px;
+        background: rgba(15, 8, 40, 0.72);
+        backdrop-filter: blur(3px);
       }
       .overlay.show {
         display: flex;
-        animation: fade 0.25s ease both;
+        animation: fade 0.2s ease both;
       }
       @keyframes fade {
         from {
@@ -481,118 +594,150 @@
         }
       }
       .ocard {
-        text-align: center;
+        position: relative;
+        width: 100%;
+        max-width: 340px;
+        background: var(--panel);
+        border: 4px solid var(--border);
+        border-radius: 30px;
+        padding: 34px 22px 24px;
+        box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.22), var(--shadow);
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 14px;
-        padding: 10px 22px;
-        max-width: 300px;
+        animation: pop 0.28s var(--tap) both;
+      }
+      @keyframes pop {
+        from {
+          transform: scale(0.85);
+          opacity: 0;
+        }
       }
       .ocard h3 {
-        font-family: "Unbounded", sans-serif;
+        position: absolute;
+        top: -22px;
+        left: 50%;
+        transform: translateX(-50%);
+        margin: 0;
         font-weight: 800;
         font-size: 24px;
-        margin: 0;
+        white-space: nowrap;
+        padding: 6px 24px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--border);
+        text-shadow: 0 2px 0 var(--stroke);
+        box-shadow: 0 6px 0 -2px var(--border-lo);
+      }
+      .ocard .close {
+        position: absolute;
+        top: -14px;
+        right: -14px;
       }
       .ocard .sub {
-        color: var(--ink-dim);
+        color: var(--ink-2);
         font-size: 14px;
+        font-weight: 700;
+        text-align: center;
         font-variant-numeric: tabular-nums;
       }
       .ocard .sub b {
-        color: var(--ink);
+        color: #fff;
       }
       .ostars {
         display: flex;
-        gap: 10px;
-        font-size: 42px;
+        gap: 12px;
+        font-size: 46px;
         line-height: 1;
       }
       .ostars span {
-        color: var(--hairline);
+        color: var(--panel-inset);
         transform: scale(0);
-        animation: sp 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) forwards;
+        animation: sp 0.4s var(--tap) forwards;
       }
       .ostars span.on {
-        color: var(--lumen);
-        filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--lumen) 55%, transparent));
+        color: var(--gold);
+        filter: drop-shadow(0 3px 12px rgba(255, 194, 59, 0.7));
       }
       .ostars span:nth-child(2) {
-        animation-delay: 0.14s;
+        animation-delay: 0.13s;
       }
       .ostars span:nth-child(3) {
-        animation-delay: 0.28s;
+        animation-delay: 0.26s;
       }
       @keyframes sp {
         to {
           transform: scale(1);
         }
       }
-      .ocard .btns {
-        display: flex;
-        gap: 10px;
-      }
-
-      .ach {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 14px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 14px;
-        backdrop-filter: blur(6px);
-      }
-      .ach.locked {
-        opacity: 0.42;
-      }
-      .ach .ic {
-        font-size: 20px;
-        width: 34px;
-        height: 34px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--surface-2);
-        border-radius: 10px;
-      }
-      .ach.done .ic {
-        background: color-mix(in srgb, var(--lumen) 22%, var(--surface-2));
-        color: var(--lumen);
-      }
-      .ach .t {
-        font-weight: 700;
-        font-size: 14px;
-      }
-      .ach .h {
-        font-size: 12px;
-        color: var(--ink-dim);
-      }
-      .shop {
+      .rewards {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 5px;
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--gold);
+        text-align: center;
+        text-shadow: 0 2px 0 var(--stroke);
       }
-      .shop .item {
+      .rewards:empty {
+        display: none;
+      }
+      .btns {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+      }
+      .btns button {
+        flex: 1;
+      }
+
+      /* toggles (pause) */
+      .toggles {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .toggle-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 14px;
-        padding: 10px 12px;
-        backdrop-filter: blur(6px);
+        font-weight: 800;
+        font-size: 15px;
       }
-      .shop .item .lbl {
-        font-weight: 700;
-        font-size: 14px;
+      .seg {
+        display: flex;
+        background: var(--panel-inset);
+        border-radius: 999px;
+        padding: 3px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
       }
-      .shop .item button {
+      .seg button {
+        padding: 6px 16px;
         font-size: 13px;
-        padding: 8px 12px;
+        border-radius: 999px;
+        background: transparent;
+        box-shadow: none;
+        text-shadow: none;
+        color: var(--ink-dim);
       }
+      .seg button:active {
+        transform: none;
+      }
+      .seg button.on {
+        background: linear-gradient(180deg, #5ce58a, #2fb356);
+        color: #fff;
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4);
+      }
+      .seg button.on.off-on {
+        background: linear-gradient(180deg, #8a80c8, #5a4fa0);
+      }
+
+      /* ── Achievements / shop ───────────────────────── */
       .statgrid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -600,21 +745,72 @@
       }
       .stat {
         background: var(--panel);
-        border: 1px solid var(--hairline);
-        border-radius: 14px;
+        border: 3px solid var(--border);
+        border-radius: var(--r-md);
         padding: 14px;
-        backdrop-filter: blur(6px);
+        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.2);
       }
       .stat b {
-        font-family: "Unbounded", sans-serif;
-        font-size: 20px;
+        font-weight: 800;
+        font-size: 22px;
         display: block;
+        text-shadow: 0 2px 0 var(--stroke);
       }
       .stat small {
         color: var(--ink-dim);
         font-size: 12px;
+        font-weight: 700;
+      }
+      .shop,
+      #achievements {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .shop .item,
+      .ach {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--panel);
+        border: 3px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 12px 14px;
+        box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.18);
+      }
+      .shop .item {
+        justify-content: space-between;
+      }
+      .shop .item .lbl,
+      .ach .t {
+        font-weight: 800;
+        font-size: 14px;
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      .ach.locked {
+        filter: saturate(0.35) brightness(0.7);
+      }
+      .ach .ic {
+        font-size: 22px;
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        background: var(--panel-inset);
+        border-radius: 12px;
+        flex: none;
+      }
+      .ach.done .ic {
+        background: linear-gradient(180deg, #ffd15e, #eda01c);
+        color: #4a2e00;
+      }
+      .ach .h {
+        font-size: 12px;
+        color: var(--ink-dim);
+        font-weight: 600;
       }
 
+      /* ── Tab bar ───────────────────────────────────── */
       #tabbar {
         position: fixed;
         left: 0;
@@ -624,51 +820,85 @@
         display: flex;
         max-width: 620px;
         margin: 0 auto;
-        padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px);
-        background: color-mix(in srgb, #0a0d1a 82%, transparent);
-        backdrop-filter: blur(14px);
-        border-top: 1px solid var(--hairline);
+        padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px);
+        background: linear-gradient(180deg, #5b46cf, #3b2ca0);
+        border-top: 3px solid var(--gold);
+        box-shadow: 0 -8px 20px -6px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.2);
       }
       #tabbar button {
         flex: 1;
         background: none;
-        border: none;
-        padding: 6px 2px;
+        box-shadow: none;
+        text-shadow: none;
+        padding: 6px 2px 3px;
         color: var(--ink-dim);
-        font-size: 10.5px;
-        font-weight: 700;
+        font-size: 10px;
+        font-weight: 800;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 3px;
+        gap: 2px;
+        transition: none;
+      }
+      #tabbar button:active {
+        transform: scale(0.9);
       }
       #tabbar button .ic {
-        font-size: 18px;
+        font-size: 22px;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
       }
       #tabbar button.on {
-        color: var(--lumen);
+        color: #fff;
+      }
+      #tabbar button.on .ic {
+        transform: translateY(-14px) scale(1.18);
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+      }
+      #tabbar button.on::before {
+        content: "";
+        position: absolute;
+        top: -18px;
+        width: 58px;
+        height: 58px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--gold);
+        box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.5);
+        z-index: -1;
+      }
+      #tabbar button {
+        position: relative;
       }
 
+      /* ── Toast ─────────────────────────────────────── */
       .toast {
         position: fixed;
         left: 50%;
-        bottom: 100px;
-        transform: translateX(-50%) translateY(20px);
+        bottom: 108px;
+        transform: translateX(-50%) translateY(16px);
         z-index: 40;
-        background: var(--surface);
-        border: 1px solid var(--lumen);
-        color: var(--ink);
-        padding: 10px 16px;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--gold);
+        color: #fff;
+        padding: 10px 18px;
         border-radius: 999px;
-        font-weight: 700;
+        font-weight: 800;
         font-size: 13px;
+        text-shadow: 0 2px 0 var(--stroke);
         opacity: 0;
-        transition: all 0.3s ease;
+        transition: all 0.3s var(--tap);
         pointer-events: none;
+        box-shadow: var(--shadow);
       }
       .toast.show {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+        }
       }
     </style>
   </head>
@@ -677,23 +907,25 @@
     <div id="app">
       <section class="screen" id="screen-home">
         <div class="topbar">
-          <h1>Lumen</h1>
-          <div class="pills">
-            <span class="pill" id="home-lives">❤ 5</span>
-            <span class="pill" id="home-shards">✦ 0</span>
-            <span class="pill star" id="home-stars"></span>
-          </div>
+          <div class="avatar" id="home-avatar">🙂</div>
+          <span class="pill" id="home-shards"><span class="ic">✦</span>0</span>
+          <span class="pill" id="home-lives"><span class="ic">❤</span>5</span>
+          <span class="grow"></span>
+          <button class="icon" id="home-settings">⚙</button>
         </div>
+        <h1 id="home-title">Lumen</h1>
         <p class="muted" id="home-status">Wird geladen …</p>
         <div class="journey" id="regions"></div>
       </section>
 
       <section class="screen" id="screen-region" hidden>
-        <button class="ghost" id="region-back">‹ Der Weg</button>
-        <div>
-          <h1 id="region-name"></h1>
-          <p class="muted" id="region-sub"></p>
+        <div class="topbar">
+          <button class="icon" id="region-back">‹</button>
+          <span class="grow"></span>
+          <span class="pill" id="region-stars"><span class="ic">★</span>0</span>
         </div>
+        <h1 id="region-name"></h1>
+        <p class="muted" id="region-sub"></p>
         <div class="grid" id="region-levels"></div>
       </section>
 
@@ -705,7 +937,7 @@
             <div style="text-align:right"><div class="big" id="daily-best">0</div><div class="muted">Bester Streak</div></div>
           </div>
           <p class="muted" id="daily-note">Ein neues Fenster jeden Tag — für alle gleich.</p>
-          <button class="primary" id="daily-play">Heute spielen</button>
+          <button class="go big" id="daily-play">Heute spielen</button>
         </div>
       </section>
 
@@ -717,7 +949,7 @@
             <div style="text-align:right"><div class="big" id="descent-runs">0</div><div class="muted">Läufe</div></div>
           </div>
           <p class="muted">Fenster für Fenster hinab. Jedes schwerer, jede Uhr kürzer. Ein Fehlschlag beendet den Lauf.</p>
-          <button class="primary" id="descent-play">Abstieg beginnen</button>
+          <button class="go big" id="descent-play">Abstieg beginnen</button>
         </div>
       </section>
 
@@ -729,105 +961,108 @@
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
           </div>
           <p class="muted">90 Sekunden. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
-          <button class="primary" id="cascade-play">Kaskade starten</button>
+          <button class="go big" id="cascade-play">Kaskade starten</button>
         </div>
       </section>
 
       <section class="screen" id="screen-collection" hidden>
         <h1>Sammlung</h1>
         <div class="statgrid" id="stats"></div>
-
-        <h2 style="margin-top:8px">Vorrat <span class="pill" id="shop-shards" style="color:#8fd0ff">✦ 0</span></h2>
+        <h2 style="margin-top:6px">Vorrat <span class="pill" id="shop-shards"><span class="ic">✦</span>0</span></h2>
         <div class="shop" id="shop"></div>
-
-        <h2 style="margin-top:8px">Erfolge</h2>
-        <div id="achievements" style="display:flex;flex-direction:column;gap:8px"></div>
+        <h2 style="margin-top:6px">Erfolge</h2>
+        <div id="achievements"></div>
       </section>
 
       <section class="screen play" id="screen-play" hidden>
         <div class="hud">
-          <div><button class="ghost" id="play-pause">⏸</button></div>
-          <div class="clock" id="play-clock">0:00</div>
-          <div class="right"><span class="pill" id="play-lives">❤ 5</span></div>
-        </div>
-        <div class="hud" style="grid-template-columns:1fr;margin-top:-6px">
-          <div class="metric" style="text-align:center"><small id="play-title-txt">Level</small></div>
+          <span class="pill" id="play-lives"><span class="ic">❤</span>5</span>
+          <div class="clock" id="play-clock"><span id="play-clock-txt">0:00</span><small id="play-title-txt">Level</small></div>
+          <button class="icon" id="play-pause">⏸</button>
         </div>
         <div class="board-wrap" id="play-wrap">
           <canvas id="play-canvas"></canvas>
-          <div class="overlay" id="play-overlay">
-            <div class="ocard">
-              <h3 id="ov-title">Gelöst!</h3>
-              <div class="ostars" id="ov-stars"><span>★</span><span>★</span><span>★</span></div>
-              <div class="sub" id="ov-sub"></div>
-              <div class="rewards" id="ov-rewards"></div>
-              <div class="btns">
-                <button class="ghost" id="ov-quit">Übersicht</button>
-                <button class="primary" id="ov-next">Weiter ›</button>
-              </div>
-            </div>
-          </div>
-          <div class="overlay" id="pause-overlay">
-            <div class="ocard">
-              <h3>Pause</h3>
-              <div class="btns" style="flex-direction:column;width:100%">
-                <button class="primary" id="ps-resume">Weiter spielen</button>
-                <button id="ps-restart">Level neu starten</button>
-                <button class="ghost" id="ps-quit">Zurück zur Übersicht</button>
-              </div>
-            </div>
-          </div>
         </div>
         <div class="play-foot">
           <div class="jokers">
-            <button class="joker" id="jk-hint" title="Tipp"><span class="ji">💡</span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
-            <button class="joker" id="jk-time" title="+20 Sekunden"><span class="ji">⏱</span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
-            <button class="joker" id="jk-solvent" title="Falsche Teile lösen"><span class="ji">🧪</span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
+            <button class="joker" id="jk-hint"><span class="ji">💡</span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
+            <button class="joker" id="jk-time"><span class="ji">⏱️</span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
+            <button class="joker" id="jk-solvent"><span class="ji">🧪</span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
           </div>
         </div>
       </section>
 
       <section class="screen play" id="screen-kaskade" hidden>
         <div class="hud">
-          <div><button class="ghost" id="k-pause">⏸</button></div>
+          <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
           <div class="clock" id="k-clock">1:30</div>
-          <div class="right metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></div>
+          <button class="icon" id="k-pause">⏸</button>
         </div>
-        <div class="hud" style="grid-template-columns:1fr 1fr;margin-top:-4px">
-          <div class="metric"><small>Multiplikator</small><span id="k-mult">×1.0</span></div>
-          <div class="right metric"><small>Reihen</small><span id="k-cleared">0</span></div>
+        <div class="hud" style="grid-template-columns:1fr 1fr;margin-top:-6px">
+          <span class="metric"><small>Multiplikator</small><span id="k-mult">×1.0</span></span>
+          <span class="metric right"><small>Reihen</small><span id="k-cleared">0</span></span>
         </div>
         <div class="board-wrap" id="k-wrap">
           <canvas id="k-canvas"></canvas>
-          <div class="overlay" id="k-overlay">
-            <div class="ocard">
-              <h3>Zeit um!</h3>
-              <div class="sub" id="k-result"></div>
-              <div class="btns">
-                <button class="ghost" id="k-quit">Übersicht</button>
-                <button class="primary" id="k-again">Nochmal</button>
-              </div>
-            </div>
-          </div>
-          <div class="overlay" id="k-pause-overlay">
-            <div class="ocard">
-              <h3>Pause</h3>
-              <div class="btns" style="flex-direction:column;width:100%">
-                <button class="primary" id="kp-resume">Weiter</button>
-                <button id="kp-restart">Neu starten</button>
-                <button class="ghost" id="kp-quit">Zurück zur Übersicht</button>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
+      <!-- overlays (global) -->
+      <div class="overlay" id="play-overlay">
+        <div class="ocard">
+          <h3 id="ov-title">Gelöst!</h3>
+          <div class="ostars" id="ov-stars"><span>★</span><span>★</span><span>★</span></div>
+          <div class="sub" id="ov-sub"></div>
+          <div class="rewards" id="ov-rewards"></div>
+          <div class="btns">
+            <button id="ov-quit">Übersicht</button>
+            <button class="go" id="ov-next">Weiter</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="pause-overlay">
+        <div class="ocard">
+          <h3 id="ps-title">Pause</h3>
+          <button class="close" id="ps-x">✕</button>
+          <div class="toggles" id="settings-toggles"></div>
+          <div class="btns" style="flex-direction:column">
+            <button class="go big" id="ps-resume">Weiter spielen</button>
+            <button id="ps-restart">Neu starten</button>
+            <button class="stop" id="ps-quit">Beenden</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="k-overlay">
+        <div class="ocard">
+          <h3>Zeit um!</h3>
+          <div class="sub" id="k-result"></div>
+          <div class="btns">
+            <button id="k-quit">Übersicht</button>
+            <button class="go" id="k-again">Nochmal</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="k-pause-overlay">
+        <div class="ocard">
+          <h3>Pause</h3>
+          <button class="close" id="kp-x">✕</button>
+          <div class="btns" style="flex-direction:column">
+            <button class="go big" id="kp-resume">Weiter</button>
+            <button id="kp-restart">Neu starten</button>
+            <button class="stop" id="kp-quit">Beenden</button>
+          </div>
+        </div>
+      </div>
+
       <nav id="tabbar">
-        <button data-tab="home" class="on"><span class="ic">◆</span>Der Weg</button>
-        <button data-tab="daily"><span class="ic">☀</span>Täglich</button>
-        <button data-tab="descent"><span class="ic">▼</span>Abstieg</button>
+        <button data-tab="home" class="on"><span class="ic">🏠</span>Start</button>
+        <button data-tab="daily"><span class="ic">📅</span>Täglich</button>
+        <button data-tab="descent"><span class="ic">⛏️</span>Abstieg</button>
         <button data-tab="cascade"><span class="ic">⚡</span>Kaskade</button>
-        <button data-tab="collection"><span class="ic">★</span>Sammlung</button>
+        <button data-tab="collection"><span class="ic">🎁</span>Sammlung</button>
       </nav>
 
       <div class="toast" id="toast"></div>

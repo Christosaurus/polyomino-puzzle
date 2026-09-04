@@ -58,14 +58,82 @@ const REGION_THEME: Record<string, SceneTheme> = {
   courtyard: "courtyard",
 };
 
+/** set the numeric part of a `.pill` (keeps the leading icon span) */
+function pillValue(id: string, value: string): void {
+  const el = $(id);
+  const ic = el.querySelector(".ic");
+  el.textContent = "";
+  if (ic) el.append(ic);
+  el.append(document.createTextNode(value));
+}
+
 function renderTopPills(): void {
   const s = store.load();
   const l = store.lives();
-  const hearts = "❤".repeat(l.count) + "🤍".repeat(store.MAX_LIVES - l.count);
-  $("home-lives").textContent = l.count >= store.MAX_LIVES ? hearts : `${hearts}  ${fmt(l.msToNext)}`;
-  $("home-shards").textContent = `✦ ${s.shards}`;
-  $("home-stars").innerHTML = `<b>★ ${store.totalStars(s)}</b>`;
-  $("play-lives").textContent = hearts;
+  const livesTxt = l.count >= store.MAX_LIVES ? `${l.count}` : `${l.count} · ${fmt(l.msToNext)}`;
+  pillValue("home-lives", livesTxt);
+  pillValue("home-shards", String(s.shards));
+  pillValue("play-lives", livesTxt);
+  const rs = document.getElementById("region-stars");
+  if (rs) pillValue("region-stars", String(store.totalStars(s)));
+}
+
+// ── Settings (sound / music / haptics) ─────────────────────────────────────
+interface Settings {
+  sound: boolean;
+  music: boolean;
+  haptics: boolean;
+}
+function loadSettings(): Settings {
+  try {
+    return { sound: true, music: true, haptics: true, ...JSON.parse(localStorage.getItem("lumen.settings") ?? "{}") };
+  } catch {
+    return { sound: true, music: true, haptics: true };
+  }
+}
+function saveSettings(s: Settings): void {
+  try {
+    localStorage.setItem("lumen.settings", JSON.stringify(s));
+  } catch {
+    /* ignore */
+  }
+  sfx.setMuted(!s.sound);
+  sfx.setHaptics(s.haptics);
+}
+let settings = loadSettings();
+saveSettings(settings);
+
+function renderSettingsToggles(host: HTMLElement): void {
+  const rows: Array<[keyof Settings, string, string]> = [
+    ["sound", "🔊", "Ton"],
+    ["music", "🎵", "Musik"],
+    ["haptics", "📳", "Haptik"],
+  ];
+  host.replaceChildren(
+    ...rows.map(([key, icon, label]) => {
+      const row = document.createElement("div");
+      row.className = "toggle-row";
+      row.innerHTML = `<span>${icon} ${label}</span>`;
+      const seg = document.createElement("div");
+      seg.className = "seg";
+      for (const on of [false, true]) {
+        const b = document.createElement("button");
+        b.textContent = on ? "An" : "Aus";
+        if (settings[key] === on) {
+          b.classList.add("on");
+          if (!on) b.classList.add("off-on");
+        }
+        b.addEventListener("click", () => {
+          settings = { ...settings, [key]: on };
+          saveSettings(settings);
+          renderSettingsToggles(host);
+        });
+        seg.append(b);
+      }
+      row.append(seg);
+      return row;
+    }),
+  );
 }
 
 let mode: "campaign" | "daily" | "descent" = "campaign";
@@ -73,12 +141,21 @@ let campaignAt: { region: Region; index: number } | null = null;
 let descentState: { seed: string; depth: number } | null = null;
 let activeGame: GameState | null = null;
 
+function hideAllOverlays(): void {
+  for (const id of ["play-overlay", "pause-overlay", "k-overlay", "k-pause-overlay"]) {
+    document.getElementById(id)?.classList.remove("show");
+  }
+}
+
 // ── Navigation ─────────────────────────────────────────────────────────────
 function showScreen(name: ScreenName): void {
   for (const s of SCREENS) $(`screen-${s}`).hidden = s !== name;
   const inGame = name === "play" || name === "kaskade";
   $("tabbar").hidden = inGame;
-  if (!inGame) teardownGame();
+  if (!inGame) {
+    teardownGame();
+    hideAllOverlays();
+  }
 }
 
 function setTab(tab: Tab): void {
@@ -205,9 +282,8 @@ function startClock(game: GameState): void {
   if (clockTimer) window.clearInterval(clockTimer);
   const tick = (): void => {
     const ms = game.remainingMs();
-    const el = $("play-clock");
-    el.textContent = fmt(ms);
-    el.classList.toggle("warn", !game.isWon() && (ms < 15_000 || ms / game.limitMs < 0.2));
+    $("play-clock-txt").textContent = fmt(ms);
+    $("play-clock").classList.toggle("warn", !game.isWon() && (ms < 15_000 || ms / game.limitMs < 0.2));
   };
   tick();
   clockTimer = window.setInterval(tick, 250);
@@ -563,12 +639,13 @@ const SHOP: Array<{ label: string; cost: number; buy: () => void }> = [
 
 function renderShop(): void {
   const s = store.load();
-  $("shop-shards").textContent = `✦ ${s.shards}`;
+  pillValue("shop-shards", String(s.shards));
   $("shop").replaceChildren(
     ...SHOP.map((item) => {
       const row = document.createElement("div");
       row.className = "item";
       const btn = document.createElement("button");
+      btn.className = "gold";
       btn.textContent = `${item.cost} ✦`;
       btn.disabled = s.shards < item.cost;
       if (item.label.startsWith("❤") && s.lives.count >= store.MAX_LIVES) btn.disabled = true;
@@ -654,16 +731,33 @@ function restartLevel(): void {
   else if (mode === "daily") void playDaily();
   else void playDescentLevel();
 }
-$("play-pause").addEventListener("click", () => {
-  const ov = $("pause-overlay");
-  const show = !ov.classList.contains("show");
-  ov.classList.toggle("show", show);
-  if (show) activeGame?.pause();
-  else activeGame?.resume();
-});
-$("ps-resume").addEventListener("click", () => {
+function restorePauseButtons(): void {
+  $("ps-restart").hidden = false;
+  $("ps-quit").hidden = false;
+  $("ps-title").textContent = "Pause";
+  $<HTMLButtonElement>("ps-resume").textContent = "Weiter spielen";
+}
+function openPause(): void {
+  restorePauseButtons();
+  renderSettingsToggles($("settings-toggles"));
+  $("pause-overlay").classList.add("show");
+  activeGame?.pause();
+}
+function closePause(): void {
   $("pause-overlay").classList.remove("show");
+  restorePauseButtons();
   activeGame?.resume();
+}
+$("play-pause").addEventListener("click", openPause);
+$("ps-resume").addEventListener("click", closePause);
+$("ps-x").addEventListener("click", closePause);
+$("home-settings").addEventListener("click", () => {
+  renderSettingsToggles($("settings-toggles"));
+  $("pause-overlay").classList.add("show");
+  $("ps-restart").hidden = true;
+  $("ps-quit").hidden = true;
+  $("ps-title").textContent = "Einstellungen";
+  $<HTMLButtonElement>("ps-resume").textContent = "Schließen";
 });
 $("ps-restart").addEventListener("click", () => {
   $("pause-overlay").classList.remove("show");
@@ -685,10 +779,12 @@ $("k-pause").addEventListener("click", () => {
   if (show) cascadeGame?.pause();
   else cascadeGame?.resume();
 });
-$("kp-resume").addEventListener("click", () => {
+function closeKPause(): void {
   $("k-pause-overlay").classList.remove("show");
   cascadeGame?.resume();
-});
+}
+$("kp-resume").addEventListener("click", closeKPause);
+$("kp-x").addEventListener("click", closeKPause);
 $("kp-restart").addEventListener("click", () => {
   $("k-pause-overlay").classList.remove("show");
   startCascade();

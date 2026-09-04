@@ -509,7 +509,7 @@ export class GameView {
     if (snapped && this.game.place(drag.piece, snapped)) {
       this.placeAnims.set(drag.piece.key, 0);
       sfx.place();
-      navigator.vibrate?.(8);
+      sfx.vibrate(8);
       if (this.game.isWon()) this.triggerWin();
     } else if (drag.originPos && this.game.canPlace(drag.piece, drag.originPos)) {
       this.game.place(drag.piece, drag.originPos);

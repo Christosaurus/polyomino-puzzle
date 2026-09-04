@@ -6,6 +6,7 @@
 
 let ctx: AudioContext | null = null;
 let muted = false;
+let haptics = true;
 
 function audio(): AudioContext | null {
   if (muted) return null;
@@ -55,5 +56,11 @@ export const sfx = {
   },
   get muted(): boolean {
     return muted;
+  },
+  setHaptics(value: boolean): void {
+    haptics = value;
+  },
+  vibrate(ms: number): void {
+    if (haptics) navigator.vibrate?.(ms);
   },
 };
