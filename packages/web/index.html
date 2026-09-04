@@ -48,6 +48,9 @@
         /* per-screen accent — overridden by [data-region]; drives buttons + nodes */
         --accent: #66e05f;
         --accent-lo: #269a34;
+        /* only screens whose accent is light enough to wash out white text
+           override this to --ink-warm (Taeglich/Abstieg/Kaskade below) */
+        --accent-ink: #fff;
         --node: #ffd36b;
         --ink: #ffffff;
         --ink-2: #ddd6ff;
@@ -213,7 +216,7 @@
       }
       button.go {
         background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent-lo));
-        color: var(--ink-warm);
+        color: var(--accent-ink);
         text-shadow: var(--chunky-shadow);
       }
       button.go,
@@ -363,14 +366,17 @@
       #screen-daily {
         --accent: var(--gold);
         --accent-lo: var(--gold-lo);
+        --accent-ink: var(--ink-warm);
       }
       #screen-descent {
         --accent: var(--sky);
         --accent-lo: var(--sky-lo);
+        --accent-ink: var(--ink-warm);
       }
       #screen-cascade {
         --accent: var(--grape-bright);
         --accent-lo: var(--grape-bright-lo);
+        --accent-ink: var(--ink-warm);
       }
       .mode-screen {
         justify-content: center;
