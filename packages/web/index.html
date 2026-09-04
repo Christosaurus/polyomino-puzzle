@@ -60,11 +60,15 @@
            anything light enough that plain white would wash out */
         --ink-warm: #4a2e00;
         --chunky-shadow:
-          -1.5px -1.5px 0 var(--stroke),
-          1.5px -1.5px 0 var(--stroke),
-          -1.5px 1.5px 0 var(--stroke),
-          1.5px 1.5px 0 var(--stroke),
-          0 3px 0 rgba(0, 0, 0, 0.3);
+          -1.6px 0 0 var(--stroke),
+          1.6px 0 0 var(--stroke),
+          0 -1.6px 0 var(--stroke),
+          0 1.6px 0 var(--stroke),
+          -1.6px -1.6px 0 var(--stroke),
+          1.6px -1.6px 0 var(--stroke),
+          -1.6px 1.6px 0 var(--stroke),
+          1.6px 1.6px 0 var(--stroke),
+          0 3px 0 rgba(0, 0, 0, 0.35);
         /* canvas tokens (board / belt) */
         --cell: #251a72;
         --board-edge: #8b73f0;
@@ -215,7 +219,10 @@
         opacity: 0.7;
       }
       button.go {
-        background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), var(--accent-lo));
+        /* no white mixed into the fill — some accents (gold/sky/grape-bright)
+           are pastel enough already that lightening them further washes out
+           white lettering even with a full outline */
+        background: linear-gradient(180deg, var(--accent), var(--accent-lo));
         color: var(--accent-ink);
         text-shadow: var(--chunky-shadow);
       }
@@ -366,17 +373,14 @@
       #screen-daily {
         --accent: var(--gold);
         --accent-lo: var(--gold-lo);
-        --accent-ink: var(--ink-warm);
       }
       #screen-descent {
         --accent: var(--sky);
         --accent-lo: var(--sky-lo);
-        --accent-ink: var(--ink-warm);
       }
       #screen-cascade {
         --accent: var(--grape-bright);
         --accent-lo: var(--grape-bright-lo);
-        --accent-ink: var(--ink-warm);
       }
       .mode-screen {
         justify-content: center;
@@ -404,7 +408,7 @@
           0 0 30px -6px color-mix(in srgb, var(--accent) 55%, transparent),
           var(--shadow);
       }
-      .mode-card .big {
+      .mode-card .row .big {
         color: var(--accent);
       }
       .banner {
