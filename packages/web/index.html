@@ -133,6 +133,27 @@
         margin: 0;
         text-shadow: 0 2px 0 var(--stroke);
       }
+      .brand {
+        display: flex;
+        justify-content: center;
+        margin: 2px 0 4px;
+      }
+      .brand-logo {
+        display: block;
+        width: min(74%, 320px);
+        border-radius: 26px;
+        box-shadow:
+          0 0 44px 8px rgba(255, 194, 59, 0.32),
+          0 14px 26px -10px rgba(0, 0, 0, 0.6);
+      }
+      .mini-brand {
+        display: block;
+        height: 20px;
+        width: auto;
+        margin: 0 auto;
+        border-radius: 7px;
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+      }
       .muted {
         color: var(--ink-dim);
         font-size: 13px;
@@ -1103,7 +1124,9 @@
           <span class="grow"></span>
           <button class="icon" id="home-settings">⚙</button>
         </div>
-        <h1 id="home-title">Lumen</h1>
+        <div class="brand">
+          <img class="brand-logo" src="ui/logo-home.webp" alt="Lumen" />
+        </div>
         <p class="muted" id="home-status">Wird geladen …</p>
         <div class="journey" id="regions"></div>
       </section>
@@ -1165,6 +1188,7 @@
       </section>
 
       <section class="screen play" id="screen-play" hidden>
+        <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
         <div class="hud">
           <span class="pill" id="play-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <div class="clock" id="play-clock"><span id="play-clock-txt">0:00</span><small id="play-title-txt">Level</small></div>
@@ -1183,6 +1207,7 @@
       </section>
 
       <section class="screen play" id="screen-kaskade" hidden>
+        <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
         <div class="hud">
           <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
           <div class="clock" id="k-clock">1:30</div>
