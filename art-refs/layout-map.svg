@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536"><defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#101a34"/><stop offset="0.5" stop-color="#1c2b4a"/><stop offset="1" stop-color="#233a3a"/>
+    </linearGradient>
+  <radialGradient id="vig" cx="0.5" cy="0.52" r="0.75">
+    <stop offset="0.55" stop-color="#060810" stop-opacity="0"/>
+    <stop offset="1" stop-color="#060810" stop-opacity="0.7"/>
+  </radialGradient>
+    </defs>
+    <rect width="1024" height="1536" fill="url(#sky)"/>
+    <circle cx="800" cy="200" r="150" fill="#dbe4ff" opacity="0.18"/><circle cx="800" cy="200" r="60" fill="#cfd9f2"/>
+    <!-- distant mountains -->
+    <path d="M0 620 L200 460 L420 640 L650 430 L900 660 L1024 520 L1024 1536 L0 1536Z" fill="#1a2540"/>
+    <!-- rolling hills -->
+    <path d="M0 900 C 250 820 400 980 620 900 C 820 830 950 960 1024 900 L1024 1536 L0 1536Z" fill="#25402f"/>
+    <path d="M0 1150 C 300 1080 500 1220 760 1130 C 900 1090 1000 1180 1024 1140 L1024 1536 L0 1536Z" fill="#1a2f23"/>
+    <!-- winding path from bottom to top with 3 wide spots (region markers) -->
+    <path d="M540 1536 C 600 1360 460 1240 540 1080 C 610 950 470 840 560 700 C 620 600 520 520 560 430"
+      stroke="#c9b58a" stroke-width="90" fill="none" stroke-linecap="round" opacity="0.5"/>
+    <circle cx="540" cy="1120" r="70" fill="#c9b58a" opacity="0.5"/>
+    <circle cx="555" cy="800" r="70" fill="#c9b58a" opacity="0.5"/>
+    <circle cx="558" cy="480" r="70" fill="#c9b58a" opacity="0.5"/>
+    <!-- lanterns + trees on the sides -->
+    <g fill="#2b4a34"><circle cx="120" cy="820" r="120"/><circle cx="180" cy="720" r="90"/><circle cx="920" cy="1000" r="130"/></g>
+    <g fill="#ffcf6b"><circle cx="360" cy="1150" r="7"/><circle cx="720" cy="960" r="7"/><circle cx="300" cy="700" r="6"/><circle cx="760" cy="600" r="6"/></g>
+    <rect x="70" y="470" width="884" height="720" rx="48" fill="#060810" opacity="0.36"/>
+    <rect width="1024" height="1536" fill="url(#vig)"/></svg>

@@ -14,4 +14,8 @@ coverage/
 dist/
 
 # art reference material (working files)
-/art-refs/
+/art-refs/bg-*
+/art-refs/ref-*
+/art-refs/icons-*
+/art-refs/*-tag.png
+/art-refs/*-nacht.png
