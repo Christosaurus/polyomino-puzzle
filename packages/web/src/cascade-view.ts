@@ -27,6 +27,18 @@ interface Layout {
   bandH: number;
   shardCell: number;
 }
+interface Spark {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  t: number;
+  max: number;
+  color: string;
+  size: number;
+  rot: number;
+  spin: number;
+}
 interface Drag {
   shard: Shard;
   from: "belt" | "hold";
@@ -58,6 +70,10 @@ export class CascadeView {
   private raf = 0;
   private last = 0;
   private flash: { row: number; t: number }[] = [];
+  private sparks: Spark[] = [];
+  /** short-lived "+N" score pops */
+  private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
+  private placePop: { r: number; c: number; t: number } | null = null;
   private ended = false;
 
   constructor(canvas: HTMLCanvasElement, wrap: HTMLElement, game: CascadeState, cb: CascadeCallbacks) {
@@ -116,7 +132,38 @@ export class CascadeView {
 
   private step(dt: number): void {
     this.game.tick(dt);
-    this.flash = this.flash.filter((f) => (f.t += dt) < 0.55);
+    this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
+    for (const s of this.sparks) {
+      s.t += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 260 * dt; // gentle gravity
+      s.vx *= 1 - dt * 1.5;
+      s.rot += s.spin * dt;
+    }
+    this.sparks = this.sparks.filter((s) => s.t < s.max);
+    for (const p of this.pops) p.t += dt;
+    this.pops = this.pops.filter((p) => p.t < 0.8);
+    if (this.placePop && (this.placePop.t += dt) > 0.28) this.placePop = null;
+
+    const clear = this.game.consumeFreshClear();
+    if (clear && this.layout) {
+      const L = this.layout;
+      for (const r of clear.rows) {
+        this.flash.push({ row: r, t: 0 });
+        this.spawnRowBurst(r, L);
+      }
+      if (clear.gain >= 12 && clear.rows.length > 0) {
+        this.pops.push({
+          x: L.boardX + (this.game.cols * L.cell) / 2,
+          y: L.boardY + (clear.rows[0]! + 0.2) * L.cell,
+          t: 0,
+          text: `+${clear.gain}`,
+          color: cssVar("--gold"),
+        });
+      }
+      sfx.vibrate(24);
+    }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
       this.game.finish();
@@ -143,7 +190,9 @@ export class CascadeView {
     // elongated conveyor with a longer visible travel path
     const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
     const boardAreaW = cssW - beltW - pad * 3;
-    const maxH = Math.max(320, viewportH - 216); // hud rows + the new lives strip + pad
+    // the challenge banner reserves a band above the board (see #k-wrap.has-challenge)
+    const chalBand = this.wrap.classList.contains("has-challenge") ? 46 : 0;
+    const maxH = Math.max(320, viewportH - 216 - chalBand); // hud rows + lives strip + pad + banner
 
     const cell = Math.max(
       22,
@@ -194,6 +243,45 @@ export class CascadeView {
     });
   }
 
+  /** A burst of little four-point stars along a row that just cleared. */
+  private spawnRowBurst(row: number, L: Layout): void {
+    const gold = cssVar("--gold");
+    const y = L.boardY + (row + 0.5) * L.cell;
+    const n = 20;
+    for (let i = 0; i < n; i++) {
+      const x = L.boardX + ((i + 0.5) / n) * this.game.cols * L.cell + (Math.random() - 0.5) * L.cell;
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 70 + Math.random() * 220;
+      this.sparks.push({
+        x,
+        y: y + (Math.random() - 0.5) * L.cell * 0.6,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 60,
+        t: 0,
+        max: 0.45 + Math.random() * 0.45,
+        color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : "#ffe08a",
+        size: 3 + Math.random() * 4.5,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 14,
+      });
+    }
+  }
+
+  private drawStar(x: number, y: number, r: number, rot: number): void {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = rot + (i * Math.PI) / 4;
+      const rad = i % 2 === 0 ? r : r * 0.4;
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
   private render(): void {
     const L = this.computeLayout();
@@ -227,22 +315,70 @@ export class CascadeView {
     );
     ctx.stroke();
 
-    // filled cells
+    // filled cells — the just-placed piece gets a quick pop
     for (let r = 0; r < this.game.rows; r++) {
       for (let c = 0; c < this.game.cols; c++) {
         const v = this.game.board[r * this.game.cols + c];
         if (v && v > 0) {
-          drawPieceBody(ctx, [[r, c]], L.boardX, L.boardY, L.cell, shardByColorIndex(v).color);
+          const pp = this.placePop;
+          let opts: { scale: number; glow: number } | undefined;
+          if (pp && r === pp.r && c >= pp.c && c < pp.c + 4 && r < pp.r + 3) {
+            opts = { scale: 1 + 0.14 * Math.sin((pp.t / 0.28) * Math.PI), glow: 10 };
+          }
+          drawPieceBody(ctx, [[r, c]], L.boardX, L.boardY, L.cell, shardByColorIndex(v).color, opts);
         }
       }
     }
+
+    // a cleared row: a bright bar sweeping outward, then it's gone
     for (const f of this.flash) {
+      const p = f.t / 0.5;
+      const y = L.boardY + f.row * L.cell;
+      const w = this.game.cols * L.cell;
       ctx.save();
-      ctx.globalAlpha = (1 - f.t / 0.55) * 0.95;
-      ctx.fillStyle = "#fff6d8";
-      ctx.fillRect(L.boardX, L.boardY + f.row * L.cell, this.game.cols * L.cell, L.cell);
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createLinearGradient(L.boardX, y, L.boardX + w, y);
+      const a = (1 - p) * 0.9;
+      g.addColorStop(0, `rgba(255,255,255,0)`);
+      g.addColorStop(0.5, `rgba(255,240,190,${a})`);
+      g.addColorStop(1, `rgba(255,255,255,0)`);
+      ctx.fillStyle = g;
+      const bh = L.cell * (1 + p * 0.6);
+      ctx.fillRect(L.boardX, y - (bh - L.cell) / 2, w, bh);
       ctx.restore();
     }
+
+    // star sparks from row clears
+    if (this.sparks.length) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const s of this.sparks) {
+        const k = 1 - s.t / s.max;
+        ctx.globalAlpha = Math.max(0, k);
+        ctx.fillStyle = s.color;
+        ctx.shadowColor = s.color;
+        ctx.shadowBlur = 8 * k;
+        this.drawStar(s.x, s.y, s.size * (0.5 + k * 0.7), s.rot);
+      }
+      ctx.restore();
+    }
+
+    // "+N" score pops
+    for (const pop of this.pops) {
+      const k = pop.t / 0.8;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - k);
+      ctx.fillStyle = pop.color;
+      ctx.font = `800 ${Math.round(L.cell * 0.6)}px "Baloo 2", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(pop.text, pop.x, pop.y - k * L.cell * 1.4);
+      ctx.restore();
+    }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
 
     // belt
     ctx.fillStyle = cssVar("--surface-2");
@@ -445,8 +581,9 @@ export class CascadeView {
         if (d.from === "belt") this.game.removeFromBelt(d.shard.id);
         else this.game.hold = null;
         sfx.place();
-        sfx.vibrate(rows > 0 ? 24 : 8);
-        for (const r of this.game.lastCleared) this.flash.push({ row: r, t: 0 });
+        sfx.vibrate(8);
+        this.placePop = { r: snap.row, c: snap.col, t: 0 };
+        // the burst / flash / "+N" pop are spawned in step() via consumeFreshClear
         return;
       }
     }

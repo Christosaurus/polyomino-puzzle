@@ -81,6 +81,16 @@ export class CascadeState {
   lives = CASCADE_LIVES;
   /** Row indices cleared by the most recent `place()` — for the view's flash. */
   lastCleared: number[] = [];
+  /** Score before the most recent clear-causing placement — for the view's "+N" pop. */
+  private clearScoreBase = 0;
+  private freshClear = false;
+
+  /** The rows cleared by the last placement, once — for the view's burst/flash/pop. */
+  consumeFreshClear(): { rows: number[]; gain: number } | null {
+    if (!this.freshClear) return null;
+    this.freshClear = false;
+    return { rows: [...this.lastCleared], gain: Math.round(this.score - this.clearScoreBase) };
+  }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
 
@@ -206,7 +216,7 @@ export class CascadeState {
         target: 1,
         progress: 0,
         deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
-        label: "Reihe nur aus geraden Linien",
+        label: "Reihe nur aus geraden Linien (2·3·4)",
       };
     }
   }
@@ -287,6 +297,7 @@ export class CascadeState {
     if (!this.canPlace(shard, pos)) return -1;
     const def = shardDef(shard.name);
     const ci = this.colorIndex(shard.name);
+    this.clearScoreBase = this.score;
     const touchedRows = new Set<number>();
     for (const [dr, dc] of this.cells(shard)) {
       const r = pos.row + dr;
@@ -309,6 +320,7 @@ export class CascadeState {
       this.cleared += rows;
       this.score += 12 * rows * rows * this.multiplier;
       this.multiplier = Math.min(6, this.multiplier + 0.4 * rows);
+      this.freshClear = true;
     }
     if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
       // perfect clear (only counts if we actually cleared something)

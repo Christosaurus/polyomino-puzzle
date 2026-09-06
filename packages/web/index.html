@@ -339,6 +339,11 @@
         font-size: 26px;
         box-shadow: var(--shadow);
         flex: none;
+        cursor: pointer;
+        transition: transform 0.08s var(--tap);
+      }
+      .avatar:active {
+        transform: scale(0.92);
       }
       .topbar .grow {
         flex: 1;
@@ -686,24 +691,50 @@
         opacity: 0.3;
         filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
       }
+      /* sits in a reserved band ABOVE the board (see #k-wrap.has-challenge) so
+         it never covers a playable row */
+      #k-wrap.has-challenge {
+        padding-top: 46px;
+      }
       .challenge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        z-index: 3;
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-top: 2px;
-        padding: 9px 14px;
-        border-radius: 16px;
-        background: linear-gradient(180deg, #3a2b9e, var(--panel-inset));
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(58, 43, 158, 0.97), rgba(36, 26, 102, 0.97));
+        backdrop-filter: blur(2px);
         border: 2px solid var(--gold);
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 0 16px rgba(255, 194, 59, 0.4);
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
-        animation: chal-in 0.3s var(--tap) both;
+        line-height: 1.15;
+        animation: chal-in 0.3s var(--tap) both, chal-lamp 1.15s ease-in-out infinite;
       }
       @keyframes chal-in {
         from {
-          transform: scale(0.9);
+          transform: translateY(-6px);
           opacity: 0;
+        }
+      }
+      /* pulses like a warning lamp so it can't be missed */
+      @keyframes chal-lamp {
+        0%,
+        100% {
+          box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.12),
+            0 0 6px rgba(255, 194, 59, 0.25);
+          border-color: #b9871a;
+        }
+        50% {
+          box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.12),
+            0 0 22px 2px rgba(255, 194, 59, 0.85);
+          border-color: #ffd873;
         }
       }
       .challenge .cic {
@@ -720,11 +751,9 @@
         font-size: 14px;
       }
       .challenge.won {
+        animation: chal-in 0.3s var(--tap) both;
         border-color: var(--go);
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 0 18px rgba(102, 224, 95, 0.6);
-      }
-      .challenge.won .cclock {
-        color: var(--go);
       }
       .challenge.won .cclock {
         color: var(--go);
@@ -1339,12 +1368,12 @@
           <span class="metric"><small>Reihen</small><span id="k-cleared">0</span></span>
           <span class="metric right"><small>Rekord</small><span id="k-best">0</span></span>
         </div>
-        <div class="challenge" id="k-challenge" hidden>
-          <span class="cic">🎯</span>
-          <span class="ctxt" id="k-challenge-txt"></span>
-          <span class="cclock" id="k-challenge-clock"></span>
-        </div>
         <div class="board-wrap" id="k-wrap">
+          <div class="challenge" id="k-challenge" hidden>
+            <span class="cic">🎯</span>
+            <span class="ctxt" id="k-challenge-txt"></span>
+            <span class="cclock" id="k-challenge-clock"></span>
+          </div>
           <canvas id="k-canvas"></canvas>
         </div>
       </section>

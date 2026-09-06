@@ -700,15 +700,18 @@ function startCascade(): void {
       if (game.challenge) {
         cEl.hidden = false;
         cEl.classList.remove("won");
-        $("k-challenge-txt").textContent = `Aufgabe: ${game.challenge.label}`;
+        $("k-wrap").classList.add("has-challenge");
+        $("k-challenge-txt").textContent = game.challenge.label;
         $("k-challenge-clock").textContent = fmt(game.challengeRemainingMs());
       } else if (performance.now() < challengeWonUntil) {
         cEl.hidden = false;
         cEl.classList.add("won");
+        $("k-wrap").classList.add("has-challenge");
         $("k-challenge-txt").textContent = "Aufgabe geschafft!";
         $("k-challenge-clock").textContent = "";
       } else {
         cEl.hidden = true;
+        $("k-wrap").classList.remove("has-challenge");
       }
     },
     onEnd: (r) => {
@@ -815,6 +818,7 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")
   btn.addEventListener("click", () => setTab(btn.dataset.tab as Tab));
 }
 $("region-back").addEventListener("click", () => setTab("home"));
+$("home-avatar").addEventListener("click", () => setTab("collection"));
 
 function doLeave(): void {
   if (mode === "campaign" && campaignAt) openRegion(regions.indexOf(campaignAt.region));
