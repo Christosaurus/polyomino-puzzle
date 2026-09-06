@@ -435,15 +435,13 @@ export class CascadeView {
     }
     const w = (maxC - minC + 1) * cell;
     const hh = (maxR - minR + 1) * cell;
-    const def = shardDef(shard.name);
     drawPieceBody(
       this.ctx,
       cells.map(([r, c]) => [r - minR, c - minC] as [number, number]),
       cx - w / 2,
       cy - hh / 2,
       cell,
-      def.color,
-      def.special === "bomb" ? { glow: 18 } : undefined,
+      shardDef(shard.name).color,
     );
   }
 
@@ -452,14 +450,13 @@ export class CascadeView {
     const snap = this.snappedFor(d, L);
     if (this.overBoard(d.px, d.py, L)) {
       const ok = this.game.canPlace(d.shard, snap);
-      const def = shardDef(d.shard.name);
       const cells = this.game
         .cells(d.shard)
         .map(([r, c]) => [r + snap.row, c + snap.col] as [number, number]);
-      drawPieceBody(this.ctx, cells, L.boardX, L.boardY, L.cell, def.color, {
+      drawPieceBody(this.ctx, cells, L.boardX, L.boardY, L.cell, shardDef(d.shard.name).color, {
         alpha: ok ? 0.96 : 0.55,
         scale: 1.03,
-        glow: ok ? (def.special === "bomb" ? 38 : 20) : 6,
+        glow: ok ? 20 : 6,
         tint: ok ? undefined : "#ff4d4d",
       });
     } else {

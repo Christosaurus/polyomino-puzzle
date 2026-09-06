@@ -21,7 +21,7 @@ export const LIFE_REGEN_MS = 20 * 60_000;
 export interface SaveData {
   levels: Record<string, LevelResult>;
   daily: { lastDayDone: string; streak: number; bestStreak: number };
-  descent: { bestDepth: number; runs: number };
+  descent: { bestDepth: number; runs: number; seq: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
   achievements: string[];
   jokers: Jokers;
@@ -38,7 +38,7 @@ export interface SaveData {
 const EMPTY: SaveData = {
   levels: {},
   daily: { lastDayDone: "", streak: 0, bestStreak: 0 },
-  descent: { bestDepth: 0, runs: 0 },
+  descent: { bestDepth: 0, runs: 0, seq: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
   achievements: [],
   jokers: { hint: 3, time: 2, solvent: 2 },
@@ -179,6 +179,22 @@ export function recordDescent(depth: number): SaveData {
     d.descent.runs += 1;
     d.descent.bestDepth = Math.max(d.descent.bestDepth, depth);
   });
+}
+
+/** How many curated level-variants each Descent depth rotates through. */
+export const DESCENT_VARIANTS = 10;
+
+/**
+ * Claim the next Descent rotation slot. Each new run advances `seq`, so back-to-
+ * back runs walk through {@link DESCENT_VARIANTS} different level sequences
+ * before any repeat — persisted immediately so an abandoned run still counts.
+ */
+export function beginDescentRun(): number {
+  const variant = load().descent.seq % DESCENT_VARIANTS;
+  update((d) => {
+    d.descent.seq = (d.descent.seq + 1) % (DESCENT_VARIANTS * 1000);
+  });
+  return variant;
 }
 
 export function recordCascade(score: number, cleared: number): SaveData {

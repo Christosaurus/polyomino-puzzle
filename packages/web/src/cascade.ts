@@ -9,7 +9,7 @@
  */
 
 import { type Rng, rngFromSeed } from "@polyomino/puzzle-core";
-import { BOMB_DEF, pickShardName, shardByColorIndex, shardColorIndex, shardDef } from "./shards.js";
+import { pickShardName, shardByColorIndex, shardColorIndex, shardDef } from "./shards.js";
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
@@ -21,8 +21,6 @@ const BELT_TRAVEL_MS_END = 5_400; // ...and by the end of the run — the belt s
 export const CASCADE_LIVES = 3;
 const MAX_ON_BELT = 3;
 const MIN_GAP_Y = 0.36; // spacing between shards on the belt
-/** Every Nth spawn is the "Blitzstein" — a rare, deliberate novelty, not raw RNG. */
-const BOMB_EVERY = 7;
 
 export interface Pos {
   row: number;
@@ -114,8 +112,7 @@ export class CascadeState {
 
   private makeShard(y: number): Shard {
     this.spawnCount += 1;
-    const isBomb = this.spawnCount % BOMB_EVERY === 0;
-    const name = isBomb ? BOMB_DEF.name : pickShardName(this.rng, this.coveredCells() / (this.rows * this.cols));
+    const name = pickShardName(this.rng, this.coveredCells() / (this.rows * this.cols));
     return { id: this.nextId++, name, orientationIndex: 0, y };
   }
 
@@ -241,9 +238,6 @@ export class CascadeState {
   colorIndex(name: string): number {
     return shardColorIndex(name);
   }
-  isBomb(name: string): boolean {
-    return shardDef(name).special === "bomb";
-  }
 
   rotate(shard: Shard): void {
     shard.orientationIndex = (shard.orientationIndex + 1) % this.orientationCount(shard.name);
@@ -295,27 +289,15 @@ export class CascadeState {
   /** Place a shard. Returns rows cleared, or -1 if it doesn't fit. */
   place(shard: Shard, pos: Pos): number {
     if (!this.canPlace(shard, pos)) return -1;
-    const def = shardDef(shard.name);
     const ci = this.colorIndex(shard.name);
     this.clearScoreBase = this.score;
-    const touchedRows = new Set<number>();
     for (const [dr, dc] of this.cells(shard)) {
-      const r = pos.row + dr;
-      this.board[this.idx(r, pos.col + dc)] = ci;
-      touchedRows.add(r);
+      this.board[this.idx(pos.row + dr, pos.col + dc)] = ci;
     }
     this.score += 5 * this.multiplier;
     this.multiplier = Math.min(6, this.multiplier + 0.25);
 
-    let rows: number;
-    if (def.special === "bomb") {
-      // the Blitzstein ignites its own row outright, full or not
-      rows = this.forceClearRows([...touchedRows]);
-      this.score += 40 * this.multiplier;
-      this.extraMs += 3000;
-    } else {
-      rows = this.clearFullRows();
-    }
+    const rows = this.clearFullRows();
     if (rows > 0) {
       this.cleared += rows;
       this.score += 12 * rows * rows * this.multiplier;
@@ -369,16 +351,6 @@ export class CascadeState {
     this.challenge = null;
     this.nextChallengeAt =
       this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
-  }
-
-  /** Clear the given rows outright, regardless of whether they're full. */
-  private forceClearRows(rows: number[]): number {
-    this.lastCleared = [];
-    for (const r of rows) {
-      for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
-      this.lastCleared.push(r);
-    }
-    return this.lastCleared.length;
   }
 
   coveredCells(): number {

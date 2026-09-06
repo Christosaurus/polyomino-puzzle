@@ -1,9 +1,9 @@
 /**
  * Kaskade's own piece set — deliberately wider than the story mode's classic
- * pentominoes. Small pieces (a domino, an L-tromino, the O-tetromino, ...) give
- * the player an easy out when the board gets crowded; pentominoes stay in for
- * bite; one rare "Blitzstein" is a single glowing cell that instantly clears
- * whatever row it lands in — the novelty piece that keeps a run exciting.
+ * pentominoes. Small pieces (a single cell, a domino, an L-tromino, the
+ * O-tetromino, ...) give the player an easy out when the board gets crowded;
+ * pentominoes stay in for bite. Every piece behaves the same way — cover cells,
+ * fill a row, clear it. No wildcards.
  */
 
 import {
@@ -24,11 +24,11 @@ export interface ShardDef {
   weight: number;
   /** All cells sit in a single row or a single column — a clean straight bar. */
   straight: boolean;
-  special?: "bomb";
   orientations: ReadonlyArray<readonly Cell[]>;
 }
 
 function isStraight(cells: readonly Cell[]): boolean {
+  if (cells.length < 2) return false; // a single cell isn't a "bar"
   const rows = new Set(cells.map((c) => c[0]));
   const cols = new Set(cells.map((c) => c[1]));
   return rows.size === 1 || cols.size === 1;
@@ -44,6 +44,7 @@ interface RawExtra {
 // small + medium shapes, on top of the 12 pentominoes — more of the board is
 // coverable by an "easy" piece when things get tight.
 const EXTRA: RawExtra[] = [
+  { name: "mono", cells: [[0, 0]], color: "#ffe066", weight: 2 },
   { name: "duo", cells: [[0, 0], [0, 1]], color: "#66e05f", weight: 6 },
   { name: "trio-i", cells: [[0, 0], [0, 1], [0, 2]], color: "#45c1ff", weight: 5 },
   { name: "trio-l", cells: [[0, 0], [0, 1], [1, 0]], color: "#2fd9cf", weight: 5 },
@@ -79,18 +80,7 @@ const SHARD_DEFS: ShardDef[] = [
   ),
 ];
 
-/** The rare novelty piece: one glowing cell that force-clears its row. */
-export const BOMB_DEF: ShardDef = {
-  name: "bomb",
-  size: 1,
-  color: "#ffe066",
-  weight: 0,
-  straight: false, // the Blitzstein is a wildcard, not a "straight bar" for challenges
-  special: "bomb",
-  orientations: orientations([[0, 0]]),
-};
-
-const ALL_DEFS: ShardDef[] = [...SHARD_DEFS, BOMB_DEF];
+const ALL_DEFS: ShardDef[] = SHARD_DEFS;
 const BY_NAME = new Map(ALL_DEFS.map((d) => [d.name, d]));
 const INDEX_BY_NAME = new Map(ALL_DEFS.map((d, i) => [d.name, i]));
 

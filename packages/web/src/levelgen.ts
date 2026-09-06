@@ -42,15 +42,22 @@ export function dailyLevel(day: string): Level | null {
 }
 
 /**
- * Descent level for a given depth — grows in pieces and difficulty. The first
- * few depths stay at the smallest reliably-generatable size (3 pentominoes —
- * the catalog's only 2-piece shape, a bare 2x5 rectangle, essentially never
- * has a unique tiling, so `makeLevel` returns null for it almost every time)
- * so a run opens with a couple of easy, confidence-building clears before it
- * starts asking anything of you.
+ * Descent level for a given depth and rotation `variant`. Pieces and difficulty
+ * grow with depth; the first few depths stay at the smallest reliably-
+ * generatable size (3 pentominoes — the catalog's only 2-piece shape, a bare
+ * 2x5 rectangle, essentially never has a unique tiling, so `makeLevel` returns
+ * null for it almost every time) so a run opens with a couple of easy,
+ * confidence-building clears before it starts asking anything of you.
+ *
+ * `variant` (0..DESCENT_VARIANTS-1) picks one of several curated seeds per depth
+ * so consecutive runs don't replay the exact same level sequence — each stays
+ * at its depth's difficulty, it's just a different puzzle.
  */
-export function descentLevel(depth: number, runSeed: string): Level | null {
+export function descentDifficulty(depth: number): number {
+  return Math.min(5, 1 + Math.floor((depth - 1) / 3));
+}
+
+export function descentLevel(depth: number, variant: number): Level | null {
   const pieces = Math.min(11, 3 + Math.floor((depth - 1) / 3));
-  const difficulty = Math.min(5, 1 + Math.floor((depth - 1) / 3));
-  return makeLevel(`${runSeed}:d${depth}`, difficulty, pieces);
+  return makeLevel(`descent:v${variant}:d${depth}`, descentDifficulty(depth), pieces);
 }

@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js
 import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
-import { dailyLevel, descentLevel } from "./levelgen.js";
+import { dailyLevel, descentDifficulty, descentLevel } from "./levelgen.js";
 import * as store from "./progress.js";
 import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
@@ -140,8 +140,22 @@ function renderSettingsToggles(host: HTMLElement): void {
 
 let mode: "campaign" | "daily" | "descent" = "campaign";
 let campaignAt: { region: Region; index: number } | null = null;
-let descentState: { seed: string; depth: number } | null = null;
+let descentState:
+  | { variant: number; depth: number; streak: number; sawRecord: boolean }
+  | null = null;
 let activeGame: GameState | null = null;
+
+/** Short bursts of praise for the between-levels moment, rotated (never RNG). */
+const HYPE_WORDS = [
+  "Wow!",
+  "Wahnsinn!",
+  "Stark!",
+  "Grandios!",
+  "Weiter so!",
+  "Unaufhaltsam!",
+  "Fantastisch!",
+  "Bärenstark!",
+];
 
 function hideAllOverlays(): void {
   for (const id of ["play-overlay", "pause-overlay", "k-overlay", "k-pause-overlay"]) {
@@ -260,6 +274,10 @@ interface OverlayOpts {
   onNext: () => void;
   quitLabel?: string;
   onQuit: () => void;
+  /** Big animated praise line above the title — record breaks, streak milestones. */
+  hype?: string;
+  /** A stronger, gold treatment for `hype` (used for a new record). */
+  hypeStrong?: boolean;
 }
 /** Sparkles flying out from the star row — bigger for a cleaner win. */
 function spawnBurst(host: HTMLElement, n: number): void {
@@ -282,6 +300,15 @@ function spawnBurst(host: HTMLElement, n: number): void {
 }
 
 function showOverlay(o: OverlayOpts): void {
+  const hypeEl = $("ov-hype");
+  hypeEl.hidden = !o.hype;
+  hypeEl.classList.toggle("strong", !!o.hypeStrong);
+  if (o.hype) {
+    hypeEl.textContent = o.hype;
+    hypeEl.classList.remove("pop");
+    void hypeEl.offsetWidth;
+    hypeEl.classList.add("pop");
+  }
   $("ov-title").textContent = o.title;
   const starsEl = $("ov-stars");
   starsEl.hidden = o.stars === undefined;
@@ -368,6 +395,7 @@ function mountGame(
 ): void {
   teardownGame();
   hideOverlay();
+  $("play-stage").hidden = mode !== "descent";
   activeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __game: GameState }).__game = game;
   gameView = new GameView($<HTMLCanvasElement>("play-canvas"), $("play-wrap"), game, cb);
@@ -584,17 +612,32 @@ function renderDescent(): void {
 function startDescent(): void {
   mode = "descent";
   if (!livesGate()) return;
-  descentState = { seed: `run-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, depth: 1 };
+  descentState = { variant: store.beginDescentRun(), depth: 1, streak: 0, sawRecord: false };
   void playDescentLevel();
 }
+
+/** The difficulty-stage strip above the board — Descent only. */
+function renderDescentStage(depth: number, streak: number): void {
+  const bar = $("play-stage");
+  bar.hidden = false;
+  const stage = descentDifficulty(depth);
+  const pips = [1, 2, 3, 4, 5].map((s) => `<i class="${s <= stage ? "on" : ""}"></i>`).join("");
+  const hot = streak >= 3 && streak % 3 === 0;
+  bar.classList.toggle("hot", hot);
+  bar.innerHTML =
+    `<span class="ps-lvl">Ebene ${depth}</span>` +
+    `<span class="ps-pips">${pips}</span>` +
+    `<span class="ps-note">${hot ? `${streak}× in Folge 🔥` : `Stufe ${stage}`}</span>`;
+}
+
 async function playDescentLevel(): Promise<void> {
   mode = "descent";
   if (!descentState) return;
-  const { seed, depth } = descentState;
+  const { variant, depth, streak } = descentState;
   scenery.setTheme("workshop");
   toast("Fenster wird gebaut …");
   await yieldPaint();
-  const level = descentLevel(depth, seed);
+  const level = descentLevel(depth, variant);
   if (!level) {
     endDescent();
     return;
@@ -605,6 +648,7 @@ async function playDescentLevel(): Promise<void> {
     depth > best && best > 0
       ? `Abstieg · Ebene ${depth} · 🏆 neue Bestmarke!`
       : `Abstieg · Ebene ${depth} · Rekord ${best}`;
+  renderDescentStage(depth, streak);
   const base = new GameState(level);
   // early depths stay generous on time so the run opens with easy wins; the
   // squeeze tightens in as it goes
@@ -613,29 +657,50 @@ async function playDescentLevel(): Promise<void> {
   // every 4th level from depth 4 on, part of the window starts locked — solve
   // the open part first to free it, one extra beat of tension on a run
   const isFrozenLevel = depth >= 4 && depth % 4 === 0;
-  if (isFrozenLevel && maybeFreeze(game, `${seed}:d${depth}:frozen`)) {
+  if (isFrozenLevel && maybeFreeze(game, `descent:v${variant}:d${depth}:frozen`)) {
     toast("🔒 Ein Teil des Fensters ist gesperrt — löse zuerst den Rest!");
   }
   mountGame(game, {
     onWin: (stars, ms) => {
-      descentState!.depth = depth + 1;
+      const st = descentState!;
+      st.depth = depth + 1;
+      st.streak += 1;
       store.recordDescent(depth);
       store.addShards(depth);
+      scenery.pulse(0.35 + 0.08 * stars); // the workshop brightens with every clear
       celebrate(syncAchievements());
       renderTopPills();
+
+      // between-levels praise — a new record always lands; otherwise only now
+      // and then, so it stays a treat and not noise
+      let hype: string | undefined;
+      let hypeStrong = false;
+      const brokeRecord = depth > best && best > 0;
+      if (brokeRecord && !st.sawRecord) {
+        st.sawRecord = true;
+        hype = "NEUER REKORD!";
+        hypeStrong = true;
+      } else if (st.streak >= 3 && st.streak % 3 === 0) {
+        hype = HYPE_WORDS[(depth + variant) % HYPE_WORDS.length];
+      } else if (st.sawRecord && st.streak % 2 === 0) {
+        hype = HYPE_WORDS[(depth + variant + 3) % HYPE_WORDS.length];
+      }
+
       showOverlay({
         title: `Ebene ${depth} geschafft`,
         stars,
-        sub: `Zeit <b>${fmt(ms)}</b>`,
+        sub: `Zeit <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
         rewards: [`✦ +${depth} Lichtsplitter`],
         nextLabel: "Tiefer ›",
         onNext: playDescentLevel,
         quitLabel: "Aufhören",
         onQuit: () => endDescent(depth),
+        ...(hype ? { hype, hypeStrong } : {}),
       });
     },
     onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
     onTimeout: () => {
+      descentState!.streak = 0;
       store.recordDescent(depth);
       celebrate(syncAchievements());
       renderTopPills();
