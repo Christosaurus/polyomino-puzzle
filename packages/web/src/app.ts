@@ -158,7 +158,7 @@ const HYPE_WORDS = [
 ];
 
 function hideAllOverlays(): void {
-  for (const id of ["play-overlay", "pause-overlay", "k-overlay", "k-pause-overlay"]) {
+  for (const id of ["play-overlay", "pause-overlay", "k-overlay", "k-pause-overlay", "profile-overlay"]) {
     document.getElementById(id)?.classList.remove("show");
   }
 }
@@ -874,6 +874,84 @@ function renderShop(): void {
   );
 }
 
+// ── Profil ─────────────────────────────────────────────────────────────────
+/** Avatar options. The art lives at `ui/avatars/<id>.webp`; until a file is
+ *  dropped in, the emoji is the fallback so the picker still works. */
+const AVATARS: Array<{ id: string; emoji: string }> = [
+  { id: "grin", emoji: "😄" },
+  { id: "cool", emoji: "😎" },
+  { id: "wow", emoji: "🤩" },
+  { id: "wink", emoji: "😉" },
+  { id: "joy", emoji: "😂" },
+  { id: "smirk", emoji: "😏" },
+  { id: "angel", emoji: "😇" },
+  { id: "party", emoji: "🥳" },
+];
+
+/** Fill `host` with the avatar for `id` — the painted webp, or the emoji if it's not there yet. */
+function paintAvatar(host: HTMLElement, id: string): void {
+  const found = AVATARS.find((a) => a.id === id) ?? AVATARS[0]!;
+  const img = document.createElement("img");
+  img.alt = "";
+  img.src = `ui/avatars/${found.id}.webp`;
+  img.addEventListener("error", () => {
+    host.textContent = found.emoji;
+  });
+  host.replaceChildren(img);
+}
+
+function renderHomeAvatar(): void {
+  paintAvatar($("home-avatar"), store.avatarId());
+}
+
+function openProfile(): void {
+  const s = store.load();
+  paintAvatar($("pf-avatar"), store.avatarId());
+  $("pf-name").textContent = store.playerName();
+  $("pf-level").textContent = String(store.playerLevel(s));
+  $("pf-picker").hidden = true;
+
+  const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
+  const rows: Array<[string, string, string]> = [
+    ["ui/collection.webp", "Fenster gelöst", String(s.stats.solved)],
+    ["ui/star.webp", "Sterne gesammelt", String(store.totalStars(s))],
+    ["ui/time.webp", "Ø Lösezeit", s.stats.solved ? fmt(avg) : "–"],
+    ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
+    ["ui/descent.webp", "Abstieg — tiefste Ebene", String(s.descent.bestDepth)],
+    ["ui/cascade.webp", "Kaskade — Rekord", String(s.cascade.bestScore)],
+    ["ui/daily.webp", "Längster Tages-Streak", String(s.daily.bestStreak)],
+    ["ui/hint.webp", "Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
+  ];
+  $("pf-stats").replaceChildren(
+    ...rows.map(([icon, label, value]) => {
+      const d = document.createElement("div");
+      d.className = "pf-stat";
+      d.innerHTML = `<img src="${icon}" alt="" /><span class="l">${label}</span><span class="v">${value}</span>`;
+      return d;
+    }),
+  );
+
+  const picker = $("pf-picker");
+  const current = store.avatarId();
+  picker.replaceChildren(
+    ...AVATARS.map((a) => {
+      const b = document.createElement("button");
+      b.className = `pf-opt${a.id === current ? " sel" : ""}`;
+      paintAvatar(b, a.id);
+      b.addEventListener("click", () => {
+        store.setAvatarId(a.id);
+        sfx.pickUp();
+        sfx.vibrate(8);
+        renderHomeAvatar();
+        openProfile();
+      });
+      return b;
+    }),
+  );
+
+  $("profile-overlay").classList.add("show");
+}
+
 /** Yield to the renderer so a "building…" hint can paint before a slow sync call. */
 const yieldPaint = (): Promise<void> => new Promise((r) => setTimeout(r, 24));
 
@@ -895,7 +973,24 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")
   });
 }
 $("region-back").addEventListener("click", () => setTab("home"));
-$("home-avatar").addEventListener("click", () => setTab("collection"));
+$("home-avatar").addEventListener("click", openProfile);
+const closeProfile = (): void => $("profile-overlay").classList.remove("show");
+$("pf-x").addEventListener("click", closeProfile);
+$("profile-overlay").addEventListener("click", (e) => {
+  if (e.target === $("profile-overlay")) closeProfile();
+});
+$("pf-edit").addEventListener("click", () => {
+  const p = $("pf-picker");
+  p.hidden = !p.hidden;
+});
+$("pf-name").addEventListener("click", () => {
+  const next = window.prompt("Dein Name:", store.playerName());
+  if (next && next.trim()) {
+    store.setPlayerName(next);
+    $("pf-name").textContent = store.playerName();
+  }
+});
+renderHomeAvatar();
 
 function doLeave(): void {
   if (mode === "campaign" && campaignAt) openRegion(regions.indexOf(campaignAt.region));

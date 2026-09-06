@@ -20,6 +20,7 @@ export const LIFE_REGEN_MS = 20 * 60_000;
 
 export interface SaveData {
   levels: Record<string, LevelResult>;
+  profile: { name: string; avatar: string };
   daily: { lastDayDone: string; streak: number; bestStreak: number };
   descent: { bestDepth: number; runs: number; seq: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
@@ -37,6 +38,7 @@ export interface SaveData {
 
 const EMPTY: SaveData = {
   levels: {},
+  profile: { name: "", avatar: "grin" },
   daily: { lastDayDone: "", streak: 0, bestStreak: 0 },
   descent: { bestDepth: 0, runs: 0, seq: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
@@ -58,6 +60,7 @@ export function load(): SaveData {
       ...structuredClone(EMPTY),
       ...parsed,
       levels: parsed.levels ?? {},
+      profile: { ...EMPTY.profile, ...parsed.profile },
       daily: { ...EMPTY.daily, ...parsed.daily },
       descent: { ...EMPTY.descent, ...parsed.descent },
       cascade: { ...EMPTY.cascade, ...parsed.cascade },
@@ -203,6 +206,41 @@ export function recordCascade(score: number, cleared: number): SaveData {
     d.cascade.bestScore = Math.max(d.cascade.bestScore, score);
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
   });
+}
+
+// ── Profile ────────────────────────────────────────────────────────────────
+/** Player name — generated once and kept, then editable. */
+export function playerName(): string {
+  const d = load();
+  if (d.profile.name) return d.profile.name;
+  const name = `player_${Math.random().toString(36).slice(2, 9)}`;
+  update((s) => void (s.profile.name = name));
+  return name;
+}
+export function setPlayerName(name: string): void {
+  const clean = name.trim().slice(0, 18);
+  if (clean) update((d) => void (d.profile.name = clean));
+}
+export function avatarId(): string {
+  return load().profile.avatar || "grin";
+}
+export function setAvatarId(id: string): void {
+  update((d) => void (d.profile.avatar = id));
+}
+
+/**
+ * A single "Stufe" number rolled up from everything the player has done — the
+ * casual-game vanity level. Climbs fast early, keeps ticking forever.
+ */
+export function playerLevel(d: SaveData = load()): number {
+  const xp =
+    totalStars(d) * 2 +
+    d.stats.solved * 3 +
+    d.descent.bestDepth * 4 +
+    Math.floor(d.cascade.bestScore / 60) +
+    d.daily.bestStreak * 3 +
+    d.achievements.length * 6;
+  return 1 + Math.floor(xp / 9);
 }
 
 // ── Lives ──────────────────────────────────────────────────────────────────
