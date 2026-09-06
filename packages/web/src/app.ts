@@ -692,21 +692,20 @@ function startCascade(): void {
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
       if (game.consumeChallengeWin()) {
-        challengeWonUntil = performance.now() + 1800;
+        challengeWonUntil = performance.now() + 2000;
         sfx.win();
-        toast(`⚡ Herausforderung gemeistert — +${Math.round(15)} Sekunden!`);
+        toast(h.lives < 3 ? "🎯 Aufgabe geschafft — Leben zurück! ❤" : "🎯 Aufgabe geschafft — Bonuspunkte!");
       }
       const cEl = $("k-challenge");
       if (game.challenge) {
-        const left = game.challenge.target - game.challenge.progress;
         cEl.hidden = false;
         cEl.classList.remove("won");
-        $("k-challenge-txt").textContent = `Räume ${left} Reihe${left === 1 ? "" : "n"} für +15s`;
+        $("k-challenge-txt").textContent = `Aufgabe: ${game.challenge.label}`;
         $("k-challenge-clock").textContent = fmt(game.challengeRemainingMs());
       } else if (performance.now() < challengeWonUntil) {
         cEl.hidden = false;
         cEl.classList.add("won");
-        $("k-challenge-txt").textContent = "Geschafft! +15 Sekunden";
+        $("k-challenge-txt").textContent = "Aufgabe geschafft!";
         $("k-challenge-clock").textContent = "";
       } else {
         cEl.hidden = true;

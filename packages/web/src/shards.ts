@@ -22,8 +22,16 @@ export interface ShardDef {
   color: string;
   /** Base spawn weight before the crowding bias is applied. */
   weight: number;
+  /** All cells sit in a single row or a single column — a clean straight bar. */
+  straight: boolean;
   special?: "bomb";
   orientations: ReadonlyArray<readonly Cell[]>;
+}
+
+function isStraight(cells: readonly Cell[]): boolean {
+  const rows = new Set(cells.map((c) => c[0]));
+  const cols = new Set(cells.map((c) => c[1]));
+  return rows.size === 1 || cols.size === 1;
 }
 
 interface RawExtra {
@@ -55,6 +63,7 @@ const SHARD_DEFS: ShardDef[] = [
       size: e.cells.length,
       color: e.color,
       weight: e.weight,
+      straight: isStraight(e.cells),
       orientations: orientations(e.cells),
     }),
   ),
@@ -64,6 +73,7 @@ const SHARD_DEFS: ShardDef[] = [
       size: 5,
       color: PIECE_COLORS[n],
       weight: PENTO_WEIGHT,
+      straight: isStraight(PENTOMINOES[n].orientations[0]!),
       orientations: PENTOMINOES[n].orientations,
     }),
   ),
@@ -75,6 +85,7 @@ export const BOMB_DEF: ShardDef = {
   size: 1,
   color: "#ffe066",
   weight: 0,
+  straight: false, // the Blitzstein is a wildcard, not a "straight bar" for challenges
   special: "bomb",
   orientations: orientations([[0, 0]]),
 };

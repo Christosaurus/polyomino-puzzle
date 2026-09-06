@@ -9,7 +9,7 @@
  */
 
 import { type Rng, rngFromSeed } from "@polyomino/puzzle-core";
-import { BOMB_DEF, pickShardName, shardColorIndex, shardDef } from "./shards.js";
+import { BOMB_DEF, pickShardName, shardByColorIndex, shardColorIndex, shardDef } from "./shards.js";
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
@@ -45,19 +45,23 @@ export interface CascadeResult {
   livesLeft: number;
 }
 
-/** A short-lived bonus objective: clear N rows before the deadline for +time. */
+/**
+ * A short-lived objective with a real constraint. Right now there's one kind:
+ * clear a full row where every cell was filled by a *straight bar* piece
+ * (domino / 3-line / 4-line / I-pentomino) — no squares, no bends. Reward is a
+ * life back, which matters now that a missed shard costs one.
+ */
 export interface Challenge {
   target: number;
   progress: number;
   /** `elapsedMs()` value at which the challenge expires. */
   deadline: number;
-  rewardMs: number;
   label: string;
 }
-const CHALLENGE_COOLDOWN_MIN = 10_000;
-const CHALLENGE_COOLDOWN_JITTER = 6_000;
-const CHALLENGE_WINDOW_MS = 14_000;
-const CHALLENGE_REWARD_MS = 15_000;
+const CHALLENGE_COOLDOWN_MIN = 12_000;
+const CHALLENGE_COOLDOWN_JITTER = 8_000;
+const CHALLENGE_WINDOW_MS = 22_000;
+const CHALLENGE_FIRST_AT = 12_000;
 
 export class CascadeState {
   readonly rows = CASCADE_ROWS;
@@ -90,7 +94,7 @@ export class CascadeState {
   private endedAt: number | null = null;
   private pausedAt: number | null = null;
   private pausedTotal = 0;
-  private nextChallengeAt = 8000;
+  private nextChallengeAt = CHALLENGE_FIRST_AT;
   private challengeWon = false;
 
   constructor(seed: string) {
@@ -191,20 +195,18 @@ export class CascadeState {
       this.belt.push(this.makeShard(0));
     }
 
-    // mini-challenges: a short window to clear a couple of rows for bonus time
+    // objective: a short window to pull off a constrained clear for a life back
     if (this.challenge) {
       if (this.elapsedMs() >= this.challenge.deadline) {
         this.challenge = null;
         this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
       }
-    } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 4000) {
-      const target = 2;
+    } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 5000) {
       this.challenge = {
-        target,
+        target: 1,
         progress: 0,
         deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
-        rewardMs: CHALLENGE_REWARD_MS,
-        label: `${target} Reihen`,
+        label: "Reihe nur aus geraden Linien",
       };
     }
   }
@@ -237,17 +239,17 @@ export class CascadeState {
     shard.orientationIndex = (shard.orientationIndex + 1) % this.orientationCount(shard.name);
   }
 
-  /** Move a belt shard into the hold slot, bumping any held shard back to the belt. */
+  /**
+   * Move a belt shard into the hold slot. Any shard already held goes straight
+   * back onto the belt at the top — unconditionally, no discard, no cap. You
+   * can shelter exactly one shard at a time and no more; grabbing a second one
+   * puts the first back in play where it can still ride off and cost a life.
+   * (This closes the old stall: hold two, cycle them, never lose a life.)
+   */
   toHold(shard: Shard): void {
     this.belt = this.belt.filter((s) => s.id !== shard.id);
     if (this.hold) {
-      if (this.belt.length < MAX_ON_BELT) {
-        this.belt.unshift({ ...this.hold, y: 0 });
-      } else {
-        // no room to put the old one back — lose it
-        this.misses += 1;
-        this.multiplier = 1;
-      }
+      this.belt.unshift({ ...this.hold, y: 0.02 });
     }
     this.hold = shard;
   }
@@ -307,16 +309,6 @@ export class CascadeState {
       this.cleared += rows;
       this.score += 12 * rows * rows * this.multiplier;
       this.multiplier = Math.min(6, this.multiplier + 0.4 * rows);
-      if (this.challenge) {
-        this.challenge.progress += rows;
-        if (this.challenge.progress >= this.challenge.target) {
-          this.extraMs += this.challenge.rewardMs;
-          this.score += 80 * this.multiplier;
-          this.challengeWon = true;
-          this.challenge = null;
-          this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
-        }
-      }
     }
     if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
       // perfect clear (only counts if we actually cleared something)
@@ -329,22 +321,42 @@ export class CascadeState {
     return rows;
   }
 
+  /** Clear every full row. Credits the "straight bars only" challenge for any
+   *  cleared row whose cells all came from straight-bar pieces. */
   private clearFullRows(): number {
     this.lastCleared = [];
     for (let r = 0; r < this.rows; r++) {
       let full = true;
+      let straightOnly = true;
       for (let c = 0; c < this.cols; c++) {
-        if (this.board[this.idx(r, c)] === 0) {
+        const v = this.board[this.idx(r, c)];
+        if (!v) {
           full = false;
           break;
         }
+        if (!shardByColorIndex(v).straight) straightOnly = false;
       }
       if (full) {
         for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
         this.lastCleared.push(r);
+        if (straightOnly && this.challenge) this.creditChallenge();
       }
     }
     return this.lastCleared.length;
+  }
+
+  private creditChallenge(): void {
+    const ch = this.challenge;
+    if (!ch) return;
+    ch.progress += 1;
+    if (ch.progress < ch.target) return;
+    // reward: a life back (matters now that a miss costs one), or points if full
+    if (this.lives < CASCADE_LIVES) this.lives += 1;
+    else this.score += 250 * this.multiplier;
+    this.challengeWon = true;
+    this.challenge = null;
+    this.nextChallengeAt =
+      this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
   }
 
   /** Clear the given rows outright, regardless of whether they're full. */
