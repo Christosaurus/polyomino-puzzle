@@ -73,6 +73,22 @@ export class GameView {
   private shake: { key: string; t: number } | null = null;
   private winT = -1;
   private winFired = false;
+  private winStars = 0;
+  /** Big celebratory star particles on a solve. */
+  private stars: Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    t: number;
+    max: number;
+    color: string;
+    size: number;
+    rot: number;
+    spin: number;
+  }> = [];
+  /** How long the solved board stays up, gloating, before the overlay. */
+  private static readonly WIN_HOLD_MS = 2400;
   private timeoutFired = false;
   private confetti = new Confetti();
   private hintCells: Array<[number, number]> = [];
@@ -104,6 +120,8 @@ export class GameView {
     this.shake = null;
     this.winT = -1;
     this.winFired = false;
+    this.winStars = 0;
+    this.stars = [];
     this.timeoutFired = false;
     this.confetti.clear();
     this.hintCells = [];
@@ -182,8 +200,26 @@ export class GameView {
       sfx.win();
       this.cb.onUnlock?.();
     }
+    for (const s of this.stars) {
+      s.t += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 320 * dt;
+      s.vx *= 1 - dt * 1.1;
+      s.rot += s.spin * dt;
+    }
+    if (this.stars.length) this.stars = this.stars.filter((s) => s.t < s.max);
+
     if (this.winT >= 0) {
       this.winT += dt;
+      // a second wave partway through so the celebration doesn't fizzle early
+      if (!this.winFired && this.winT > 0.9 && this.stars.length < 8 && this.layout) {
+        this.spawnWinStars(this.layout, Math.max(10, 6 + this.winStars * 4));
+      }
+      if (!this.winFired && this.winT * 1000 > GameView.WIN_HOLD_MS) {
+        this.winFired = true;
+        this.cb.onWin(this.winStars, this.game.elapsedMs());
+      }
       return;
     }
     if (this.game.isWon()) this.triggerWin();
@@ -199,13 +235,52 @@ export class GameView {
     if (this.winT >= 0) return;
     this.winT = 0;
     this.game.finish();
+    this.winStars = this.game.starRating();
     const l = this.layout ?? this.computeLayout();
     this.confetti.burst(l.cssWidth / 2, l.board.y + (l.board.cell * this.game.shape.rows) / 2);
+    this.spawnWinStars(l, 22 + this.winStars * 8);
     sfx.win();
-    if (!this.winFired) {
-      this.winFired = true;
-      this.cb.onWin(this.game.starRating(), this.game.elapsedMs());
+    sfx.vibrate(30);
+    // the overlay (cb.onWin) is fired later from tick(), after the board has
+    // had ~2.4s to bask — see GameView.WIN_HOLD_MS
+  }
+
+  /** A big radial burst of stars from the middle of the solved board. */
+  private spawnWinStars(l: Layout, n: number): void {
+    const cx = l.board.x + (l.board.cell * this.game.shape.cols) / 2;
+    const cy = l.board.y + (l.board.cell * this.game.shape.rows) / 2;
+    const palette = ["#ffffff", "#ffc23b", "#ffe08a", "#2fd9cf", "#ff5fa8"];
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+      const sp = 120 + Math.random() * 320;
+      this.stars.push({
+        x: cx + (Math.random() - 0.5) * l.board.cell,
+        y: cy + (Math.random() - 0.5) * l.board.cell,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 120,
+        t: 0,
+        max: 0.9 + Math.random() * 0.8,
+        color: palette[i % palette.length]!,
+        size: 6 + Math.random() * 10,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 12,
+      });
     }
+  }
+
+  private drawStarShape(x: number, y: number, r: number, rot: number): void {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = rot + (i * Math.PI) / 5;
+      const rad = i % 2 === 0 ? r : r * 0.42;
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
   }
 
   // ── Layout ────────────────────────────────────────────────────────────────
@@ -427,6 +502,34 @@ export class GameView {
 
     if (this.drag) this.drawDrag(layout);
     if (this.confetti.active) this.confetti.step(ctx, 1 / 60);
+
+    // win: one bright expanding ring from the board centre, then the star shower
+    if (this.winT >= 0 && this.winT < 0.6) {
+      const p = this.winT / 0.6;
+      const cx = b.x + (b.cell * this.game.shape.cols) / 2;
+      const cy = b.y + (b.cell * this.game.shape.rows) / 2;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = `rgba(255,240,200,${(1 - p) * 0.8})`;
+      ctx.lineWidth = 6 * (1 - p) + 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, p * b.cell * this.game.shape.cols * 0.9, 0, 6.28);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (this.stars.length) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const s of this.stars) {
+        const k = 1 - s.t / s.max;
+        ctx.globalAlpha = Math.max(0, k);
+        ctx.fillStyle = s.color;
+        ctx.shadowColor = s.color;
+        ctx.shadowBlur = 12 * k;
+        this.drawStarShape(s.x, s.y, s.size * (0.5 + k * 0.8), s.rot);
+      }
+      ctx.restore();
+    }
   }
 
   private pieceScale(key: string): number {
