@@ -112,6 +112,13 @@
         z-index: 0;
         pointer-events: none;
       }
+      /* full-screen white star shower on a solve — above everything, inert */
+      #winfx {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        pointer-events: none;
+      }
       #app {
         position: relative;
         z-index: 1;
@@ -1141,31 +1148,112 @@
       .ocard .sub b {
         color: #fff;
       }
+      /* ── Result stars: 3 carved sockets; earned stars pop, hover, then
+            flip down into their socket ─────────────────────────────────── */
       .ostars {
+        --star: 60px;
+        position: relative;
         display: flex;
-        gap: 12px;
-        font-size: 46px;
-        line-height: 1;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 16px;
+        height: calc(var(--star) + 58px);
+        padding-bottom: 2px;
       }
-      .ostars span {
-        color: var(--panel-inset);
-        transform: scale(0);
-        animation: sp 0.4s var(--tap) forwards;
+      .star {
+        position: relative;
+        width: var(--star);
+        height: var(--star);
+        --lift: -50px;
+        perspective: 700px;
       }
-      .ostars span.on {
-        color: var(--gold);
-        filter: drop-shadow(0 3px 12px rgba(255, 194, 59, 0.7));
+      .star:nth-child(2) {
+        --lift: -62px;
       }
-      .ostars span:nth-child(2) {
-        animation-delay: 0.13s;
+      /* the recessed "empty place" — a smooth dark star, embossed, no shadow */
+      .star .sock {
+        position: absolute;
+        inset: 0;
+        clip-path: polygon(
+          50% 1%, 61% 34%, 98% 35%, 68% 57%, 79% 91%,
+          50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 34%
+        );
+        background: linear-gradient(180deg, #0b0726, #1d1648);
+        filter: drop-shadow(0 -2px 1px rgba(0, 0, 0, 0.75))
+          drop-shadow(0 3px 0 rgba(255, 255, 255, 0.16));
+        animation: sock-in 0.4s var(--tap) both;
       }
-      .ostars span:nth-child(3) {
-        animation-delay: 0.26s;
+      .star .fill {
+        position: absolute;
+        inset: 0;
+        clip-path: polygon(
+          50% 1%, 61% 34%, 98% 35%, 68% 57%, 79% 91%,
+          50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 34%
+        );
+        background: linear-gradient(165deg, #fff1bd 5%, #ffd05d 45%, #f2a52c 100%);
+        filter: drop-shadow(0 0 13px rgba(255, 200, 90, 0.8))
+          drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
+        opacity: 0;
+        transform-origin: 50% 55%;
       }
-      @keyframes sp {
-        to {
-          transform: scale(1);
+      .star:not(.earned) .fill {
+        display: none;
+      }
+      .star.earned .fill {
+        animation: star-earn 2.1s cubic-bezier(0.3, 0.85, 0.35, 1) forwards;
+      }
+      .star:nth-child(1).earned .fill {
+        animation-delay: 0.05s;
+      }
+      .star:nth-child(2).earned .fill {
+        animation-delay: 0.22s;
+      }
+      .star:nth-child(3).earned .fill {
+        animation-delay: 0.39s;
+      }
+      @keyframes sock-in {
+        from {
+          transform: scale(0.4);
+          opacity: 0;
         }
+      }
+      @keyframes star-earn {
+        0% {
+          opacity: 0;
+          transform: translateY(calc(var(--lift) + 12px)) scale(0.2) rotateX(0);
+        }
+        7% {
+          opacity: 1;
+        }
+        14% {
+          transform: translateY(var(--lift)) scale(1.28) rotateX(0);
+        }
+        23% {
+          transform: translateY(var(--lift)) scale(1) rotateX(0);
+        }
+        50% {
+          transform: translateY(calc(var(--lift) - 14px)) scale(1) rotateX(0);
+        }
+        63% {
+          transform: translateY(calc(var(--lift) - 14px)) scale(1.06) rotateX(0);
+        }
+        95% {
+          transform: translateY(0) scale(1) rotateX(1080deg);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1) rotateX(1080deg);
+        }
+      }
+      .ostar-num {
+        margin-top: -6px;
+        font-weight: 800;
+        font-size: 15px;
+        color: var(--gold);
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      .ostar-num:empty {
+        display: none;
       }
       /* ── Win burst — sparkles flying out from the stars ─────────────── */
       .burst {
@@ -1571,6 +1659,7 @@
   </head>
   <body>
     <canvas id="scenery"></canvas>
+    <canvas id="winfx"></canvas>
     <div id="app">
       <section class="screen" id="screen-home">
         <div class="topbar">
@@ -1699,7 +1788,8 @@
           <div class="burst" id="ov-burst"></div>
           <div class="ohype" id="ov-hype" hidden></div>
           <h3 id="ov-title">Gelöst!</h3>
-          <div class="ostars" id="ov-stars"><span>★</span><span>★</span><span>★</span></div>
+          <div class="ostars" id="ov-stars"></div>
+          <div class="ostar-num" id="ov-stars-num"></div>
           <div class="sub" id="ov-sub"></div>
           <div class="rewards" id="ov-rewards"></div>
           <div class="btns">

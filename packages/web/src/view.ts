@@ -54,6 +54,8 @@ export interface GameViewCallbacks {
   onWin: (stars: number, ms: number) => void;
   onTimeout: () => void;
   onUnlock?: () => void;
+  /** Fired the instant the board is solved — before the ~2.4s hold. */
+  onSolved?: () => void;
 }
 
 export class GameView {
@@ -72,7 +74,11 @@ export class GameView {
   private placeAnims = new Map<string, number>();
   private shake: { key: string; t: number } | null = null;
   private winT = -1;
+  /** `performance.now()` when the solve happened — wall-clock, so the hold
+   *  survives frame throttling (backgrounded tab, a janky frame, …). */
+  private winAt = 0;
   private winFired = false;
+  private winTimer = 0;
   private winStars = 0;
   /** Big celebratory star particles on a solve. */
   private stars: Array<{
@@ -119,7 +125,10 @@ export class GameView {
     this.placeAnims.clear();
     this.shake = null;
     this.winT = -1;
+    this.winAt = 0;
     this.winFired = false;
+    if (this.winTimer) window.clearTimeout(this.winTimer);
+    this.winTimer = 0;
     this.winStars = 0;
     this.stars = [];
     this.timeoutFired = false;
@@ -143,6 +152,7 @@ export class GameView {
   destroy(): void {
     this.running = false;
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.winTimer) window.clearTimeout(this.winTimer);
     this.canvas.removeEventListener("pointerdown", this.onDown);
     this.canvas.removeEventListener("pointermove", this.onMove);
     this.canvas.removeEventListener("pointerup", this.onUp);
@@ -216,9 +226,8 @@ export class GameView {
       if (!this.winFired && this.winT > 0.9 && this.stars.length < 8 && this.layout) {
         this.spawnWinStars(this.layout, Math.max(10, 6 + this.winStars * 4));
       }
-      if (!this.winFired && this.winT * 1000 > GameView.WIN_HOLD_MS) {
-        this.winFired = true;
-        this.cb.onWin(this.winStars, this.game.elapsedMs());
+      if (!this.winFired && performance.now() - this.winAt > GameView.WIN_HOLD_MS) {
+        this.fireWin();
       }
       return;
     }
@@ -234,36 +243,47 @@ export class GameView {
   private triggerWin(): void {
     if (this.winT >= 0) return;
     this.winT = 0;
+    this.winAt = performance.now();
     this.game.finish();
     this.winStars = this.game.starRating();
     const l = this.layout ?? this.computeLayout();
     this.confetti.burst(l.cssWidth / 2, l.board.y + (l.board.cell * this.game.shape.rows) / 2);
-    this.spawnWinStars(l, 22 + this.winStars * 8);
+    this.spawnWinStars(l, 18 + this.winStars * 6);
     sfx.win();
     sfx.vibrate(30);
-    // the overlay (cb.onWin) is fired later from tick(), after the board has
-    // had ~2.4s to bask — see GameView.WIN_HOLD_MS
+    this.cb.onSolved?.(); // kick the full-screen star shower right away
+    // the overlay (cb.onWin) is fired from fireWin() after the board has had
+    // ~2.4s to bask. tick() fires it, but a hard timer is the backstop so the
+    // result always shows even if the rAF loop is throttled or dies.
+    this.winTimer = window.setTimeout(() => this.fireWin(), GameView.WIN_HOLD_MS + 120);
+  }
+
+  private fireWin(): void {
+    if (this.winFired) return;
+    this.winFired = true;
+    if (this.winTimer) window.clearTimeout(this.winTimer);
+    this.winTimer = 0;
+    this.cb.onWin(this.winStars, this.game.elapsedMs());
   }
 
   /** A big radial burst of stars from the middle of the solved board. */
   private spawnWinStars(l: Layout, n: number): void {
     const cx = l.board.x + (l.board.cell * this.game.shape.cols) / 2;
     const cy = l.board.y + (l.board.cell * this.game.shape.rows) / 2;
-    const palette = ["#ffffff", "#ffc23b", "#ffe08a", "#2fd9cf", "#ff5fa8"];
     for (let i = 0; i < n; i++) {
       const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
-      const sp = 120 + Math.random() * 320;
+      const sp = 110 + Math.random() * 300;
       this.stars.push({
         x: cx + (Math.random() - 0.5) * l.board.cell,
         y: cy + (Math.random() - 0.5) * l.board.cell,
         vx: Math.cos(ang) * sp,
-        vy: Math.sin(ang) * sp - 120,
+        vy: Math.sin(ang) * sp - 110,
         t: 0,
         max: 0.9 + Math.random() * 0.8,
-        color: palette[i % palette.length]!,
+        color: "#ffffff",
         size: 6 + Math.random() * 10,
         rot: Math.random() * Math.PI,
-        spin: (Math.random() - 0.5) * 12,
+        spin: (Math.random() - 0.5) * 10,
       });
     }
   }

@@ -293,10 +293,103 @@ function spawnBurst(host: HTMLElement, n: number): void {
     el.style.setProperty("--ty", `${Math.sin(ang) * dist - 20}px`);
     el.style.setProperty("--bs", `${14 + Math.random() * 14}px`);
     el.style.setProperty("--bc", colors[i % colors.length]!);
-    el.style.setProperty("--bd", `${(Math.random() * 0.15).toFixed(2)}s`);
+    // fire as the stars slam into their sockets, not on overlay-in
+    el.style.setProperty("--bd", `${(1.85 + Math.random() * 0.35).toFixed(2)}s`);
     el.style.setProperty("--bt", `${(0.7 + Math.random() * 0.5).toFixed(2)}s`);
     host.append(el);
   }
+}
+
+// ── Full-screen white star shower — fires the instant a board is solved ─────
+let winfxRaf = 0;
+function winStarBurst(): void {
+  const canvas = $<HTMLCanvasElement>("winfx");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width = `${W}px`;
+  canvas.style.height = `${H}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const drawStar = (x: number, y: number, r: number, rot: number): void => {
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = rot + (i * Math.PI) / 4;
+      const rad = i % 2 === 0 ? r : r * 0.4;
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  type P = { x: number; y: number; vx: number; vy: number; t: number; max: number; size: number; rot: number; spin: number };
+  const ps: P[] = [];
+  // a handful of origin points across the upper screen so the whole width lights up
+  const origins = [
+    [W * 0.5, H * 0.4],
+    [W * 0.22, H * 0.32],
+    [W * 0.78, H * 0.32],
+    [W * 0.5, H * 0.62],
+  ];
+  for (const [ox, oy] of origins) {
+    const n = 26;
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 130 + Math.random() * 560;
+      ps.push({
+        x: ox! + (Math.random() - 0.5) * 40,
+        y: oy! + (Math.random() - 0.5) * 40,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp,
+        t: 0,
+        max: 1.2 + Math.random() * 1.4,
+        size: 5 + Math.random() * 16,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 7,
+      });
+    }
+  }
+
+  let last = performance.now();
+  if (winfxRaf) cancelAnimationFrame(winfxRaf);
+  const step = (now: number): void => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(255,255,255,0.95)";
+    let alive = false;
+    for (const p of ps) {
+      p.t += dt;
+      if (p.t >= p.max) continue;
+      alive = true;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 1 - dt * 0.85; // smooth ease-out, no hard gravity
+      p.vy = p.vy * (1 - dt * 0.85) + 40 * dt;
+      p.rot += p.spin * dt;
+      const k = 1 - p.t / p.max;
+      ctx.globalAlpha = Math.max(0, k) * 0.95;
+      ctx.shadowBlur = 16 * k;
+      drawStar(p.x, p.y, p.size * (0.35 + k * 0.95), p.rot);
+    }
+    ctx.restore();
+    if (alive) winfxRaf = requestAnimationFrame(step);
+    else {
+      ctx.clearRect(0, 0, W, H);
+      winfxRaf = 0;
+    }
+  };
+  winfxRaf = requestAnimationFrame(step);
 }
 
 function showOverlay(o: OverlayOpts): void {
@@ -310,9 +403,28 @@ function showOverlay(o: OverlayOpts): void {
     hypeEl.classList.add("pop");
   }
   $("ov-title").textContent = o.title;
+  // Result stars — rebuilt every time so the pop/flip animation always replays,
+  // and always shown for a scored result (career/Descent/Daily always pass a
+  // number, even 0). Only the un-scored overlays (timeout, "no lives") hide it.
   const starsEl = $("ov-stars");
-  starsEl.hidden = o.stars === undefined;
-  [...starsEl.children].forEach((c, i) => c.classList.toggle("on", i < (o.stars ?? 0)));
+  const numEl = $("ov-stars-num");
+  if (o.stars === undefined) {
+    starsEl.hidden = true;
+    numEl.textContent = "";
+  } else {
+    const n = Math.max(0, Math.min(3, Math.round(o.stars)));
+    starsEl.hidden = false;
+    starsEl.replaceChildren(
+      ...[0, 1, 2].map((i) => {
+        const d = document.createElement("div");
+        d.className = `star${i < n ? " earned" : ""}`;
+        d.innerHTML = `<span class="sock"></span><span class="fill"></span>`;
+        return d;
+      }),
+    );
+    void starsEl.offsetWidth; // restart the CSS animations
+    numEl.textContent = `${n} / 3 ★`;
+  }
   $("ov-sub").innerHTML = o.sub ?? "";
   $("ov-rewards").innerHTML = (o.rewards ?? []).map((r) => `<div>${r}</div>`).join("");
   const next = $<HTMLButtonElement>("ov-next");
@@ -391,10 +503,16 @@ function useJoker(kind: JokerKind): void {
 
 function mountGame(
   game: GameState,
-  cb: { onWin: (s: number, ms: number) => void; onTimeout: () => void; onUnlock?: () => void },
+  cb: {
+    onWin: (s: number, ms: number) => void;
+    onTimeout: () => void;
+    onUnlock?: () => void;
+    onSolved?: () => void;
+  },
 ): void {
   teardownGame();
   hideOverlay();
+  cb.onSolved ??= winStarBurst; // every solve gets the full-screen star shower
   $("play-stage").hidden = mode !== "descent";
   activeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __game: GameState }).__game = game;
@@ -962,7 +1080,7 @@ function toast(text: string): void {
   el.textContent = text;
   el.classList.add("show");
   if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => el.classList.remove("show"), 2400);
+  toastTimer = window.setTimeout(() => el.classList.remove("show"), 6400);
 }
 
 // ── Wiring ─────────────────────────────────────────────────────────────────
