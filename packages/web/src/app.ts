@@ -418,7 +418,9 @@ function showOverlay(o: OverlayOpts): void {
       ...[0, 1, 2].map((i) => {
         const d = document.createElement("div");
         d.className = `star${i < n ? " earned" : ""}`;
-        d.innerHTML = `<span class="sock"></span><span class="fill"></span>`;
+        d.innerHTML =
+          `<img class="sock" src="ui/star.webp" alt="" />` +
+          `<span class="fill"><span class="spin"><img src="ui/star.webp" alt="" /></span></span>`;
         return d;
       }),
     );

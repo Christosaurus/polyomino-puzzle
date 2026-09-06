@@ -1148,68 +1148,75 @@
       .ocard .sub b {
         color: #fff;
       }
-      /* ── Result stars: 3 carved sockets; earned stars pop, hover, then
-            flip down into their socket ─────────────────────────────────── */
+      /* ── Result stars: the painted star icon. Empty places sit dark;
+            earned stars pop in and keep turning, smooth. ──────────────── */
       .ostars {
-        --star: 60px;
+        --star: 66px;
         position: relative;
         display: flex;
         justify-content: center;
-        align-items: flex-end;
-        gap: 16px;
-        height: calc(var(--star) + 58px);
-        padding-bottom: 2px;
+        align-items: center;
+        gap: 20px;
+        height: calc(var(--star) + 26px);
       }
       .star {
         position: relative;
         width: var(--star);
         height: var(--star);
-        --lift: -50px;
-        perspective: 700px;
       }
       .star:nth-child(2) {
-        --lift: -62px;
+        margin-top: -12px; /* the middle one rides a little higher */
       }
-      /* the recessed "empty place" — a smooth dark star, embossed, no shadow */
-      .star .sock {
+      .star .sock,
+      .star .fill,
+      .star .fill .spin,
+      .star img {
         position: absolute;
         inset: 0;
-        clip-path: polygon(
-          50% 1%, 61% 34%, 98% 35%, 68% 57%, 79% 91%,
-          50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 34%
-        );
-        background: linear-gradient(180deg, #0b0726, #1d1648);
-        filter: drop-shadow(0 -2px 1px rgba(0, 0, 0, 0.75))
-          drop-shadow(0 3px 0 rgba(255, 255, 255, 0.16));
+        width: 100%;
+        height: 100%;
+      }
+      .star img {
+        object-fit: contain;
+        display: block;
+      }
+      /* an empty place — the same star icon knocked back to a dark recess */
+      .star .sock {
+        filter: brightness(0.17) saturate(0.15)
+          drop-shadow(0 2px 0 rgba(255, 255, 255, 0.13))
+          drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.55));
+        opacity: 0.9;
         animation: sock-in 0.4s var(--tap) both;
       }
+      .star.earned .sock {
+        display: none;
+      }
       .star .fill {
-        position: absolute;
-        inset: 0;
-        clip-path: polygon(
-          50% 1%, 61% 34%, 98% 35%, 68% 57%, 79% 91%,
-          50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 34%
-        );
-        background: linear-gradient(165deg, #fff1bd 5%, #ffd05d 45%, #f2a52c 100%);
-        filter: drop-shadow(0 0 13px rgba(255, 200, 90, 0.8))
-          drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
         opacity: 0;
-        transform-origin: 50% 55%;
+      }
+      .star .fill img {
+        filter: drop-shadow(0 0 16px rgba(255, 200, 90, 0.8))
+          drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35));
+      }
+      /* the spin is on its own layer so it never fights the pop-in transform */
+      .star .fill .spin {
+        animation: star-turn 4.6s linear infinite;
+        will-change: transform;
       }
       .star:not(.earned) .fill {
         display: none;
       }
       .star.earned .fill {
-        animation: star-earn 2.1s cubic-bezier(0.3, 0.85, 0.35, 1) forwards;
+        animation: star-earn 0.85s cubic-bezier(0.25, 1.5, 0.45, 1) both;
       }
       .star:nth-child(1).earned .fill {
-        animation-delay: 0.05s;
+        animation-delay: 0.1s;
       }
       .star:nth-child(2).earned .fill {
-        animation-delay: 0.22s;
+        animation-delay: 0.28s;
       }
       .star:nth-child(3).earned .fill {
-        animation-delay: 0.39s;
+        animation-delay: 0.46s;
       }
       @keyframes sock-in {
         from {
@@ -1217,32 +1224,22 @@
           opacity: 0;
         }
       }
+      @keyframes star-turn {
+        to {
+          transform: rotate(360deg);
+        }
+      }
       @keyframes star-earn {
         0% {
           opacity: 0;
-          transform: translateY(calc(var(--lift) + 12px)) scale(0.2) rotateX(0);
+          transform: translateY(18px) scale(0.2);
         }
-        7% {
+        40% {
           opacity: 1;
-        }
-        14% {
-          transform: translateY(var(--lift)) scale(1.28) rotateX(0);
-        }
-        23% {
-          transform: translateY(var(--lift)) scale(1) rotateX(0);
-        }
-        50% {
-          transform: translateY(calc(var(--lift) - 14px)) scale(1) rotateX(0);
-        }
-        63% {
-          transform: translateY(calc(var(--lift) - 14px)) scale(1.06) rotateX(0);
-        }
-        95% {
-          transform: translateY(0) scale(1) rotateX(1080deg);
         }
         100% {
           opacity: 1;
-          transform: translateY(0) scale(1) rotateX(1080deg);
+          transform: translateY(0) scale(1);
         }
       }
       .ostar-num {
