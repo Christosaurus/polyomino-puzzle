@@ -421,7 +421,7 @@ export class CascadeView {
     if (this.drag) this.drawDrag(L);
   }
 
-  private drawShard(shard: Shard, cx: number, cy: number, cell: number): void {
+  private drawShard(shard: Shard, cx: number, cy: number, cell: number, selected = false): void {
     const cells = this.game.cells(shard);
     let maxR = 0;
     let maxC = 0;
@@ -442,6 +442,7 @@ export class CascadeView {
       cy - hh / 2,
       cell,
       shardDef(shard.name).color,
+      selected ? { selected: true } : undefined,
     );
   }
 
@@ -458,10 +459,11 @@ export class CascadeView {
         scale: 1.03,
         glow: ok ? 20 : 6,
         tint: ok ? undefined : "#ff4d4d",
+        selected: ok,
       });
     } else {
       // big, follows the finger
-      this.drawShard(d.shard, d.px, d.py - L.cell * 0.3, L.cell * 1.05);
+      this.drawShard(d.shard, d.px, d.py - L.cell * 0.3, L.cell * 1.05, true);
     }
   }
 
@@ -547,6 +549,7 @@ export class CascadeView {
       grabC: cen.c,
     };
     sfx.pickUp();
+    sfx.vibrate(8); // a tiny tick when a shard is picked up
   };
 
   private onMove = (e: PointerEvent): void => {

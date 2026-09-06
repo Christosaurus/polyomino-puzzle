@@ -880,7 +880,10 @@ function toast(text: string): void {
 
 // ── Wiring ─────────────────────────────────────────────────────────────────
 for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")) {
-  btn.addEventListener("click", () => setTab(btn.dataset.tab as Tab));
+  btn.addEventListener("click", () => {
+    if (!btn.classList.contains("on")) sfx.vibrate(10); // a tiny tick when the tab actually changes
+    setTab(btn.dataset.tab as Tab);
+  });
 }
 $("region-back").addEventListener("click", () => setTab("home"));
 $("home-avatar").addEventListener("click", () => setTab("collection"));

@@ -18,6 +18,8 @@ export interface TileOpts {
   glow?: number;
   /** Override the ball colour. */
   tint?: string;
+  /** A smooth white rim + soft halo around the piece — the "picked up" look. */
+  selected?: boolean;
 }
 
 function roundRect(
@@ -123,6 +125,41 @@ export function drawPieceBody(
     ctx.fill();
   }
   ctx.restore();
+
+  // ── "picked up" rim: a smooth white silhouette + soft halo, drawn just
+  //    under the coloured balls so a clean band of it shows all around ──
+  if (opts.selected) {
+    const rim = cell * 0.07;
+    ctx.save();
+    ctx.shadowColor = "rgba(255,255,255,0.55)";
+    ctx.shadowBlur = cell * 0.3;
+    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    // widened necks first, then widened balls — one continuous white shape
+    for (const [r, c] of cells) {
+      const [cx, cy] = centre(r, c);
+      if (present.has(`${r},${c + 1}`)) {
+        const [nx] = centre(r, c + 1);
+        ctx.beginPath();
+        ctx.roundRect?.(cx, cy - neck / 2 - rim, nx - cx, neck + rim * 2, (neck + rim * 2) / 2);
+        if (!ctx.roundRect) ctx.rect(cx, cy - neck / 2 - rim, nx - cx, neck + rim * 2);
+        ctx.fill();
+      }
+      if (present.has(`${r + 1},${c}`)) {
+        const [, ny] = centre(r + 1, c);
+        ctx.beginPath();
+        ctx.roundRect?.(cx - neck / 2 - rim, cy, neck + rim * 2, ny - cy, (neck + rim * 2) / 2);
+        if (!ctx.roundRect) ctx.rect(cx - neck / 2 - rim, cy, neck + rim * 2, ny - cy);
+        ctx.fill();
+      }
+    }
+    for (const [r, c] of cells) {
+      const [cx, cy] = centre(r, c);
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.97 + rim, 0, 6.28);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
   // ── necks between adjacent balls (drawn under the balls) ──
   ctx.fillStyle = shade(base, -0.05);

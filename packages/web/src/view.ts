@@ -390,7 +390,14 @@ export class GameView {
     cells: Array<[number, number]>,
     b: BoardLayout,
     color: string,
-    opts: { scale?: number; glow?: number; alpha?: number; tint?: string; shakeKey?: string } = {},
+    opts: {
+      scale?: number;
+      glow?: number;
+      alpha?: number;
+      tint?: string;
+      shakeKey?: string;
+      selected?: boolean;
+    } = {},
   ): void {
     let shakeX = 0;
     if (opts.shakeKey && this.shake?.key === opts.shakeKey) {
@@ -404,6 +411,7 @@ export class GameView {
       glow: opts.glow,
       alpha: opts.alpha,
       tint: opts.tint,
+      selected: opts.selected,
     });
     this.ctx.restore();
   }
@@ -418,6 +426,7 @@ export class GameView {
         glow: ok ? 18 : 6,
         alpha: ok ? 0.95 : 0.6,
         tint: ok ? undefined : "#ff4d4d",
+        selected: ok,
       });
     } else {
       const cell = layout.board.cell;
@@ -437,7 +446,7 @@ export class GameView {
         drag.pointerY - (cr + 0.5) * cell,
         cell,
         PIECE_COLORS[drag.piece.name],
-        { alpha: 0.92, scale: 1.08, glow: 14, depth: 0.24 },
+        { alpha: 0.92, scale: 1.08, glow: 14, depth: 0.24, selected: true },
       );
     }
   }
@@ -527,6 +536,7 @@ export class GameView {
     };
     if (!hit.fromTray) this.game.removeToTray(hit.piece);
     sfx.pickUp();
+    sfx.vibrate(8); // a tiny tick when a shape is picked up
   };
 
   private onMove = (e: PointerEvent): void => {
