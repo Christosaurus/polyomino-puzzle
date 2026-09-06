@@ -9,7 +9,7 @@ import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js
 import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
-import { dailyLevel, descentDifficulty, descentLevel } from "./levelgen.js";
+import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
 import * as store from "./progress.js";
 import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
@@ -141,7 +141,7 @@ function renderSettingsToggles(host: HTMLElement): void {
 let mode: "campaign" | "daily" | "descent" = "campaign";
 let campaignAt: { region: Region; index: number } | null = null;
 let descentState:
-  | { variant: number; depth: number; streak: number; sawRecord: boolean }
+  | { variant: number; depth: number; streak: number; sawRecord: boolean; recent: string[] }
   | null = null;
 let activeGame: GameState | null = null;
 
@@ -612,7 +612,13 @@ function renderDescent(): void {
 function startDescent(): void {
   mode = "descent";
   if (!livesGate()) return;
-  descentState = { variant: store.beginDescentRun(), depth: 1, streak: 0, sawRecord: false };
+  descentState = {
+    variant: store.beginDescentRun(),
+    depth: 1,
+    streak: 0,
+    sawRecord: false,
+    recent: [],
+  };
   void playDescentLevel();
 }
 
@@ -633,15 +639,18 @@ function renderDescentStage(depth: number, streak: number): void {
 async function playDescentLevel(): Promise<void> {
   mode = "descent";
   if (!descentState) return;
-  const { variant, depth, streak } = descentState;
+  const { variant, depth, streak, recent } = descentState;
   scenery.setTheme("workshop");
   toast("Fenster wird gebaut …");
   await yieldPaint();
-  const level = descentLevel(depth, variant);
+  const level = descentLevel(depth, variant, new Set(recent));
   if (!level) {
     endDescent();
     return;
   }
+  // remember the last few puzzles so the next one is never a repeat
+  recent.push(levelSignature(level));
+  if (recent.length > 6) recent.shift();
   $("screen-play").dataset.region = "descent";
   const best = store.load().descent.bestDepth;
   $("play-title-txt").textContent =
@@ -831,11 +840,11 @@ function renderCollection(): void {
   );
 }
 
-const SHOP: Array<{ label: string; cost: number; buy: () => void }> = [
-  { label: "💡 Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
-  { label: "⏱ +20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
-  { label: "🧪 Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
-  { label: "❤ Leben auffüllen", cost: 30, buy: () => store.refillLives() },
+const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void }> = [
+  { icon: "ui/hint.webp", label: "Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
+  { icon: "ui/time.webp", label: "+20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
+  { icon: "ui/solvent.webp", label: "Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+  { icon: "ui/life.webp", label: "Leben auffüllen", cost: 30, buy: () => store.refillLives() },
 ];
 
 function renderShop(): void {
@@ -849,7 +858,7 @@ function renderShop(): void {
       btn.className = "gold";
       btn.textContent = `${item.cost} ✦`;
       btn.disabled = s.shards < item.cost;
-      if (item.label.startsWith("❤") && s.lives.count >= store.MAX_LIVES) btn.disabled = true;
+      if (item.icon === "ui/life.webp" && s.lives.count >= store.MAX_LIVES) btn.disabled = true;
       btn.addEventListener("click", () => {
         if (store.spendShards(item.cost)) {
           item.buy();
@@ -858,7 +867,7 @@ function renderShop(): void {
           renderTopPills();
         }
       });
-      row.innerHTML = `<span class="lbl">${item.label}</span>`;
+      row.innerHTML = `<span class="lbl"><img class="shop-ic" src="${item.icon}" alt="" />${item.label}</span>`;
       row.append(btn);
       return row;
     }),

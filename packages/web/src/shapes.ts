@@ -14,6 +14,7 @@ const RAW: Shape[] = [
   Shape.rectangle(3, 5),
   Shape.rectangle(4, 5),
   Shape.rectangle(5, 5),
+  Shape.rectangle(2, 10),
   Shape.rectangle(3, 10),
   Shape.rectangle(4, 10),
   Shape.rectangle(5, 6),
@@ -21,6 +22,35 @@ const RAW: Shape[] = [
   Shape.rectangle(5, 9),
   Shape.rectangle(5, 10),
   Shape.rectangle(5, 11),
+  // 15-cell (3 pieces) — non-rectangular so the early Descent depths aren't
+  // all forced onto the one 3×5 rectangle
+  ascii(`
+    ######
+    ######
+    ###...
+  `),
+  ascii(`
+    ....###
+    ..#####
+    #######
+  `),
+  ascii(`
+    .####.
+    ######
+    #####.
+  `),
+  // 20-cell (4 pieces)
+  ascii(`
+    ########
+    ########
+    ##......
+    ##......
+  `),
+  ascii(`
+    ####......
+    #######...
+    ##########
+  `),
   ascii(`
     ...##...
     ..####..

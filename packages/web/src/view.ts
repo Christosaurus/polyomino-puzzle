@@ -24,7 +24,10 @@ interface TraySlot {
   piece: PieceState;
   x: number;
   y: number;
+  /** Slot width — sized to fit a 5-wide piece. */
   size: number;
+  /** Row pitch / hit height — tighter than the width; pieces are rarely 5 tall. */
+  rowH: number;
   cell: number;
 }
 interface Layout {
@@ -209,35 +212,82 @@ export class GameView {
   private computeLayout(): Layout {
     const cssWidth = this.wrap.clientWidth || 320;
     const { rows, cols } = this.game.shape;
-    const pad = 14;
+    const pad = 12;
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
-    const maxCanvasHeight = Math.max(240, viewportH - 168);
 
-    const trayCell = Math.max(9, Math.min(19, Math.floor(cssWidth / 26)));
-    const slotSize = trayCell * 6;
-    const perRow = Math.max(1, Math.floor((cssWidth - pad) / slotSize));
-    const trayRows = Math.ceil(this.game.pieces.length / perRow);
-    const trayHeight = trayRows * slotSize + pad;
+    // The real vertical budget for the canvas: the viewport minus where the
+    // canvas starts and the fixed chrome below it (joker foot + its margins +
+    // the screen's bottom padding + the board-wrap's own padding/border). Every
+    // term here is independent of the canvas height, so it can't feed back on
+    // itself — unlike measuring the foot's *position*, which moves when the
+    // canvas resizes. The old fixed guess was ~100px too generous and clipped
+    // the tray off the bottom.
+    const rawTop = this.canvas.getBoundingClientRect().top;
+    const canvasTop = rawTop > 40 ? rawTop : 160;
+    const footH =
+      document.querySelector<HTMLElement>(".play-foot .jokers")?.getBoundingClientRect().height ?? 76;
+    const budget = Math.max(240, viewportH - canvasTop - footH - 44);
 
-    const maxBoardHeight = maxCanvasHeight - trayHeight - pad * 2;
+    const n = this.game.pieces.length;
+
+    // Tray sizing — pack the pieces tight so the board gets the room.
+    // A pentomino is ≤5 cells wide and (unrotated) ≤3 tall, so the slot is
+    // deliberately much wider than it is tall. We try every column count and
+    // keep whichever lets the tray pieces be biggest while the whole tray
+    // still fits in its slice of the budget.
+    const SLOT_W = 5.2;
+    const SLOT_H = 4.0;
+    const trayMax = budget * 0.4;
+    const cellCap = Math.min(17, Math.max(10, Math.floor(cssWidth / 22)));
+
+    let perRow = n;
+    let trayRows = 1;
+    let trayCell = 8;
+    for (let pr = Math.min(n, 5); pr >= 1; pr--) {
+      const tr = Math.ceil(n / pr);
+      const byWidth = (cssWidth - pad) / (pr * SLOT_W);
+      const byHeight = trayMax / (tr * SLOT_H);
+      const cell = Math.floor(Math.min(byWidth, byHeight, cellCap));
+      if (cell >= 8 && cell > trayCell) {
+        trayCell = cell;
+        perRow = pr;
+        trayRows = tr;
+      }
+    }
+
+    const slotSize = trayCell * SLOT_W;
+    const rowH = trayCell * SLOT_H;
+    const trayBlock = trayRows * rowH + pad;
+
+    const boardBudget = budget - trayBlock - pad;
     const boardCell = Math.max(
       12,
-      Math.floor(Math.min((cssWidth - pad * 2) / cols, maxBoardHeight / rows)),
+      Math.floor(Math.min((cssWidth - pad * 2) / cols, boardBudget / rows)),
     );
     const boardW = boardCell * cols;
-    const board: BoardLayout = { x: Math.floor((cssWidth - boardW) / 2), y: pad + 6, cell: boardCell };
+    const boardBlock = boardCell * rows;
+    const board: BoardLayout = { x: Math.floor((cssWidth - boardW) / 2), y: pad, cell: boardCell };
 
-    const trayTop = board.y + boardCell * rows + pad + 6;
+    const trayTop = board.y + boardBlock + pad;
     const unplaced = this.game.pieces.filter((p) => !p.pos && p !== this.drag?.piece);
     const tray: TraySlot[] = unplaced.map((piece, i) => {
       const r = Math.floor(i / perRow);
       const c = i % perRow;
       const usedRow = Math.min(perRow, unplaced.length - r * perRow);
       const startX = (cssWidth - usedRow * slotSize) / 2;
-      return { piece, x: startX + c * slotSize, y: trayTop + r * slotSize, size: slotSize, cell: trayCell };
+      return {
+        piece,
+        x: startX + c * slotSize,
+        y: trayTop + r * rowH,
+        size: slotSize,
+        rowH,
+        cell: trayCell,
+      };
     });
 
-    const cssHeight = trayTop + trayRows * slotSize + pad;
+    // the panel hugs its content; CSS centres the whole panel in the leftover
+    // vertical space (see `.screen.play .board-wrap`)
+    const cssHeight = trayTop + trayRows * rowH + pad;
     return { cssWidth, cssHeight, board, tray };
   }
 
@@ -363,7 +413,7 @@ export class GameView {
         if (c > maxC) maxC = c;
       }
       const ox = slot.x + (slot.size - (maxC + 1) * slot.cell) / 2;
-      const oy = slot.y + (slot.size - (maxR + 1) * slot.cell) / 2;
+      const oy = slot.y + (slot.rowH - (maxR + 1) * slot.cell) / 2;
       drawPieceBody(
         ctx,
         cells.map(([r, c]) => [r, c] as [number, number]),
@@ -488,7 +538,7 @@ export class GameView {
       }
     }
     for (const slot of layout.tray) {
-      if (x >= slot.x && x < slot.x + slot.size && y >= slot.y && y < slot.y + slot.size) {
+      if (x >= slot.x && x < slot.x + slot.size && y >= slot.y && y < slot.y + slot.rowH) {
         return { piece: slot.piece, fromTray: true };
       }
     }

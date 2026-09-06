@@ -57,7 +57,52 @@ export function descentDifficulty(depth: number): number {
   return Math.min(5, 1 + Math.floor((depth - 1) / 3));
 }
 
-export function descentLevel(depth: number, variant: number): Level | null {
+/**
+ * A stable fingerprint of a puzzle — its target silhouette plus the full
+ * solution — so the Descent flow can guarantee it never serves the same level
+ * twice in a row. Order-independent.
+ */
+export function levelSignature(level: Level): string {
+  const shape = level.shape.rows.join("/");
+  const sol = level.solution
+    .map(
+      (p) =>
+        `${p.pieceId}:${[...p.cells]
+          .map(([r, c]) => `${r},${c}`)
+          .sort()
+          .join(";")}`,
+    )
+    .sort()
+    .join("|");
+  return `${shape}#${sol}`;
+}
+
+/**
+ * Descent level for a given depth and rotation `variant`. Pieces and difficulty
+ * grow with depth; the first few depths sit at the smallest reliably-
+ * generatable size (3 pentominoes) so a run opens with a couple of easy,
+ * confidence-building clears.
+ *
+ * `variant` (0..DESCENT_VARIANTS-1) keeps consecutive *runs* off the same
+ * sequence; `avoid` (recent signatures) keeps consecutive *levels within a run*
+ * from ever repeating — it salts the seed and regenerates until the puzzle is
+ * one the player hasn't just seen.
+ */
+export function descentLevel(
+  depth: number,
+  variant: number,
+  avoid: ReadonlySet<string> = new Set(),
+): Level | null {
   const pieces = Math.min(11, 3 + Math.floor((depth - 1) / 3));
-  return makeLevel(`descent:v${variant}:d${depth}`, descentDifficulty(depth), pieces);
+  const difficulty = descentDifficulty(depth);
+  let fallback: Level | null = null;
+  for (let salt = 0; salt < 10; salt++) {
+    const seed =
+      salt === 0 ? `descent:v${variant}:d${depth}` : `descent:v${variant}:d${depth}:s${salt}`;
+    const level = makeLevel(seed, difficulty, pieces);
+    if (!level) continue;
+    fallback ??= level;
+    if (!avoid.has(levelSignature(level))) return level;
+  }
+  return fallback; // exhausted the salts — a repeat beats no level at all
 }
