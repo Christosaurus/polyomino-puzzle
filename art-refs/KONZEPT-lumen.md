@@ -456,3 +456,177 @@ Stück ohne Weitertippen zeigen, oder unüberspringbar sein.
 
 Halte diese Regel ein, und du bekommst beides: den Sog von Bus Jam **und** einen
 Grund, warum das Licht zurückkommt.
+
+---
+
+## I. Level-Variation — die acht Achsen
+
+Variation entsteht nicht aus „mehr Mechaniken", sondern daraus, dass man
+**mehrere unabhängige Achsen** dreht. Lumen dreht heute an genau einer.
+
+| # | Achse | Was sie ändert | Aufwand | Heute genutzt |
+|---|---|---|---|---|
+| 1 | **Brettform** | Silhouette, Löcher, mehrteilige Bretter | — (da) | ✅ |
+| 2 | **Teileset** | Welche Formen du überhaupt bekommst | **~0** | ❌ |
+| 3 | **Ziel** | Was „gewonnen" heißt | S | ❌ |
+| 4 | **Beschränkung** | Zugbudget, keine Drehung erlaubt | S | ❌ (nur Uhr) |
+| 5 | **Störung** | Etwas auf dem Brett *handelt* (kriechender Schatten) | M | ❌ |
+| 6 | **Reihenfolge** | Ketten, Eis, Kerze | M | teilweise |
+| 7 | **Information** | Nächstes Teil sichtbar / verborgen / Vorschau | S | ❌ |
+| 8 | **Brett-Zustand** | Doppelscheibe, Scheiben rücken nach einem Zug | L | ❌ |
+
+### Die zwei Achsen, die geschenkt sind
+
+**Achse 2 — Teileset. Das ist die billigste große Variation im ganzen Spiel.**
+Das Teileset ist bereits Daten. Ein Level, das dir **nur Balken** (1×2, 1×3, 1×4)
+gibt, fühlt sich völlig anders an als ein Pentomino-Level — bei **null**
+Engineering. Weitere Sets, alle sofort verfügbar:
+
+| Set | Gefühl |
+|---|---|
+| Nur Balken (2/3/4) | geometrisch, klar, schnell |
+| Nur L- und T-Formen | kantig, verzahnt |
+| Nur symmetrische Teile | ruhig, „sauber" |
+| Ein 6er-Riese + Einer-Füller | ein großes Problem, dann Feinarbeit |
+| Nur Dominos | meditativ, sehr viele Teile |
+| Gemischt 1–5 (Kaskade-Set) | chaotisch, arcade-nah |
+
+Ein Level-Paket „Die Bäckerei — nur gerade Scheiben" ist damit über Nacht baubar
+und fühlt sich wie eine eigene Welt an.
+
+**Achse 3 — Ziel.** Heute gibt es genau ein Ziel: *alles zudecken*. Sobald
+„Ziel" ein Feld im Level-JSON ist, entstehen sofort mehrere Spielgefühle aus
+derselben Mechanik:
+
+- *Alle Scheiben decken* (heute)
+- *Allen Ruß entfernen* — der Rest darf offen bleiben → **völlig anderes Denken**
+- *N Motten befreien* — Teilziel, man darf ineffizient sein
+- *Diese 3 markierten Scheiben erleuchten* — Zielanflug statt Flächendeckung
+- *Überstehe 12 Züge* — Verteidigung gegen den kriechenden Schatten
+
+Achse 2 und 3 zusammen kosten wenige Tage und vervielfachen den gefühlten Inhalt
+mehr als der ganze Mechanik-Katalog.
+
+### Der Rhythmus: vier Level pro Idee
+
+Gute Puzzle-Spiele führen keine Mechanik ein, sie **erzählen** sie in vier
+Schritten (das Nintendo-Muster):
+
+1. **Einführung** — die Mechanik allein, sicher, kaum falsch spielbar. Wortlos.
+2. **Ausbau** — dieselbe Mechanik, jetzt fordernd.
+3. **Wendung** — Kombination mit einer bekannten Mechanik.
+4. **Prüfung** — verlangt echtes Verständnis. Das „aha".
+
+Eine Region ≈ 15 Fenster ≈ **3–4 solcher Vierergruppen**. Das ist dein
+Autoren-Takt. Nie zwei neue Ideen gleichzeitig, nie eine Idee länger als vier
+Level ohne Wendung.
+
+### Wie viele Level brauchst du wirklich?
+
+Der klassische Solo-Dev-Fehler ist, Level 200 zu bauen, bevor Level 5 perfekt ist.
+
+- **D1-Retention entscheidet sich in Level 1–5.** Wer da abspringt, sieht nie
+  einen Splitter.
+- **D7 entscheidet sich in Level ~10–40.**
+- Ab dort trägt Wiederholung + Endlosmodi.
+
+**Empfehlung:** 60 handgebaute Fenster (Akt I vollständig + Akt II angefangen),
+der Rest generiert/hybrid. Und **die ersten zehn poliert man dreimal.**
+
+---
+
+## J. Kommerzielle Architektur — Hook & Retention
+
+> Zur Idee: *Kaskade als Hook, Story als Bindung.*
+
+### Das Muster stimmt
+
+„Simpler Arcade-Hook zieht rein, Meta-Progression + Geschichte halten fest" ist
+kein Bauchgefühl, sondern **das** bewährte Muster im Hybrid-Casual:
+Royal Match, Gardenscapes, Homescapes fahren genau das. Die Intuition ist richtig.
+
+### Der Fehler steckt woanders
+
+Das Muster hat eine Voraussetzung, die man leicht überliest: **die
+erfolgreichen Spiele haben nur EINE Kernmechanik.** Royal Match ist Match-3 —
+im Ad, im Tutorial, in Level 3000. Bus Jam ist Bus-Sortieren, überall.
+
+Lumen hat heute **zwei konkurrierende Identitäten**: Fenster-Packen und
+Kaskade-Reihen. Genau deshalb wirkt das Spiel „gut, aber nicht rund". Das ist
+der eigentliche Konstruktionsfehler — größer als die Modus-Verzahnung.
+
+Wenn du Kaskade zum Hook machst und der Spieler landet danach im Pentomino-
+Packen, baust du strukturell den **Bait-and-Switch**, der Gardenscapes seinen
+Ruf gekostet hat. Das funktioniert kommerziell — aber nur mit großem UA-Budget
+zum Verbrennen von Churn. Als Solo-Dev ohne Budget ist es der teuerste mögliche
+Weg.
+
+### Die drei Gabelungen
+
+| | Identität | Für dich |
+|---|---|---|
+| **A** | Fenster-Packen ist das Spiel. Kaskade ist Beiwerk. | Distinktiv, aber der Hook muss erst lesbar werden. |
+| **B** | Kaskade ist das Spiel. Packen wird Sonderlevel. | Kommerziell sicher, aber ein Blockudoku-Klon unter 500. Wirft weg, was Lumen einzigartig macht. |
+| **C** ✅ | **Eine Mechanik, zwei Tempi.** | Hook und Kernspiel sind dasselbe. Kein Bait, keine doppelte Politur. |
+
+### Empfehlung: C — eine Mechanik, zwei Tempi
+
+Der Unterschied zwischen Story-Modus und Scherbenregen darf **nicht die
+Mechanik** sein, sondern nur, **wie die Teile ankommen**:
+
+| | Lichtpfad | Scherbenregen |
+|---|---|---|
+| Brett | Fenster mit Scheiben | Fenster mit Scheiben |
+| Ziel | Scheiben erleuchten | Scheiben erleuchten |
+| Teile | liegen im Tablett — du denkst | kommen auf dem Band — du reagierst |
+| Druck | Zugbudget, kriechender Schatten | Uhr, Leben, Bandtempo |
+
+Damit zeigt der Ad **echtes Gameplay**, der Spieler bekommt danach genau das,
+und du polierst **ein** Spiel statt zwei.
+
+**Umsetzung in zwei Stufen:**
+
+1. **Billig (1–2 Tage), sofort machbar:** Kaskade behält Mechanik und
+   Reihen-Löschen, bekommt aber **denselben Fensterrahmen, dieselben
+   Teile-Grafiken, dasselbe Durchleuchten**. Rein optische Kontinuität — der
+   Spieler sieht dasselbe Spiel, auch wenn die Regel abweicht. Holt 80 %.
+2. **Richtig (später):** Scherbenregen läuft auf einer echten Fenster-Silhouette
+   mit Scheiben-Ziel; „Reihe voll" wird zu „Sprossenreihe erleuchtet".
+
+### Der Ad-Lesbarkeits-Test
+
+Ein Hook funktioniert im Ad, wenn er vier Dinge in **fünf Sekunden ohne Ton**
+zeigt:
+
+| | | Kaskade heute | Fenster + kriechender Schatten |
+|---|---|---|---|
+| 1 | Ziel in 1 Sek. erkennbar | ✅ Reihe füllen | ✅ Fenster erleuchten |
+| 2 | Bedrohung sichtbar wachsend | ✅ Band + Uhr | ✅ Dunkelheit kriecht rein |
+| 3 | **Beinahe-Fehler** („nein, nicht da hin!") | ⚠️ schwach | ✅ letzte Scheibe verdunkelt fast |
+| 4 | Befriedigende Auflösung | ✅ | ✅ Licht flutet das Fenster |
+| | **Differenzierung** | ❌ = 500 andere Spiele | ✅ eigenes Bild |
+
+Punkt 3 ist der wichtigste in jedem Playable Ad — er löst den „das kann ich
+besser"-Reflex aus. Und in der Zeile *Differenzierung* verliert Kaskade
+deutlich: Ein Förderband mit Reihen sieht aus wie jedes andere Blockspiel. Ein
+Fenster, in das die Dunkelheit von außen kriecht, ist ein **eigenes Bild** — und
+Bilder sind das, was in einem Store-Feed hängen bleibt.
+
+**Fazit:** Der Hook sollte der **Hauptmodus in lesbar gemacht** sein, nicht
+Kaskade. Kaskade behält einen echten kommerziellen Job: die 90-Sekunden-Session
+und eine zweite Ad-Variante fürs A/B-Testing der Arcade-Zielgruppe.
+
+### Monetarisierung — ehrlich
+
+Ohne Backend bleibt: **Rewarded Ads + einmaliger „Keine-Werbung"-Kauf.**
+Rewarded passt sauber in dieses Konzept:
+- *„+3 Züge ansehen"*, wenn das Zugbudget knapp verfehlt wurde ← der stärkste Platz
+- *„Laterne schneller füllen"*
+- *„Erinnerung freischalten"* (Story-Szene)
+
+**Der Preis der Entscheidung:** Das Konzept wirft die Leben raus — und Leben
+sind der klassische Monetarisierungshebel („Weiterspielen für 💎"). Ohne sie
+verkaufst du **Hilfe**, nicht **Zugang**. Das kostet ARPDAU und bringt
+Retention, Bewertungen und Weiterempfehlung. Für ein erstes Spiel ohne
+UA-Budget ist das eindeutig der richtige Tausch: Du kannst dir keine gekauften
+Nutzer leisten, also müssen die organischen bleiben.
