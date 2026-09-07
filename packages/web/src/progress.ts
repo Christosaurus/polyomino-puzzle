@@ -15,9 +15,6 @@ export interface LevelResult {
 export type JokerKind = "hint" | "time" | "solvent";
 export type Jokers = Record<JokerKind, number>;
 
-export const MAX_LIVES = 5;
-export const LIFE_REGEN_MS = 20 * 60_000;
-
 export interface SaveData {
   levels: Record<string, LevelResult>;
   profile: { name: string; avatar: string };
@@ -32,7 +29,6 @@ export interface SaveData {
   milestone: number;
   /** Light shards — the soft currency. */
   shards: number;
-  lives: { count: number; nextAt: number };
   stats: { solved: number; totalMs: number; noUndoStreak: number; bestNoUndoStreak: number };
 }
 
@@ -47,7 +43,6 @@ const EMPTY: SaveData = {
   regionRewards: [],
   milestone: 0,
   shards: 0,
-  lives: { count: MAX_LIVES, nextAt: 0 },
   stats: { solved: 0, totalMs: 0, noUndoStreak: 0, bestNoUndoStreak: 0 },
 };
 
@@ -69,7 +64,6 @@ export function load(): SaveData {
       regionRewards: parsed.regionRewards ?? [],
       milestone: parsed.milestone ?? 0,
       shards: parsed.shards ?? 0,
-      lives: { ...EMPTY.lives, ...parsed.lives },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -243,44 +237,13 @@ export function playerLevel(d: SaveData = load()): number {
   return 1 + Math.floor(xp / 9);
 }
 
-// ── Lives ──────────────────────────────────────────────────────────────────
-/** Apply regen, return the live view. */
-export function lives(now = Date.now()): { count: number; msToNext: number } {
-  const d = load();
-  const l = d.lives;
-  if (l.count >= MAX_LIVES) return { count: MAX_LIVES, msToNext: 0 };
-  let { count, nextAt } = l;
-  if (nextAt === 0) nextAt = now + LIFE_REGEN_MS;
-  while (count < MAX_LIVES && now >= nextAt) {
-    count += 1;
-    nextAt += LIFE_REGEN_MS;
-  }
-  if (count !== l.count || nextAt !== l.nextAt) {
-    update((s) => {
-      s.lives.count = count;
-      s.lives.nextAt = count >= MAX_LIVES ? 0 : nextAt;
-    });
-  }
-  return { count, msToNext: count >= MAX_LIVES ? 0 : Math.max(0, nextAt - now) };
-}
-
-/** Try to consume a life. Returns false if empty. */
-export function spendLife(now = Date.now()): boolean {
-  const { count } = lives(now);
-  if (count <= 0) return false;
-  update((s) => {
-    if (s.lives.count >= MAX_LIVES) s.lives.nextAt = now + LIFE_REGEN_MS;
-    s.lives.count = Math.max(0, s.lives.count - 1);
-  });
-  return true;
-}
-
-export function refillLives(): void {
-  update((s) => {
-    s.lives.count = MAX_LIVES;
-    s.lives.nextAt = 0;
-  });
-}
+/*
+ * No lives / no energy gate. "Nochmal" is the most important button in the
+ * game and must never be greyed out — an energy meter blocks exactly the
+ * one-more-try loop this game lives on. Tension comes from the level (move
+ * budget, creeping dark), never from access. Old saves may still carry a
+ * `lives` field; nothing reads it.
+ */
 
 export function addShards(n: number): void {
   update((s) => {
@@ -319,8 +282,6 @@ export function grantRegionReward(regionId: string): boolean {
     d.jokers.time += 2;
     d.jokers.solvent += 2;
     d.shards += 25;
-    d.lives.count = MAX_LIVES;
-    d.lives.nextAt = 0;
     granted = true;
   });
   return granted;

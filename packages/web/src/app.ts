@@ -15,6 +15,7 @@ import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
 import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
+import { miraLine, type StoryPlace } from "./story.js";
 import { GameView } from "./view.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -71,11 +72,8 @@ function pillValue(id: string, value: string): void {
 
 function renderTopPills(): void {
   const s = store.load();
-  const l = store.lives();
-  const livesTxt = l.count >= store.MAX_LIVES ? `${l.count}` : `${l.count} · ${fmt(l.msToNext)}`;
-  pillValue("home-lives", livesTxt);
   pillValue("home-shards", String(s.shards));
-  pillValue("play-lives", livesTxt);
+  pillValue("play-shards", String(s.shards));
   const rs = document.getElementById("region-stars");
   if (rs) pillValue("region-stars", String(store.totalStars(s)));
 }
@@ -270,6 +268,8 @@ interface OverlayOpts {
   stars?: number;
   sub?: string;
   rewards?: string[];
+  /** Miras Zeile zu diesem Ergebnis — sie sagt nicht zu jedem Fenster etwas. */
+  mira?: string | null;
   nextLabel: string;
   onNext: () => void;
   quitLabel?: string;
@@ -392,6 +392,18 @@ function winStarBurst(): void {
   winfxRaf = requestAnimationFrame(step);
 }
 
+/** Miras Portrait — das gemalte Bild, solange es da ist, sonst ihre Laterne. */
+function paintMira(host: HTMLElement): void {
+  if (host.querySelector("img")) return; // schon gesetzt
+  const img = document.createElement("img");
+  img.alt = "Mira";
+  img.src = "ui/chars/mira.webp";
+  img.addEventListener("error", () => {
+    host.textContent = "🏮";
+  });
+  host.replaceChildren(img);
+}
+
 function showOverlay(o: OverlayOpts): void {
   const hypeEl = $("ov-hype");
   hypeEl.hidden = !o.hype;
@@ -429,6 +441,12 @@ function showOverlay(o: OverlayOpts): void {
   }
   $("ov-sub").innerHTML = o.sub ?? "";
   $("ov-rewards").innerHTML = (o.rewards ?? []).map((r) => `<div>${r}</div>`).join("");
+  const miraEl = $("ov-mira");
+  miraEl.hidden = !o.mira;
+  if (o.mira) {
+    paintMira($("ov-mira-face"));
+    $("ov-mira-say").textContent = o.mira;
+  }
   const next = $<HTMLButtonElement>("ov-next");
   const quit = $<HTMLButtonElement>("ov-quit");
   next.textContent = o.nextLabel;
@@ -544,7 +562,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   if (region) {
     const { got, max } = regionStars(region);
     if (got >= max && store.grantRegionReward(region.id)) {
-      lines.push(`✨ ${region.name} erwacht! Joker-Vorrat aufgefüllt, ✦ +25, Leben voll`);
+      lines.push(`✨ ${region.name} erwacht! Joker-Vorrat aufgefüllt, ✦ +25`);
       scenery.pulse();
     }
   }
@@ -552,34 +570,10 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   return lines;
 }
 
-function livesGate(): boolean {
-  if (store.lives().count > 0) return true;
-  showScreen("play");
-  showOverlay({
-    title: "Keine Leben",
-    sub: `Ein Leben kehrt in <b>${fmt(store.lives().msToNext)}</b> zurück.`,
-    rewards: [`✦ ${store.load().shards} Splitter · 30 für ein Leben`],
-    nextLabel: store.load().shards >= 30 ? "Leben kaufen (30 ✦)" : "Zurück",
-    onNext: () => {
-      if (store.spendShards(30)) {
-        store.refillLives();
-        toast("Leben aufgefüllt");
-        if (mode === "campaign" && campaignAt) playCampaign(campaignAt.region, campaignAt.index);
-        else if (mode === "descent") startDescent();
-      } else {
-        setTab("home");
-      }
-    },
-    onQuit: () => setTab("home"),
-  });
-  return false;
-}
-
 // Campaign
 async function playCampaign(region: Region, index: number): Promise<void> {
   mode = "campaign";
   campaignAt = { region, index };
-  if (!livesGate()) return;
   const entry = region.levels[index];
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
@@ -593,6 +587,8 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   }
   const game = new GameState(level);
   const assisted = store.pity(entry.id);
+  // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
+  const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
   mountGame(game, {
     onWin: (stars, ms) => {
       const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
@@ -602,25 +598,27 @@ async function playCampaign(region: Region, index: number): Promise<void> {
         stars,
         sub: `Zeit <b>${fmt(ms)}</b>`,
         rewards,
+        mira: miraLine({
+          solved: store.load().stats.solved,
+          place: (REGION_THEME[region.id] ?? "garden") as StoryPlace,
+          stars,
+          struggled,
+        }),
         nextLabel: hasNext ? "Weiter ›" : "Region ✓",
         onNext: () => (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region))),
         onQuit: () => openRegion(regions.indexOf(region)),
       });
     },
     onTimeout: () => {
-      store.spendLife();
-      store.recordFail(entry.id);
-      renderTopPills();
-      const l = store.lives();
+      // No lives, no gate: "Nochmal" is the most important button in the game
+      // and must never be greyed out. Failure costs nothing but the attempt.
+      const fails = store.recordFail(entry.id);
       showOverlay({
         title: "Das Licht flackert aus",
-        sub:
-          l.count > 0
-            ? `Noch <b>${l.count}</b> Leben.`
-            : `Kein Leben mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`,
-        nextLabel: l.count > 0 ? "Nochmal" : "Übersicht",
-        onNext: () =>
-          l.count > 0 ? playCampaign(region, index) : openRegion(regions.indexOf(region)),
+        sub: fails >= 2 ? "Knifflig. Beim nächsten Versuch hilft dir Mira." : "Nochmal.",
+        nextLabel: "Nochmal",
+        onNext: () => playCampaign(region, index),
+        quitLabel: "Übersicht",
         onQuit: () => openRegion(regions.indexOf(region)),
       });
     },
@@ -704,6 +702,7 @@ async function playDaily(): Promise<void> {
           after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
           ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
         ],
+        mira: miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
         nextLabel: "Fertig",
         onNext: () => setTab("daily"),
         onQuit: () => setTab("daily"),
@@ -731,7 +730,6 @@ function renderDescent(): void {
 }
 function startDescent(): void {
   mode = "descent";
-  if (!livesGate()) return;
   descentState = {
     variant: store.beginDescentRun(),
     depth: 1,
@@ -820,6 +818,17 @@ async function playDescentLevel(): Promise<void> {
         stars,
         sub: `Zeit <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
         rewards: [`✦ +${depth} Lichtsplitter`],
+        // bei einem Hype-Wort schweigt Mira — zwei Stimmen auf einem Screen
+        // sind eine zu viel
+        mira: hype
+          ? null
+          : miraLine({
+              solved: store.load().stats.solved,
+              place: "descent",
+              stars,
+              streak: st.streak,
+              depth,
+            }),
         nextLabel: "Tiefer ›",
         onNext: playDescentLevel,
         quitLabel: "Aufhören",
@@ -964,7 +973,6 @@ const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void }
   { icon: "ui/hint.webp", label: "Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
   { icon: "ui/time.webp", label: "+20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
   { icon: "ui/solvent.webp", label: "Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
-  { icon: "ui/life.webp", label: "Leben auffüllen", cost: 30, buy: () => store.refillLives() },
 ];
 
 function renderShop(): void {
@@ -978,7 +986,6 @@ function renderShop(): void {
       btn.className = "gold";
       btn.textContent = `${item.cost} ✦`;
       btn.disabled = s.shards < item.cost;
-      if (item.icon === "ui/life.webp" && s.lives.count >= store.MAX_LIVES) btn.disabled = true;
       btn.addEventListener("click", () => {
         if (store.spendShards(item.cost)) {
           item.buy();
@@ -1129,13 +1136,9 @@ function leavePlay(): void {
     activeGame?.pause();
     showOverlay({
       title: "Level verlassen?",
-      sub: "Du verlierst <b>1 Leben</b> und den Fortschritt in diesem Fenster.",
+      sub: "Der Fortschritt in diesem Fenster geht verloren.",
       nextLabel: "Trotzdem raus",
-      onNext: () => {
-        store.spendLife();
-        renderTopPills();
-        doLeave();
-      },
+      onNext: doLeave,
       quitLabel: "Weiterspielen",
       onQuit: resume,
     });

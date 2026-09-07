@@ -1407,6 +1407,53 @@
       .rewards:empty {
         display: none;
       }
+      /* ── Mira — eine Zeile im Ergebnis, kein eigener Screen ────────── */
+      .mira {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 10px 14px 10px 10px;
+        border-radius: var(--r-md);
+        background: linear-gradient(180deg, rgba(58, 43, 158, 0.85), rgba(36, 26, 102, 0.85));
+        border: 2px solid color-mix(in srgb, var(--aqua) 40%, var(--border));
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
+        animation: mira-in 0.45s var(--tap) 0.35s both;
+      }
+      .mira-face {
+        flex: none;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 24px;
+        overflow: hidden;
+        background: radial-gradient(circle at 34% 28%, #6a4be6, #2b1f7a 78%);
+        border: 2px solid color-mix(in srgb, var(--aqua) 55%, #fff);
+        box-shadow:
+          inset 0 2px 4px rgba(255, 255, 255, 0.25),
+          0 3px 8px -2px rgba(0, 0, 0, 0.6);
+      }
+      .mira-face img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .mira-say {
+        flex: 1;
+        font-size: 13.5px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: #eae4ff;
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+      @keyframes mira-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
       .btns {
         display: flex;
         gap: 10px;
@@ -1664,7 +1711,6 @@
         <div class="topbar">
           <div class="avatar" id="home-avatar">🙂</div>
           <span class="pill" id="home-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
-          <span class="pill" id="home-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <span class="grow"></span>
           <button class="icon" id="home-settings">⚙</button>
         </div>
@@ -1737,7 +1783,7 @@
       <section class="screen play" id="screen-play" hidden>
         <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
         <div class="hud">
-          <span class="pill" id="play-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
+          <span class="pill" id="play-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
           <div class="clock" id="play-clock"><span id="play-clock-txt">0:00</span><small id="play-title-txt">Level</small></div>
           <button class="icon" id="play-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
@@ -1791,6 +1837,10 @@
           <div class="ostar-num" id="ov-stars-num"></div>
           <div class="sub" id="ov-sub"></div>
           <div class="rewards" id="ov-rewards"></div>
+          <div class="mira" id="ov-mira" hidden>
+            <div class="mira-face" id="ov-mira-face"></div>
+            <div class="mira-say" id="ov-mira-say"></div>
+          </div>
           <div class="btns">
             <button id="ov-quit">Übersicht</button>
             <button class="go" id="ov-next">Weiter</button>
