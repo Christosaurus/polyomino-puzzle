@@ -6,6 +6,7 @@
 
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
+import { BEATS, type Beat, beatAfter, SPEAKERS } from "./beats.js";
 import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
@@ -23,6 +24,8 @@ const fmt = (ms: number): string => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+/** Zahlen im Spiel immer mit Tausenderpunkt — "12.345" statt "12345". */
+const nf = (n: number): string => Math.round(n).toLocaleString("de-DE");
 
 type Tab = "home" | "daily" | "descent" | "cascade" | "collection";
 const SCREENS = [
@@ -77,10 +80,10 @@ function renderTopPills(): void {
   const l = store.lives();
   const livesTxt = l.count >= store.MAX_LIVES ? `${l.count}` : `${l.count} · ${fmt(l.msToNext)}`;
   pillValue("home-lives", livesTxt);
-  pillValue("home-shards", String(s.shards));
+  pillValue("home-shards", nf(s.shards));
   pillValue("play-lives", livesTxt);
   const rs = document.getElementById("region-stars");
-  if (rs) pillValue("region-stars", String(store.totalStars(s)));
+  if (rs) pillValue("region-stars", nf(store.totalStars(s)));
 }
 
 /**
@@ -199,6 +202,11 @@ const HYPE_WORDS = [
 function hideAllOverlays(): void {
   for (const id of ["play-overlay", "pause-overlay", "k-overlay", "k-pause-overlay", "profile-overlay"]) {
     document.getElementById(id)?.classList.remove("show");
+  }
+  const cs = document.getElementById("cutscene");
+  if (cs) {
+    cs.classList.remove("show");
+    cs.hidden = true;
   }
 }
 
@@ -364,8 +372,8 @@ function renderHome(): void {
     "#a875ff",
     "⚡",
     "Der Scherbenregen",
-    String(s.cascade.bestScore),
-    "90 Sekunden. Fang die Splitter, bevor sie weg sind.",
+    nf(s.cascade.bestScore),
+    "2½ Minuten. Fang die Splitter, bevor sie weg sind.",
     () => setTab("cascade"),
   );
 
@@ -547,6 +555,101 @@ function paintMira(host: HTMLElement): void {
     host.textContent = "🏮";
   });
   host.replaceChildren(img);
+}
+
+// ── Story-Beat / Cutscene ──────────────────────────────────────────────────
+let pendingBeat: Beat | null = null;
+
+/** Nach einem Sieg merken: fällt jetzt ein Beat? Wird beim „Weiter" gespielt. */
+function queueBeat(panesBefore: number, panesAfter: number): void {
+  const b = beatAfter(panesBefore, panesAfter);
+  if (b && !store.beatsSeen().includes(b.id)) pendingBeat = b;
+}
+
+/** Wickelt eine „Weiter"-Aktion so ein, dass ein anstehender Beat davor läuft. */
+function throughBeat(next: () => void): () => void {
+  return () => {
+    const b = pendingBeat;
+    pendingBeat = null;
+    if (b) playCutscene(b, next);
+    else next();
+  };
+}
+
+/** Spielt einen Beat als DOM-Cutscene, Zeile für Zeile, dann `done()`. */
+function playCutscene(beat: Beat, done: () => void): void {
+  const sp = SPEAKERS[beat.speaker];
+  const scene = $("cutscene");
+  const portrait = $("cs-portrait");
+  if (sp.img) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = sp.img;
+    img.addEventListener("error", () => (portrait.textContent = sp.emoji));
+    portrait.replaceChildren(img);
+  } else {
+    portrait.textContent = sp.emoji;
+  }
+  $("cs-name").textContent = sp.name;
+
+  hideOverlay();
+  scene.hidden = false;
+  scene.classList.add("show");
+
+  let line = 0;
+  let typing = false;
+  const linesEl = $("cs-lines");
+  const tapEl = $("cs-tap");
+
+  const type = (text: string): void => {
+    typing = true;
+    tapEl.classList.add("busy");
+    linesEl.textContent = "";
+    let i = 0;
+    const step = (): void => {
+      linesEl.textContent = text.slice(0, (i += 2));
+      if (i < text.length) {
+        window.setTimeout(step, 14);
+      } else {
+        linesEl.textContent = text;
+        typing = false;
+        tapEl.classList.remove("busy");
+      }
+    };
+    step();
+  };
+
+  const advance = (): void => {
+    if (typing) {
+      // erst mal fertig tippen
+      linesEl.textContent = beat.lines[line] ?? "";
+      typing = false;
+      tapEl.classList.remove("busy");
+      return;
+    }
+    line += 1;
+    if (line >= beat.lines.length) return finish();
+    type(beat.lines[line]!);
+  };
+
+  const finish = (): void => {
+    scene.classList.remove("show");
+    scene.hidden = true;
+    scene.removeEventListener("click", onClick);
+    $("cs-skip").removeEventListener("click", onSkip);
+    store.markBeatSeen(beat.id);
+    done();
+  };
+  const onClick = (e: MouseEvent): void => {
+    if ((e.target as HTMLElement).id === "cs-skip") return;
+    advance();
+  };
+  const onSkip = (): void => finish();
+
+  scene.addEventListener("click", onClick);
+  $("cs-skip").addEventListener("click", onSkip);
+  type(beat.lines[0]!);
+  sfx.pickUp();
 }
 
 function showOverlay(o: OverlayOpts): void {
@@ -767,22 +870,30 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
   mountGame(game, {
     onWin: (stars, ms) => {
+      const panesBefore = store.panes();
       const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
+      queueBeat(panesBefore, store.panes());
       const hasNext = index + 1 < region.levels.length;
+      const goNext = (): void =>
+        void (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region)));
+      const goBack = (): void => openRegion(regions.indexOf(region));
       showOverlay({
         title: stars === 3 ? "Makellos!" : "Gelöst!",
         stars,
         sub: `Zeit <b>${fmt(ms)}</b>`,
         rewards,
-        mira: miraLine({
-          solved: store.load().stats.solved,
-          place: (REGION_THEME[region.id] ?? "garden") as StoryPlace,
-          stars,
-          struggled,
-        }),
+        // wenn gleich ein Beat kommt, schweigt Mira hier — eine Szene reicht
+        mira: pendingBeat
+          ? null
+          : miraLine({
+              solved: store.load().stats.solved,
+              place: (REGION_THEME[region.id] ?? "garden") as StoryPlace,
+              stars,
+              struggled,
+            }),
         nextLabel: hasNext ? "Weiter ›" : "Region ✓",
-        onNext: () => (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region))),
-        onQuit: () => openRegion(regions.indexOf(region)),
+        onNext: throughBeat(goNext),
+        onQuit: throughBeat(goBack),
       });
     },
     onTimeout: () => {
@@ -877,6 +988,7 @@ async function playDaily(): Promise<void> {
       const milestone = DAILY_MILESTONES.find((m) => m.days === after && after > before);
       if (milestone) store.addShards(milestone.shards);
       refreshLight();
+      queueBeat(panesBefore, store.panes());
       const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
       if (nowLit) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
@@ -891,10 +1003,10 @@ async function playDaily(): Promise<void> {
           after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
           ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
         ],
-        mira: miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
+        mira: pendingBeat ? null : miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
         nextLabel: "Fertig",
-        onNext: () => setTab("daily"),
-        onQuit: () => setTab("daily"),
+        onNext: throughBeat(() => setTab("daily")),
+        onQuit: throughBeat(() => setTab("daily")),
       });
       if (milestone) scenery.pulse();
     },
@@ -1000,12 +1112,14 @@ async function playDescentLevel(): Promise<void> {
   mountGame(game, {
     onWin: (stars, ms) => {
       const st = descentState!;
+      const panesBefore = store.panes();
       st.depth = depth + 1;
       st.streak += 1;
       store.recordDescent(depth); // +1 Fenster erhellt
       store.addShards(depth);
       scenery.pulse(0.35 + 0.08 * stars); // the workshop brightens with every clear
       refreshLight();
+      queueBeat(panesBefore, store.panes());
       const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
       celebrate(syncAchievements());
       renderTopPills();
@@ -1034,22 +1148,22 @@ async function playDescentLevel(): Promise<void> {
           `✦ +${depth} Lichtsplitter`,
           ...(nowLit ? [`✨ ${nowLit.name} — die Laterne ist an!`] : []),
         ],
-        // bei einem Hype-Wort schweigt Mira — zwei Stimmen auf einem Screen
-        // sind eine zu viel
-        mira: hype
-          ? null
-          : miraLine({
-              solved: store.load().stats.solved,
-              place: "descent",
-              stars,
-              streak: st.streak,
-              depth,
-            }),
+        // bei einem Hype-Wort oder Beat schweigt Mira — eine Sache pro Screen
+        mira:
+          hype || pendingBeat
+            ? null
+            : miraLine({
+                solved: store.load().stats.solved,
+                place: "descent",
+                stars,
+                streak: st.streak,
+                depth,
+              }),
         nextLabel: "Tiefer ›",
-        onNext: playDescentLevel,
+        onNext: throughBeat(() => void playDescentLevel()),
         quitLabel: "Aufhören",
-        onQuit: () => endDescent(depth),
-        ...(hype ? { hype, hypeStrong } : {}),
+        onQuit: throughBeat(() => endDescent(depth)),
+        ...(hype && !pendingBeat ? { hype, hypeStrong } : {}),
       });
     },
     onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
@@ -1080,8 +1194,8 @@ function endDescent(reachedDepth?: number): void {
 function renderCascade(): void {
   scenery.setTheme("surge");
   const s = store.load();
-  $("cascade-best").textContent = String(s.cascade.bestScore);
-  $("cascade-cleared").textContent = String(s.cascade.bestCleared);
+  $("cascade-best").textContent = nf(s.cascade.bestScore);
+  $("cascade-cleared").textContent = nf(s.cascade.bestCleared);
 }
 function startCascade(): void {
   teardownGame();
@@ -1098,9 +1212,9 @@ function startCascade(): void {
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
-      $("k-score-txt").textContent = String(h.score);
+      $("k-score-txt").textContent = nf(h.score);
       $("k-mult").textContent = `×${h.mult.toFixed(1)}`;
-      $("k-cleared").textContent = String(h.cleared);
+      $("k-cleared").textContent = nf(h.cleared);
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
@@ -1138,12 +1252,13 @@ function startCascade(): void {
       store.recordCascade(r.score, r.cleared);
       const lit = store.panes() - panesBefore;
       refreshLight();
+      queueBeat(panesBefore, store.panes());
       const nowLit = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
-      if (nowLit) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
+      if (nowLit && !pendingBeat) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
-        `<b>${r.score}</b> Punkte · ${r.cleared} Reihen` +
+        `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
         (lit > 0 ? ` · 🏮 +${lit} Fenster` : "") +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
         (newRecord ? ` · 🏆 neue Bestmarke!` : "");
@@ -1151,9 +1266,23 @@ function startCascade(): void {
       ov.classList.remove("show");
       void ov.offsetWidth;
       ov.classList.add("show");
+      // ein Beat, sobald der Spieler das Kaskade-Fenster schließt
+      if (pendingBeat) {
+        const b = pendingBeat;
+        pendingBeat = null;
+        const play = (go: () => void) => () => {
+          ov.classList.remove("show");
+          playCutscene(b, go);
+        };
+        $<HTMLButtonElement>("k-quit").onclick = play(() => setTab("cascade"));
+        $<HTMLButtonElement>("k-again").onclick = play(startCascade);
+      } else {
+        $<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
+        $<HTMLButtonElement>("k-again").onclick = startCascade;
+      }
     },
   });
-  $("k-best").textContent = String(bestScore);
+  $("k-best").textContent = nf(bestScore);
   showScreen("kaskade");
   window.scrollTo(0, 0);
 }
@@ -1164,11 +1293,11 @@ function renderCollection(): void {
   const s = store.load();
   const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
   const stats: [string, string][] = [
-    ["Fenster erhellt", String(store.panes(s))],
-    ["Sterne", String(store.totalStars(s))],
+    ["Fenster erhellt", nf(store.panes(s))],
+    ["Sterne", nf(store.totalStars(s))],
     ["Ø Zeit", s.stats.solved ? fmt(avg) : "–"],
     ["Abstieg", `Ebene ${s.descent.bestDepth}`],
-    ["Kaskade", String(s.cascade.bestScore)],
+    ["Kaskade", nf(s.cascade.bestScore)],
     ["Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
   ];
   $("stats").replaceChildren(
@@ -1180,6 +1309,22 @@ function renderCollection(): void {
     }),
   );
   renderShop();
+
+  // Erinnerungen — die gespielten Story-Beats, nachlesbar
+  const seen = new Set(store.beatsSeen());
+  $("memories").replaceChildren(
+    ...BEATS.map((b) => {
+      const has = seen.has(b.id);
+      const d = document.createElement("div");
+      d.className = `ach${has ? " done" : " locked"}`;
+      const body = has
+        ? `<div class="t">${b.title}</div><div class="h">${b.lines.join(" ")}</div>`
+        : `<div class="t">???</div><div class="h">Spiele weiter, um diese Erinnerung zu wecken.</div>`;
+      d.innerHTML = `<div class="ic">${has ? "🕯" : "·"}</div><div>${body}</div>`;
+      return d;
+    }),
+  );
+
   $("achievements").replaceChildren(
     ...ACHIEVEMENTS.map((a) => {
       const done = a.done(s);
@@ -1200,7 +1345,7 @@ const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void }
 
 function renderShop(): void {
   const s = store.load();
-  pillValue("shop-shards", String(s.shards));
+  pillValue("shop-shards", nf(s.shards));
   $("shop").replaceChildren(
     ...SHOP.map((item) => {
       const row = document.createElement("div");
@@ -1260,17 +1405,17 @@ function openProfile(): void {
   const s = store.load();
   paintAvatar($("pf-avatar"), store.avatarId());
   $("pf-name").textContent = store.playerName();
-  $("pf-level").textContent = String(store.playerLevel(s));
+  $("pf-level").textContent = nf(store.playerLevel(s));
   $("pf-picker").hidden = true;
 
   const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
   const rows: Array<[string, string, string]> = [
-    ["ui/collection.webp", "Fenster erhellt", String(store.panes(s))],
-    ["ui/star.webp", "Sterne gesammelt", String(store.totalStars(s))],
+    ["ui/collection.webp", "Fenster erhellt", nf(store.panes(s))],
+    ["ui/star.webp", "Sterne gesammelt", nf(store.totalStars(s))],
     ["ui/time.webp", "Ø Lösezeit", s.stats.solved ? fmt(avg) : "–"],
     ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
     ["ui/descent.webp", "Abstieg — tiefste Ebene", String(s.descent.bestDepth)],
-    ["ui/cascade.webp", "Kaskade — Rekord", String(s.cascade.bestScore)],
+    ["ui/cascade.webp", "Kaskade — Rekord", nf(s.cascade.bestScore)],
     ["ui/daily.webp", "Längster Tages-Streak", String(s.daily.bestStreak)],
     ["ui/hint.webp", "Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
   ];
@@ -1431,8 +1576,9 @@ $("ps-quit").addEventListener("click", () => {
 $("daily-play").addEventListener("click", playDaily);
 $("descent-play").addEventListener("click", startDescent);
 $("cascade-play").addEventListener("click", startCascade);
-$("k-quit").addEventListener("click", () => setTab("cascade"));
-$("k-again").addEventListener("click", startCascade);
+// k-quit / k-again werden pro Runde in onEnd gesetzt (wegen eventueller Cutscene)
+$<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
+$<HTMLButtonElement>("k-again").onclick = startCascade;
 $("k-pause").addEventListener("click", () => {
   const ov = $("k-pause-overlay");
   const show = !ov.classList.contains("show");

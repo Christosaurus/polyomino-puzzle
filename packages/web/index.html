@@ -1501,6 +1501,111 @@
           transform: translateY(8px);
         }
       }
+
+      /* ── Cutscene (Story-Beat) ─────────────────────────────────────── */
+      .overlay.cutscene {
+        background: rgba(8, 5, 26, 0.92);
+        align-items: flex-end;
+        padding: 0;
+      }
+      .cs-scene {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(120% 80% at 50% 0%, rgba(255, 194, 59, 0.18), transparent 60%),
+          linear-gradient(180deg, #1a1147, #0a0722);
+      }
+      .cs-skip {
+        position: absolute;
+        top: calc(env(safe-area-inset-top) + 12px);
+        right: 14px;
+        z-index: 2;
+        width: auto;
+        padding: 7px 14px;
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: none;
+        text-shadow: none;
+        border-radius: 999px;
+      }
+      .cs-box {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 620px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+        padding: 20px 18px calc(env(safe-area-inset-bottom) + 24px);
+      }
+      .cs-portrait {
+        flex: none;
+        width: 110px;
+        height: 130px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        font-size: 52px;
+        overflow: hidden;
+        background: radial-gradient(circle at 34% 26%, #6a4be6, #2b1f7a 78%);
+        border: 3px solid color-mix(in srgb, var(--gold) 45%, #fff);
+        box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.7);
+        animation: cs-portrait-in 0.4s var(--tap) both;
+      }
+      .cs-portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      @keyframes cs-portrait-in {
+        from {
+          opacity: 0;
+          transform: translateY(12px) scale(0.9);
+        }
+      }
+      .cs-text {
+        flex: 1;
+        background: linear-gradient(180deg, rgba(58, 43, 158, 0.96), rgba(30, 22, 84, 0.96));
+        border: 2px solid color-mix(in srgb, var(--gold) 40%, var(--border));
+        border-radius: var(--r-md);
+        padding: 14px 16px;
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 8px 20px -6px rgba(0, 0, 0, 0.6);
+      }
+      .cs-name {
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--gold);
+        text-shadow: 0 2px 0 var(--stroke);
+        margin-bottom: 4px;
+      }
+      .cs-name:empty {
+        display: none;
+      }
+      .cs-lines {
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1.4;
+        color: #eae4ff;
+        min-height: 3.2em;
+      }
+      .cs-tap {
+        margin-top: 8px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        text-align: right;
+        animation: cs-tap-pulse 1.4s ease-in-out infinite;
+      }
+      .cs-tap.busy {
+        visibility: hidden;
+      }
+      @keyframes cs-tap-pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
       .btns {
         display: flex;
         gap: 10px;
@@ -1583,7 +1688,8 @@
         font-weight: 700;
       }
       .shop,
-      #achievements {
+      #achievements,
+      #memories {
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -1816,7 +1922,7 @@
             <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
           </div>
-          <p class="muted">90 Sekunden. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
+          <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
           <p class="muted" id="cascade-lantern">🏮 Jede dritte Reihe erhellt ein Fenster.</p>
           <button class="go big" id="cascade-play">Kaskade starten</button>
         </div>
@@ -1827,6 +1933,8 @@
         <div class="statgrid" id="stats"></div>
         <h2 style="margin-top:6px">Vorrat <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
         <div class="shop" id="shop"></div>
+        <h2 style="margin-top:6px">Erinnerungen</h2>
+        <div id="memories"></div>
         <h2 style="margin-top:6px">Erfolge</h2>
         <div id="achievements"></div>
       </section>
@@ -1856,7 +1964,7 @@
         <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
         <div class="hud">
           <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
-          <div class="clock" id="k-clock">1:30</div>
+          <div class="clock" id="k-clock">2:30</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
         <div class="k-lives" id="k-lives">
@@ -1880,6 +1988,19 @@
       </section>
 
       <!-- overlays (global) -->
+      <div class="overlay cutscene" id="cutscene" hidden>
+        <div class="cs-scene" id="cs-scene"></div>
+        <button class="cs-skip" id="cs-skip">überspringen ›</button>
+        <div class="cs-box">
+          <div class="cs-portrait" id="cs-portrait"></div>
+          <div class="cs-text">
+            <div class="cs-name" id="cs-name"></div>
+            <div class="cs-lines" id="cs-lines"></div>
+            <div class="cs-tap" id="cs-tap">tippen</div>
+          </div>
+        </div>
+      </div>
+
       <div class="overlay" id="play-overlay">
         <div class="ocard">
           <div class="burst" id="ov-burst"></div>

@@ -158,7 +158,7 @@ export class CascadeView {
           x: L.boardX + (this.game.cols * L.cell) / 2,
           y: L.boardY + (clear.rows[0]! + 0.2) * L.cell,
           t: 0,
-          text: `+${clear.gain}`,
+          text: `+${clear.gain.toLocaleString("de-DE")}`,
           color: cssVar("--gold"),
         });
       }

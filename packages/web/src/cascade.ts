@@ -13,7 +13,7 @@ import { pickShardName, shardByColorIndex, shardColorIndex, shardDef } from "./s
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
-const DURATION_MS = 90_000;
+const DURATION_MS = 150_000; // 2:30 Grundzeit (Joker/Blitzstein legen noch drauf)
 const BASE_SPAWN_MS = 2200;
 const MIN_SPAWN_MS = 950;
 const BELT_TRAVEL_MS_START = 11_000; // time for a shard to ride top→bottom, at run start

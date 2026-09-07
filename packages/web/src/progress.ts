@@ -25,6 +25,8 @@ export interface SaveData {
   descent: { bestDepth: number; runs: number; seq: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
   achievements: string[];
+  /** Story-Beats, die schon gespielt wurden (für „Erinnerungen"). */
+  beatsSeen: string[];
   jokers: Jokers;
   /** Region ids whose completion reward has been granted. */
   regionRewards: string[];
@@ -49,6 +51,7 @@ const EMPTY: SaveData = {
   descent: { bestDepth: 0, runs: 0, seq: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
   achievements: [],
+  beatsSeen: [],
   jokers: { hint: 3, time: 2, solvent: 2 },
   regionRewards: [],
   milestone: 0,
@@ -72,6 +75,7 @@ export function load(): SaveData {
       descent: { ...EMPTY.descent, ...parsed.descent },
       cascade: { ...EMPTY.cascade, ...parsed.cascade },
       achievements: parsed.achievements ?? [],
+      beatsSeen: parsed.beatsSeen ?? [],
       jokers: { ...EMPTY.jokers, ...parsed.jokers },
       regionRewards: parsed.regionRewards ?? [],
       milestone: parsed.milestone ?? 0,
@@ -226,6 +230,15 @@ export function recordCascade(score: number, cleared: number): SaveData {
 /** Fenster erhellt — die eine Fortschrittszahl. */
 export function panes(d: SaveData = load()): number {
   return d.panes;
+}
+
+export function markBeatSeen(id: string): void {
+  update((d) => {
+    if (!d.beatsSeen.includes(id)) d.beatsSeen.push(id);
+  });
+}
+export function beatsSeen(): string[] {
+  return load().beatsSeen;
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────
