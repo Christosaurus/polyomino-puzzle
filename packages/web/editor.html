@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumen — Level-Werkstatt</title>
+    <style>
+      /* Die Farb-Variablen, die render.ts über cssVar() liest — sonst zeichnet
+         das Brett hier anders als im Spiel. */
+      :root {
+        --cell: #241a66;
+        --board-edge: #b9a6ff;
+        --bg: #150e3a;
+        --panel: #241a66;
+        --line: #3a2b8e;
+        --ink: #eae4ff;
+        --dim: #9d92c9;
+        --gold: #ffc23b;
+        --aqua: #2fd9cf;
+        --stop: #ff5b6a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 20px;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      @media (max-width: 860px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 14px;
+        letter-spacing: 0.02em;
+      }
+      h1 small {
+        color: var(--dim);
+        font-weight: 400;
+        margin-left: 8px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      .card > h2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+        margin: 0 0 10px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--dim);
+        margin: 10px 0 3px;
+      }
+      select,
+      input,
+      textarea,
+      button {
+        font: inherit;
+        color: var(--ink);
+        background: #1b1350;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 10px;
+        width: 100%;
+      }
+      textarea {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 11px;
+        min-height: 150px;
+        resize: vertical;
+      }
+      button {
+        cursor: pointer;
+        width: auto;
+        background: #33268f;
+      }
+      button:hover {
+        background: #3f2fb0;
+      }
+      button.primary {
+        background: var(--gold);
+        color: #3a2600;
+        border-color: var(--gold);
+        font-weight: 700;
+      }
+      button.on {
+        background: var(--aqua);
+        color: #062c2a;
+        border-color: var(--aqua);
+        font-weight: 700;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: none;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #1a1147;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        touch-action: none;
+        cursor: crosshair;
+      }
+      .hint {
+        color: var(--dim);
+        font-size: 12px;
+        margin-top: 10px;
+      }
+      .errors {
+        margin-top: 10px;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .errors.ok {
+        color: var(--aqua);
+      }
+      .errors.bad {
+        color: var(--stop);
+      }
+      kbd {
+        background: #1b1350;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 6px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div>
+        <h1>Lumen — Level-Werkstatt <small>nur für die Entwicklung</small></h1>
+        <canvas id="board"></canvas>
+        <p class="hint" id="hint"></p>
+        <div class="errors" id="errors"></div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>1 · Fenster erzeugen</h2>
+          <label for="shape">Silhouette</label>
+          <select id="shape"></select>
+          <label for="seed">Seed</label>
+          <div class="row">
+            <input id="seed" value="werkstatt-1" style="flex: 1" />
+            <button id="gen" class="primary">Erzeugen</button>
+          </div>
+          <p class="hint">
+            Der Generator baut eine gültige Packung. Du legst die Mechanik nur darüber —
+            deshalb bleibt das Level immer lösbar.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>2 · Mechanik malen</h2>
+          <div class="row">
+            <button id="m-soot" class="on">Ruß</button>
+            <button id="m-crack">Riss</button>
+            <button id="clear">Leeren</button>
+          </div>
+          <p class="hint" id="mode-hint"></p>
+        </div>
+
+        <div class="card">
+          <h2>3 · Einstellungen</h2>
+          <label for="id">Level-ID (= Dateiname)</label>
+          <input id="id" value="soot_05" />
+          <label for="goal">Ziel</label>
+          <select id="goal">
+            <option value="cover">alles zudecken</option>
+            <option value="soot">nur den Ruß reinigen</option>
+          </select>
+          <label for="diff">Schwierigkeit (1–5)</label>
+          <input id="diff" type="number" min="1" max="5" value="2" />
+          <label for="budget">Zugbudget <span id="budget-hint"></span></label>
+          <input id="budget" type="number" min="1" value="8" />
+        </div>
+
+        <div class="card">
+          <h2>4 · Speichern</h2>
+          <div class="row">
+            <button id="copy">JSON kopieren</button>
+            <button id="download">Herunterladen</button>
+          </div>
+          <p class="hint">
+            Datei nach <kbd>packages/web/public/levels/</kbd> legen und im
+            <kbd>manifest.json</kbd> eintragen.
+          </p>
+          <textarea id="json" readonly></textarea>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/editor.ts"></script>
+  </body>
+</html>
