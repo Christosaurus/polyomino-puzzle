@@ -1148,28 +1148,31 @@
       .ocard .sub b {
         color: #fff;
       }
-      /* ── Result stars: the painted star icon. Empty places sit dark;
-            earned stars pop in and keep turning, smooth. ──────────────── */
+      /* ── Result stars: the painted star icon. Every place shows a dark
+            recessed star; earned ones pop in above it, hover, drift up, then
+            turn and drop into place. One transform per element, ending exactly
+            aligned with its socket — so it can't peek or jitter. ────────── */
       .ostars {
         --star: 66px;
         position: relative;
         display: flex;
         justify-content: center;
-        align-items: center;
+        align-items: flex-end;
         gap: 20px;
-        height: calc(var(--star) + 26px);
+        height: calc(var(--star) + 64px);
+        padding-bottom: 2px;
       }
       .star {
         position: relative;
         width: var(--star);
         height: var(--star);
+        --lift: -52px;
       }
       .star:nth-child(2) {
-        margin-top: -12px; /* the middle one rides a little higher */
+        --lift: -66px; /* the middle one rides a little higher */
       }
       .star .sock,
       .star .fill,
-      .star .fill .spin,
       .star img {
         position: absolute;
         inset: 0;
@@ -1188,35 +1191,27 @@
         opacity: 0.9;
         animation: sock-in 0.4s var(--tap) both;
       }
-      .star.earned .sock {
-        display: none;
-      }
       .star .fill {
         opacity: 0;
       }
       .star .fill img {
-        filter: drop-shadow(0 0 16px rgba(255, 200, 90, 0.8))
+        filter: drop-shadow(0 0 16px rgba(255, 200, 90, 0.85))
           drop-shadow(0 4px 5px rgba(0, 0, 0, 0.35));
-      }
-      /* the spin is on its own layer so it never fights the pop-in transform */
-      .star .fill .spin {
-        animation: star-turn 4.6s linear infinite;
-        will-change: transform;
       }
       .star:not(.earned) .fill {
         display: none;
       }
       .star.earned .fill {
-        animation: star-earn 0.85s cubic-bezier(0.25, 1.5, 0.45, 1) both;
+        animation: star-earn 2.05s cubic-bezier(0.32, 0.9, 0.3, 1) both;
       }
       .star:nth-child(1).earned .fill {
-        animation-delay: 0.1s;
+        animation-delay: 0.06s;
       }
       .star:nth-child(2).earned .fill {
-        animation-delay: 0.28s;
+        animation-delay: 0.24s;
       }
       .star:nth-child(3).earned .fill {
-        animation-delay: 0.46s;
+        animation-delay: 0.42s;
       }
       @keyframes sock-in {
         from {
@@ -1224,22 +1219,29 @@
           opacity: 0;
         }
       }
-      @keyframes star-turn {
-        to {
-          transform: rotate(360deg);
-        }
-      }
       @keyframes star-earn {
         0% {
           opacity: 0;
-          transform: translateY(18px) scale(0.2);
+          transform: translateY(calc(var(--lift) + 14px)) scale(0.2) rotate(0deg);
         }
-        40% {
+        8% {
           opacity: 1;
+        }
+        16% {
+          transform: translateY(var(--lift)) scale(1.32) rotate(90deg);
+        }
+        26% {
+          transform: translateY(var(--lift)) scale(1) rotate(120deg);
+        }
+        52% {
+          transform: translateY(calc(var(--lift) - 16px)) scale(1) rotate(240deg);
+        }
+        66% {
+          transform: translateY(calc(var(--lift) - 16px)) scale(1.08) rotate(320deg);
         }
         100% {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: translateY(0) scale(1) rotate(720deg);
         }
       }
       .ostar-num {

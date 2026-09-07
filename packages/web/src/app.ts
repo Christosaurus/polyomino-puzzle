@@ -420,7 +420,7 @@ function showOverlay(o: OverlayOpts): void {
         d.className = `star${i < n ? " earned" : ""}`;
         d.innerHTML =
           `<img class="sock" src="ui/star.webp" alt="" />` +
-          `<span class="fill"><span class="spin"><img src="ui/star.webp" alt="" /></span></span>`;
+          `<span class="fill"><img src="ui/star.webp" alt="" /></span>`;
         return d;
       }),
     );
