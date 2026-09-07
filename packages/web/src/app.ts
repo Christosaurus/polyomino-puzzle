@@ -385,11 +385,15 @@ function renderHome(): void {
   if (regions[2]) host.append(regionStation(regions[2], 2));
   host.append(cascade);
 
-  // auf die aktuelle Region scrollen
-  if (target) {
+  // auf die aktuelle Region scrollen — außer man ist noch im Garten: dann soll
+  // der Blick oben bleiben (Logo, warmes Talende), sonst scrollt der
+  // Startbildschirm sofort ins Dunkle
+  if (target && target.regionIndex > 0) {
     const nodes = host.children;
-    const idx = target.regionIndex === 0 ? 0 : target.regionIndex === 1 ? 2 : 4;
+    const idx = target.regionIndex === 1 ? 2 : 4;
     (nodes[idx] as HTMLElement | undefined)?.scrollIntoView({ block: "center", behavior: "auto" });
+  } else {
+    $("screen-home").scrollTop = 0;
   }
 }
 

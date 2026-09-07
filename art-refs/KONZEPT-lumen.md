@@ -405,7 +405,7 @@ gespeicherten Datenmodell.
 |---|---|---|---|
 | 5 | **Licht als einzige Währung.** Sterne → Sauberkeits-Bonus in Licht. | M ⚠ | L |
 | 6 | **Laternen-Tor** an Regionsgrenzen; alle Modi zahlen ein. | S | L |
-| 7 | **Karte als Startbildschirm**, Seitenmodi als Orte darauf. | L ⚠ | L |
+| 7 | **Karte als Startbildschirm**, Seitenmodi als Orte darauf. | L ⚠ | L | — 🟡 Pfad + gemalte Talkarte (Garten→Farbhof, Dunkel→Hell) stehen; Beats/Boss noch offen |
 
 ### Phase 3 — Die Geschichte *(2–3 Wochen)*
 

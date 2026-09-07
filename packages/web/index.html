@@ -468,6 +468,55 @@
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6);
       }
 
+      /* ── Der Lichtpfad: gemalte Talkarte hinter dem Startbildschirm ── */
+      #screen-home {
+        position: relative;
+      }
+      #screen-home > .topbar,
+      #screen-home > .brand,
+      #screen-home > #home-status,
+      #screen-home > #home-play,
+      #screen-home > #regions {
+        position: relative;
+        z-index: 1;
+      }
+      .talkarte {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 0;
+        display: flex;
+        flex-direction: column;
+        pointer-events: none;
+        /* full-bleed: cancel the screen's top inset + 14px side padding */
+        margin: calc(-1 * (env(safe-area-inset-top) + 14px)) -14px 0;
+      }
+      .talkarte img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      /* soften the two seams where the painted tiles meet */
+      .talkarte img + img {
+        margin-top: -7%;
+        -webkit-mask-image: linear-gradient(180deg, transparent, #000 11%);
+        mask-image: linear-gradient(180deg, transparent, #000 11%);
+      }
+      /* keep white UI readable over the painting, and sink the bottom into the app ground */
+      .talkarte::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(20, 15, 50, 0.62) 0%,
+          rgba(20, 15, 50, 0.22) 16%,
+          rgba(20, 15, 50, 0.22) 82%,
+          #241a54 100%
+        );
+      }
+
       /* ── Journey (Reise) ───────────────────────────── */
       .journey {
         position: relative;
@@ -479,13 +528,18 @@
       .journey::before {
         content: "";
         position: absolute;
-        left: 12px;
+        left: 13px;
         top: 24px;
         bottom: 24px;
-        width: 8px;
+        width: 6px;
         border-radius: 999px;
-        background: linear-gradient(180deg, #4be3a0 0%, #ffab3d 50%, #ff6ec7 100%);
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 170, 90, 0.45);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.55) 0%,
+          rgba(255, 200, 120, 0.6) 50%,
+          rgba(255, 130, 190, 0.55) 100%
+        );
+        box-shadow: 0 0 14px rgba(255, 190, 120, 0.5);
       }
       .station {
         position: relative;
@@ -1861,6 +1915,11 @@
     <canvas id="winfx"></canvas>
     <div id="app">
       <section class="screen" id="screen-home">
+        <div class="talkarte" aria-hidden="true">
+          <img src="bg/talkarte-garten.webp" alt="" />
+          <img src="bg/talkarte-werkstatt.webp" alt="" />
+          <img src="bg/talkarte-farbhof.webp" alt="" />
+        </div>
         <div class="topbar">
           <div class="avatar" id="home-avatar">🙂</div>
           <span class="pill" id="home-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>

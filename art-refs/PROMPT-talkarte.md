@@ -1,5 +1,11 @@
 # Nano Banana — Die Talkarte (Hintergrund für den Lichtpfad)
 
+> **Stand:** Erste Fassung geliefert und eingebaut —
+> `packages/web/public/bg/talkarte-garten.webp` / `-werkstatt.webp` /
+> `-farbhof.webp` (760 px breit, ~150 KB zusammen). Liegt hinter dem
+> Startbildschirm, scrollt mit den Stationen mit. Dieses Dokument bleibt die
+> Vorlage für spätere, größere Neufassungen.
+
 Der Startbildschirm ist ein senkrecht gescrollter Pfad: Der Garten →
 Tagesfenster → Werkstatt → Anselms Stollen → Farbhof → Scherbenregen. Aktuell
 zeichnet ein prozeduraler Canvas die Stimmung dahinter. Diese Karte ersetzt sie
