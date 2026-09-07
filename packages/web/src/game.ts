@@ -53,6 +53,9 @@ export class GameState {
   private frozenCells: Set<string> | null = null;
   private frozenUnlocked = true;
   private justUnlocked = false;
+  /** null = kein Zugbudget, es zählt die Uhr (Altverhalten). */
+  private moveBudget: number | null = null;
+  private movesUsed = 0;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -79,6 +82,33 @@ export class GameState {
   /** Add time (joker). */
   extendLimit(ms: number): void {
     this.limitMs += ms;
+  }
+
+  // ── Zugbudget ─────────────────────────────────────────────────────────────
+  /**
+   * Statt einer Uhr: eine feste Zahl Platzierungen. Zeitdruck bestraft
+   * Nachdenken — ein Zugbudget belohnt es und erzeugt trotzdem die sichtbare
+   * Anspannung, von der der Kernloop lebt (KONZEPT-lumen.md §D).
+   *
+   * Ein Teil zurückzunehmen erstattet den Zug **nicht**, sonst wäre das Budget
+   * bedeutungslos. Es liegt aber über der Teilezahl, du hast also Luft für ein
+   * paar Fehlversuche — Ausprobieren bleibt erlaubt, nur nicht unbegrenzt.
+   */
+  setMoveBudget(moves: number | null): void {
+    this.moveBudget = moves === null ? null : Math.max(this.pieces.length, Math.round(moves));
+  }
+  /** Joker: ein paar Züge mehr. No-op ohne Budget. */
+  extendMoves(n: number): void {
+    if (this.moveBudget !== null) this.moveBudget += n;
+  }
+  get hasMoveBudget(): boolean {
+    return this.moveBudget !== null;
+  }
+  get movesLeft(): number {
+    return this.moveBudget === null ? Infinity : Math.max(0, this.moveBudget - this.movesUsed);
+  }
+  get outOfMoves(): boolean {
+    return this.moveBudget !== null && this.movesUsed >= this.moveBudget;
   }
 
   /** Descent/Daily twist: lock part of the board until the rest is solved. */
@@ -204,14 +234,20 @@ export class GameState {
   remainingMs(): number {
     return Math.max(0, this.limitMs - this.elapsedMs());
   }
-  get timedOut(): boolean {
-    return !this.isWon() && this.remainingMs() <= 0 && this.started;
+  /** Der Lauf ist gescheitert — Züge alle (mit Budget) oder Zeit um (ohne). */
+  get failed(): boolean {
+    if (this.isWon() || !this.started) return false;
+    return this.moveBudget === null ? this.remainingMs() <= 0 : this.outOfMoves;
   }
 
-  /** 3 stars for finishing with lots of time left, then 2, then 1. */
+  /** 3 Sterne für viel Rest — Züge, wenn es ein Budget gibt, sonst Zeit. */
   starRating(): number {
-    if (this.timedOut) return 0;
-    const frac = this.remainingMs() / this.limitMs;
+    if (this.failed) return 0;
+    const frac =
+      this.moveBudget === null
+        ? this.remainingMs() / this.limitMs
+        : // die Teilezahl ist der Boden: darunter geht es gar nicht
+          (this.moveBudget - this.movesUsed) / Math.max(1, this.moveBudget - this.pieces.length);
     if (frac >= 0.55) return 3;
     if (frac >= 0.2) return 2;
     return 1;
@@ -249,6 +285,10 @@ export class GameState {
 
   place(piece: PieceState, pos: Pos): boolean {
     if (!this.canPlace(piece, pos)) return false;
+    // dasselbe Teil aufs selbe Feld zurückzulegen ist kein neuer Zug —
+    // sonst kostet schon ein verrutschter Finger Budget
+    const samePlace = piece.pos && piece.pos.row === pos.row && piece.pos.col === pos.col;
+    if (!samePlace) this.movesUsed += 1;
     piece.pos = { ...pos };
     this.checkUnlock();
     return true;
@@ -285,6 +325,7 @@ export class GameState {
     this.pausedTotal = 0;
     this.usedUndo = false;
     this.justUnlocked = false;
+    this.movesUsed = 0;
     if (this.frozenCells) this.frozenUnlocked = false;
   }
 }

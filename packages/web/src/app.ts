@@ -473,12 +473,25 @@ function hideOverlay(): void {
   $("play-overlay").classList.remove("show");
 }
 
+/**
+ * Die große Zahl im HUD: mit Zugbudget die verbleibenden Züge, sonst die Uhr.
+ * Züge sind die bessere Spannung — eine Uhr bestraft Nachdenken.
+ */
 function startClock(game: GameState): void {
   if (clockTimer) window.clearInterval(clockTimer);
+  const el = $("play-clock");
+  const txt = $("play-clock-txt");
+  el.classList.toggle("moves", game.hasMoveBudget);
   const tick = (): void => {
+    if (game.hasMoveBudget) {
+      const left = game.movesLeft;
+      txt.innerHTML = `${left}<i>Züge</i>`;
+      el.classList.toggle("warn", !game.isWon() && left <= 3);
+      return;
+    }
     const ms = game.remainingMs();
-    $("play-clock-txt").textContent = fmt(ms);
-    $("play-clock").classList.toggle("warn", !game.isWon() && (ms < 15_000 || ms / game.limitMs < 0.2));
+    txt.textContent = fmt(ms);
+    el.classList.toggle("warn", !game.isWon() && (ms < 15_000 || ms / game.limitMs < 0.2));
   };
   tick();
   clockTimer = window.setInterval(tick, 250);
@@ -489,6 +502,7 @@ function renderJokers(): void {
   ($("jk-hint-c").textContent = String(j.hint));
   ($("jk-time-c").textContent = String(j.time));
   ($("jk-solvent-c").textContent = String(j.solvent));
+  $("jk-time-l").textContent = activeGame?.hasMoveBudget ? "+3 Züge" : "+20s";
   $<HTMLButtonElement>("jk-hint").disabled = j.hint <= 0;
   $<HTMLButtonElement>("jk-time").disabled = j.time <= 0;
   $<HTMLButtonElement>("jk-solvent").disabled = j.solvent <= 0;
@@ -502,7 +516,7 @@ function fireJokerButton(kind: JokerKind): void {
 }
 
 function useJoker(kind: JokerKind): void {
-  if (!activeGame || !gameView || activeGame.isWon() || activeGame.timedOut) return;
+  if (!activeGame || !gameView || activeGame.isWon() || activeGame.failed) return;
   if (kind === "hint" && !gameView.showHint()) {
     toast("Nichts mehr zu verraten");
     return;
@@ -511,8 +525,14 @@ function useJoker(kind: JokerKind): void {
   fireJokerButton(kind);
   sfx.pickUp();
   if (kind === "time") {
-    activeGame.extendLimit(20_000);
-    toast("+20 Sekunden");
+    // derselbe Joker, die passende Währung: Züge, wo es ein Budget gibt
+    if (activeGame.hasMoveBudget) {
+      activeGame.extendMoves(3);
+      toast("+3 Züge");
+    } else {
+      activeGame.extendLimit(20_000);
+      toast("+20 Sekunden");
+    }
   }
   if (kind === "solvent") {
     const n = activeGame.clearIncorrect();
@@ -776,11 +796,12 @@ async function playDescentLevel(): Promise<void> {
       ? `Abstieg · Ebene ${depth} · 🏆 neue Bestmarke!`
       : `Abstieg · Ebene ${depth} · Rekord ${best}`;
   renderDescentStage(depth, streak);
-  const base = new GameState(level);
-  // early depths stay generous on time so the run opens with easy wins; the
-  // squeeze tightens in as it goes
-  const timeFactor = depth <= 3 ? 0.95 : Math.max(0.62, 0.95 - (depth - 3) * 0.03);
-  const game = new GameState(level, Math.round(base.limitMs * timeFactor));
+  // Der Abstieg läuft auf Zügen statt auf der Uhr: Nachdenken darf nichts
+  // kosten, Fehlversuche schon. Der Spielraum über der Teilezahl schrumpft mit
+  // der Tiefe — ab Ebene 12 hast du nur noch zwei Versuche gut.
+  const game = new GameState(level, 30 * 60_000);
+  const slack = Math.max(2, 6 - Math.floor(depth / 3));
+  game.setMoveBudget(level.pieces.length + slack);
   // every 4th level from depth 4 on, part of the window starts locked — solve
   // the open part first to free it, one extra beat of tension on a run
   const isFrozenLevel = depth >= 4 && depth % 4 === 0;
@@ -851,7 +872,7 @@ function endDescent(reachedDepth?: number): void {
   const best = store.load().descent.bestDepth;
   descentState = null;
   showOverlay({
-    title: "Abstieg beendet",
+    title: depth > 0 ? "Züge alle" : "Abstieg beendet",
     sub: `Ebene <b>${depth}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
     rewards: [`✦ +${depth} Lichtsplitter gesammelt`],
     nextLabel: "Neuer Lauf",
@@ -1127,7 +1148,7 @@ function doLeave(): void {
 }
 function leavePlay(): void {
   const g = activeGame;
-  const inProgress = !!g && g.started && !g.isWon() && !g.timedOut;
+  const inProgress = !!g && g.started && !g.isWon() && !g.failed;
   const resume = (): void => {
     hideOverlay();
     activeGame?.resume();

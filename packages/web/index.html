@@ -655,6 +655,21 @@
         letter-spacing: 0.04em;
         text-shadow: 0 1px 0 var(--stroke);
       }
+      /* Zugbudget statt Uhr: die Zahl bleibt groß, "Züge" hängt klein daran */
+      .clock i {
+        font-style: normal;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        margin-left: 5px;
+        color: var(--aqua);
+      }
+      .clock.moves {
+        border-color: color-mix(in srgb, var(--aqua) 45%, transparent);
+      }
+      .clock.moves.warn i {
+        color: #ffd0cd;
+      }
       .clock.warn {
         color: #ffd0cd;
         border-color: var(--stop);
@@ -1794,7 +1809,7 @@
         <div class="play-foot">
           <div class="jokers">
             <button class="joker" id="jk-hint"><span class="ji"><img class="icon-img" src="ui/hint.webp" alt="" /></span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
-            <button class="joker" id="jk-time"><span class="ji"><img class="icon-img" src="ui/time.webp" alt="" /></span><span class="jl">+20s</span><span class="c" id="jk-time-c">0</span></button>
+            <button class="joker" id="jk-time"><span class="ji"><img class="icon-img" src="ui/time.webp" alt="" /></span><span class="jl" id="jk-time-l">+20s</span><span class="c" id="jk-time-c">0</span></button>
             <button class="joker" id="jk-solvent"><span class="ji"><img class="icon-img" src="ui/solvent.webp" alt="" /></span><span class="jl">Lösen</span><span class="c" id="jk-solvent-c">0</span></button>
           </div>
         </div>

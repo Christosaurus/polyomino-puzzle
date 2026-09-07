@@ -232,7 +232,7 @@ export class GameView {
       return;
     }
     if (this.game.isWon()) this.triggerWin();
-    else if (this.game.timedOut && !this.timeoutFired) {
+    else if (this.game.failed && !this.timeoutFired) {
       this.timeoutFired = true;
       this.game.finish();
       sfx.invalid();
@@ -669,7 +669,7 @@ export class GameView {
   }
 
   private onDown = (e: PointerEvent): void => {
-    if (!this.layout || this.game.isWon() || this.game.timedOut) return;
+    if (!this.layout || this.game.isWon() || this.game.failed) return;
     const { x, y } = this.pointer(e);
     const hit = this.hitTest(x, y, this.layout);
     if (!hit) return;
