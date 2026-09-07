@@ -511,6 +511,20 @@
       .station.current::before {
         animation: ping 1.3s ease-in-out infinite;
       }
+      /* Seitenmodi im Pfad — etwas schmaler, damit die Regionen die Hauptstationen bleiben */
+      .station.side .st-card {
+        padding: 11px 16px;
+        border-width: 2px;
+        gap: 4px;
+      }
+      .station.side .name {
+        font-size: 17px;
+      }
+      #home-play {
+        align-self: center;
+        min-width: 240px;
+        margin-bottom: 4px;
+      }
       @keyframes ping {
         50% {
           box-shadow: 0 0 0 9px color-mix(in srgb, var(--node) 30%, transparent);
@@ -1752,6 +1766,7 @@
           <img class="brand-logo" src="ui/logo-home.webp" alt="Lumen" />
         </div>
         <p class="muted" id="home-status">Wird geladen …</p>
+        <button class="go big" id="home-play" hidden>Weiter</button>
         <div class="journey" id="regions"></div>
       </section>
 

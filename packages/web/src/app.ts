@@ -243,6 +243,48 @@ function regionStars(r: Region): { got: number; max: number } {
   return { got, max: r.levels.length * 3 };
 }
 
+/** Erste offene, noch nicht abgeschlossene Region + erstes ungelöste Fenster darin. */
+function currentCampaignTarget(): { region: Region; index: number; regionIndex: number } | null {
+  const s = store.load();
+  const panes = store.panes(s);
+  for (let ri = 0; ri < regions.length; ri++) {
+    const r = regions[ri]!;
+    if (panes < r.panesToUnlock) break;
+    const next = r.levels.findIndex((l) => !s.levels[l.id]);
+    if (next !== -1) return { region: r, index: next, regionIndex: ri };
+  }
+  // alles gelöst → letztes offene Fenster der letzten offenen Region
+  for (let ri = regions.length - 1; ri >= 0; ri--) {
+    const r = regions[ri]!;
+    if (panes >= r.panesToUnlock) return { region: r, index: 0, regionIndex: ri };
+  }
+  return null;
+}
+
+/** Eine Station für einen Seitenmodus — im selben Pfad wie die Regionen. */
+function sideStation(
+  node: string,
+  emoji: string,
+  name: string,
+  stat: string,
+  sub: string,
+  onClick: () => void,
+): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "station side current";
+  el.style.setProperty("--node", node);
+  el.innerHTML = `
+    <div class="st-card">
+      <div class="row">
+        <div class="name">${emoji} ${name}</div>
+        <div class="want">${stat}</div>
+      </div>
+      <div class="muted">${sub}</div>
+    </div>`;
+  el.addEventListener("click", onClick);
+  return el;
+}
+
 function renderHome(): void {
   if (!manifest) return;
   refreshLight();
@@ -254,22 +296,31 @@ function renderHome(): void {
   $("home-status").innerHTML =
     `<b>${panes}</b> Fenster erhellt · das Tal ist zu <b>${pct}%</b> im Licht.`;
 
+  // ── Der eine Knopf: weiter im Lichtpfad ──
+  const target = currentCampaignTarget();
+  const hero = $<HTMLButtonElement>("home-play");
+  if (target) {
+    hero.hidden = false;
+    hero.textContent = `Weiter · ${target.region.name} ${target.index + 1}`;
+    hero.onclick = () => void playCampaign(target.region, target.index);
+  } else {
+    hero.hidden = true;
+  }
+
+  // ── Der Pfad: Regionen mit den Seitenmodi als Orte dazwischen ──
   const host = $("regions");
   host.replaceChildren();
-  regions.forEach((r, i) => {
+
+  const regionStation = (r: Region, i: number): HTMLElement => {
     const locked = panes < r.panesToUnlock;
     const { got, max } = regionStars(r);
     const complete = got >= max && max > 0;
     const station = document.createElement("div");
     station.className = `station${locked ? " locked" : complete ? " done" : " current"}`;
     station.dataset.region = r.id;
-    // Die Laterne: solange gesperrt, füllt sie sich mit jedem Fenster aus
-    // *jedem* Modus. Ist sie an, zeigt die Kachel den Sterne-Fortschritt.
     const prevUnlock = regions[i - 1]?.panesToUnlock ?? 0;
     const lanternFill = locked
-      ? Math.round(
-          ((panes - prevUnlock) / Math.max(1, r.panesToUnlock - prevUnlock)) * 100,
-        )
+      ? Math.round(((panes - prevUnlock) / Math.max(1, r.panesToUnlock - prevUnlock)) * 100)
       : 100;
     station.innerHTML = `
       <div class="st-card">
@@ -283,14 +334,55 @@ function renderHome(): void {
         </div>
         <div class="muted">${
           locked
-            ? `Die Laterne füllt sich — noch ${r.panesToUnlock - panes} Fenster (in jedem Modus).`
+            ? `Die Laterne füllt sich — noch ${r.panesToUnlock - panes} Fenster (jeder Modus zählt).`
             : r.subtitle
         }</div>
         <div class="progress"><i style="width:${locked ? lanternFill : max ? (got / max) * 100 : 0}%"></i></div>
       </div>`;
     if (!locked) station.addEventListener("click", () => openRegion(i));
-    host.append(station);
-  });
+    return station;
+  };
+
+  const dailyDone = s.daily.lastDayDone === store.todayKey();
+  const daily = sideStation(
+    "#ffc23b",
+    "🌅",
+    "Das Tagesfenster",
+    dailyDone ? "erledigt ✓" : `🔥 ${s.daily.streak}`,
+    dailyDone ? "Morgen wartet das nächste." : "Ein Fenster für heute — für alle gleich.",
+    () => setTab("daily"),
+  );
+  const descent = sideStation(
+    "#45c1ff",
+    "🕯",
+    "Anselms Stollen",
+    `Ebene ${s.descent.bestDepth}`,
+    "Tief hinab. Jedes Fenster erhellt die Laterne.",
+    () => setTab("descent"),
+  );
+  const cascade = sideStation(
+    "#a875ff",
+    "⚡",
+    "Der Scherbenregen",
+    String(s.cascade.bestScore),
+    "90 Sekunden. Fang die Splitter, bevor sie weg sind.",
+    () => setTab("cascade"),
+  );
+
+  // Reihenfolge: Region → Ort → Region → Ort → Region → Ort
+  host.append(regionStation(regions[0]!, 0));
+  host.append(daily);
+  if (regions[1]) host.append(regionStation(regions[1], 1));
+  host.append(descent);
+  if (regions[2]) host.append(regionStation(regions[2], 2));
+  host.append(cascade);
+
+  // auf die aktuelle Region scrollen
+  if (target) {
+    const nodes = host.children;
+    const idx = target.regionIndex === 0 ? 0 : target.regionIndex === 1 ? 2 : 4;
+    (nodes[idx] as HTMLElement | undefined)?.scrollIntoView({ block: "center", behavior: "auto" });
+  }
 }
 
 function openRegion(index: number): void {
