@@ -1396,6 +1396,24 @@
       .play-stage .ps-note {
         color: color-mix(in srgb, var(--sky) 30%, #fff);
       }
+      /* Ziel-Fortschritt (Ruß) — Balken statt Punkten, skaliert auf jede Anzahl */
+      .play-stage .ps-bar {
+        flex: 1;
+        height: 9px;
+        max-width: 150px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.4);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+      }
+      .play-stage .ps-bar i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--gold), #fff3c4);
+        box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent);
+        transition: width 0.25s ease-out;
+      }
       .play-stage.hot {
         border-color: var(--gold);
         animation: stage-hot 1s ease-in-out infinite;

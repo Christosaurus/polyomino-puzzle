@@ -483,6 +483,7 @@ function startClock(game: GameState): void {
   const txt = $("play-clock-txt");
   el.classList.toggle("moves", game.hasMoveBudget);
   const tick = (): void => {
+    renderGoalStrip(game); // Ruß-Zähler läuft im selben Takt mit
     if (game.hasMoveBudget) {
       const left = game.movesLeft;
       txt.innerHTML = `${left}<i>Züge</i>`;
@@ -553,7 +554,8 @@ function mountGame(
   teardownGame();
   hideOverlay();
   cb.onSolved ??= winStarBurst; // every solve gets the full-screen star shower
-  $("play-stage").hidden = mode !== "descent";
+  // Der Streifen zeigt entweder die Abstiegs-Stufe oder das Level-Ziel
+  $("play-stage").hidden = mode !== "descent" && game.goal === "cover";
   activeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __game: GameState }).__game = game;
   gameView = new GameView($<HTMLCanvasElement>("play-canvas"), $("play-wrap"), game, cb);
@@ -758,6 +760,24 @@ function startDescent(): void {
     recent: [],
   };
   void playDescentLevel();
+}
+
+/**
+ * Der Streifen über dem Brett zeigt das Ziel, sobald es nicht „alles zudecken"
+ * ist. Muss auf einen Blick lesbar sein — deshalb große Zahl plus Balken.
+ */
+function renderGoalStrip(game: GameState): boolean {
+  if (game.goal !== "soot") return false;
+  const bar = $("play-stage");
+  bar.hidden = false;
+  bar.classList.remove("hot");
+  const done = game.sootCleared;
+  const total = game.sootTotal;
+  bar.innerHTML =
+    `<span class="ps-lvl">Ruß</span>` +
+    `<span class="ps-bar"><i style="width:${Math.round((done / total) * 100)}%"></i></span>` +
+    `<span class="ps-note">${done} / ${total}</span>`;
+  return true;
 }
 
 /** The difficulty-stage strip above the board — Descent only. */

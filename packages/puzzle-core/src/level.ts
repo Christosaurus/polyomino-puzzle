@@ -48,6 +48,25 @@ export interface LevelMeta {
   createdAt: string;
 }
 
+/**
+ * What "won" means. Absent = `"cover"`, the classic fill-the-silhouette.
+ *
+ * `"soot"` levels are won as soon as every sooty pane is covered — the rest of
+ * the shape may stay open and spare pieces may go unused. That single change
+ * turns one puzzle into a different kind of thinking (see the concept doc §D),
+ * and it is why a level needs a *reachable* solution rather than a unique one.
+ */
+export type LevelGoal = "cover" | "soot";
+
+/** Optional obstacles laid over the board. Absent = a plain packing puzzle. */
+export interface LevelMechanics {
+  /**
+   * Sooty panes, absolute `[row, col]` in the same frame as `shape` and
+   * `solution`. Covering one cleans it.
+   */
+  soot?: Array<[number, number]>;
+}
+
 export interface Level {
   schemaVersion: typeof LEVEL_SCHEMA_VERSION;
   id: string;
@@ -59,6 +78,11 @@ export interface Level {
   allowReflection: boolean;
   /** A complete solution: every piece placed, together tiling the shape exactly. */
   solution: LevelPlacement[];
+  /** Win condition. Absent = `"cover"`. */
+  goal?: LevelGoal;
+  /** Placements allowed, instead of a clock. Absent = the clock runs. */
+  moveBudget?: number;
+  mechanics?: LevelMechanics;
   meta: LevelMeta;
 }
 
@@ -181,6 +205,31 @@ export function validateLevel(level: unknown): string[] {
 
   if (typeof l.difficulty !== "number" || l.difficulty < 0 || l.difficulty > 5) {
     errors.push(`difficulty must be 0–5, got ${String(l.difficulty)}`);
+  }
+
+  if (l.goal !== undefined && l.goal !== "cover" && l.goal !== "soot") {
+    errors.push(`goal must be "cover" or "soot", got ${String(l.goal)}`);
+  }
+  if (l.moveBudget !== undefined) {
+    if (typeof l.moveBudget !== "number" || l.moveBudget < 1) {
+      errors.push(`moveBudget must be a positive number, got ${String(l.moveBudget)}`);
+    }
+  }
+  const soot = l.mechanics?.soot;
+  if (soot !== undefined) {
+    if (!Array.isArray(soot)) {
+      errors.push("mechanics.soot must be an array");
+    } else {
+      if (soot.length === 0) errors.push("mechanics.soot is empty — omit it instead");
+      for (const cell of soot) {
+        const key = `${cell[0]},${cell[1]}`;
+        if (!shapeCells.has(key)) errors.push(`soot cell ${key} is outside the shape`);
+      }
+      // a soot goal without soot can never be met
+      if (l.goal === "soot" && soot.length === 0) errors.push('goal "soot" needs soot cells');
+    }
+  } else if (l.goal === "soot") {
+    errors.push('goal "soot" needs mechanics.soot');
   }
   void cellKey; // reserved for a future stricter piece-shape check
 

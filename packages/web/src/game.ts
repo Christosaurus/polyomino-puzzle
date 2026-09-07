@@ -1,16 +1,18 @@
 /**
- * Runtime state for one "fill the frame" level (campaign / daily / descent).
+ * Runtime state for one window (campaign / daily / descent).
  *
  * Pure geometry — no solver. A move is legal when the piece's cells all sit
- * inside the target shape and none overlap another placed piece. The level is
- * won when every target cell is covered.
+ * inside the target shape and none overlap another placed piece.
  *
- * Time is a **countdown**. Run out before solving and the level fails.
+ * Two things vary per level and both default to the classic behaviour:
+ * - **Goal**: cover the whole silhouette, or just clean every sooty pane.
+ * - **Pressure**: a move budget, or the clock.
  */
 
 import {
   type Cell,
   type Level,
+  type LevelGoal,
   levelShape,
   PENTOMINOES,
   type PentominoName,
@@ -56,6 +58,8 @@ export class GameState {
   /** null = kein Zugbudget, es zählt die Uhr (Altverhalten). */
   private moveBudget: number | null = null;
   private movesUsed = 0;
+  /** Verrußte Scheiben (Brett-Frame). Bedecken reinigt sie. */
+  private readonly soot: Set<string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -77,6 +81,33 @@ export class GameState {
           .sort((a, b) => a[0] - b[0] || a[1] - b[1]),
       );
     }
+    this.soot = new Set(
+      (level.mechanics?.soot ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
+    );
+    if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Ruß ───────────────────────────────────────────────────────────────────
+  get goal(): LevelGoal {
+    return this.level.goal ?? "cover";
+  }
+  isSooty(row: number, col: number): boolean {
+    return this.soot.has(`${row},${col}`);
+  }
+  /** Liegt auf dieser Scheibe ein platziertes Teil? */
+  isCovered(row: number, col: number): boolean {
+    return this.occupied().has(`${row},${col}`);
+  }
+  get sootTotal(): number {
+    return this.soot.size;
+  }
+  /** Wie viele verrußte Scheiben schon bedeckt sind. */
+  get sootCleared(): number {
+    if (this.soot.size === 0) return 0;
+    const covered = this.occupied();
+    let n = 0;
+    for (const key of this.soot) if (covered.has(key)) n += 1;
+    return n;
   }
 
   /** Add time (joker). */
@@ -194,11 +225,19 @@ export class GameState {
     let n = 0;
     for (const piece of this.pieces) {
       if (!piece.pos) continue;
-      const target = this.solutionCells.get(piece.name);
       const here = this.cellsAt(piece, piece.pos)
         .map(([r, c]): [number, number] => [r, c])
         .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      const ok = target && here.every(([r, c], i) => r === target[i]![0] && c === target[i]![1]);
+      // Bei einem Ruß-Ziel gibt es keine eine richtige Lösung — ein Teil ist
+      // richtig, sobald es Ruß deckt. Nach der gespeicherten Lösung zu gehen
+      // würde gültige Spielzüge bestrafen.
+      const ok =
+        this.goal === "soot"
+          ? here.some(([r, c]) => this.isSooty(r, c))
+          : (() => {
+              const target = this.solutionCells.get(piece.name);
+              return !!target && here.every(([r, c], i) => r === target[i]![0] && c === target[i]![1]);
+            })();
       if (!ok) {
         piece.pos = null;
         n += 1;
@@ -308,7 +347,13 @@ export class GameState {
   get placedCount(): number {
     return this.pieces.filter((p) => p.pos).length;
   }
+  /**
+   * Bei `goal: "soot"` reicht es, jede verrußte Scheibe zu bedecken — der Rest
+   * darf offen bleiben, überzählige Teile dürfen liegenbleiben. Sonst gilt wie
+   * bisher: die Silhouette muss vollständig gedeckt sein.
+   */
   isWon(): boolean {
+    if (this.goal === "soot") return this.soot.size > 0 && this.sootCleared === this.soot.size;
     return this.occupied().size === this.shape.size;
   }
   finish(): void {

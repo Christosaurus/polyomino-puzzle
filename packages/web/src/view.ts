@@ -99,6 +99,10 @@ export class GameView {
   private confetti = new Confetti();
   private hintCells: Array<[number, number]> = [];
   private hintUntil = 0;
+  /** Ruß, der gerade weggewischt wurde — kurzes Aufleuchten pro Scheibe. */
+  private sootFlash: Array<{ r: number; c: number; t: number }> = [];
+  /** Bereits gereinigte Scheiben, damit jede nur einmal aufleuchtet. */
+  private sootLit = new Set<string>();
   private nowMs = 0;
   private unlockFlashT = -1;
 
@@ -136,6 +140,8 @@ export class GameView {
     this.hintCells = [];
     this.hintUntil = 0;
     this.unlockFlashT = -1;
+    this.sootFlash = [];
+    this.sootLit.clear();
     this.kick();
   }
 
@@ -204,6 +210,27 @@ export class GameView {
     if (this.unlockFlashT >= 0) {
       this.unlockFlashT += dt;
       if (this.unlockFlashT > 0.9) this.unlockFlashT = -1;
+    }
+    this.sootFlash = this.sootFlash.filter((f) => (f.t += dt) < 0.5);
+    // Den Deckungszustand pollen statt am Platzieren zu hängen: so leuchtet es
+    // auch, wenn ein Teil weggenommen und woanders hingelegt wird.
+    if (this.game.sootTotal > 0) {
+      let lit = 0;
+      for (const [r, c] of this.game.shape.cells) {
+        if (!this.game.isSooty(r, c) || !this.game.isCovered(r, c)) continue;
+        lit += 1;
+        if (!this.sootLit.has(`${r},${c}`)) {
+          this.sootLit.add(`${r},${c}`);
+          this.sootFlash.push({ r, c, t: 0 });
+        }
+      }
+      // wieder freigelegte Scheiben dürfen erneut aufleuchten
+      if (lit < this.sootLit.size) {
+        for (const key of [...this.sootLit]) {
+          const [r, c] = key.split(",").map(Number) as [number, number];
+          if (!this.game.isCovered(r, c)) this.sootLit.delete(key);
+        }
+      }
     }
     if (this.game.consumeUnlock()) {
       this.unlockFlashT = 0;
@@ -386,6 +413,58 @@ export class GameView {
     return { cssWidth, cssHeight, board, tray };
   }
 
+  /**
+   * Verrußte Scheiben: eine warm-schwarze, körnige Schicht in der Mulde. Muss
+   * auf einen Blick als „schmutzig" lesbar sein, auch bei 20 px Zellgröße —
+   * deshalb dunkler Kern, heller Rand, ein paar Flusen.
+   */
+  private drawSoot(b: BoardLayout): void {
+    if (this.game.sootTotal === 0) return;
+    const ctx = this.ctx;
+    const R = b.cell * 0.34;
+    for (const [r, c] of this.game.shape.cells) {
+      if (!this.game.isSooty(r, c) || this.game.isCovered(r, c)) continue;
+      const cx = b.x + (c + 0.5) * b.cell;
+      const cy = b.y + (r + 0.5) * b.cell;
+      ctx.save();
+      const g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.25);
+      g.addColorStop(0, "#100a1e");
+      g.addColorStop(0.7, "#241a33");
+      g.addColorStop(1, "rgba(36, 26, 51, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 1.25, 0, 6.28);
+      ctx.fill();
+      // Flusen — deterministisch aus der Zelle, damit sie nicht flackern
+      ctx.fillStyle = "rgba(150, 130, 175, 0.5)";
+      for (let i = 0; i < 4; i++) {
+        const a = ((r * 7 + c * 13 + i * 97) % 360) * (Math.PI / 180);
+        const d = R * (0.35 + ((i * 37 + r + c) % 10) / 22);
+        ctx.beginPath();
+        ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, Math.max(0.8, b.cell * 0.035), 0, 6.28);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    // frisch gereinigt → kurzer heller Blitz
+    for (const f of this.sootFlash) {
+      const p = f.t / 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.max(0, 1 - p) * 0.9;
+      const cx = b.x + (f.c + 0.5) * b.cell;
+      const cy = b.y + (f.r + 0.5) * b.cell;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, b.cell * (0.4 + p * 0.6));
+      g.addColorStop(0, "rgba(255, 240, 200, 0.95)");
+      g.addColorStop(1, "rgba(255, 240, 200, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, b.cell * (0.4 + p * 0.6), 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -407,6 +486,7 @@ export class GameView {
     for (const [r, c] of this.game.shape.cells) {
       drawWell(ctx, b.x + c * b.cell, b.y + r * b.cell, b.cell, wellFill);
     }
+    this.drawSoot(b);
     if (this.game.hasFrozenZone && !this.game.isFrozenUnlocked) {
       ctx.save();
       ctx.fillStyle = "rgba(10, 8, 30, 0.62)";
