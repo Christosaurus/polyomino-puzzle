@@ -201,6 +201,15 @@
       "meanBranching": 3.6
     },
     {
+      "id": "crack_01",
+      "difficulty": 3,
+      "pieces": "LPZY",
+      "rows": 4,
+      "cols": 5,
+      "cracks": 3,
+      "moveBudget": 7
+    },
+    {
       "id": "level_013",
       "difficulty": 3,
       "pieces": "PVLFZI",
@@ -221,6 +230,15 @@
       "solverNodes": 202,
       "forcedMoveFraction": 0.4,
       "meanBranching": 5.2
+    },
+    {
+      "id": "crack_02",
+      "difficulty": 3,
+      "pieces": "LUFYNT",
+      "rows": 5,
+      "cols": 6,
+      "cracks": 4,
+      "moveBudget": 9
     },
     {
       "id": "level_015",
@@ -265,6 +283,15 @@
       "solverNodes": 194,
       "forcedMoveFraction": 0.25,
       "meanBranching": 5.38
+    },
+    {
+      "id": "crack_03",
+      "difficulty": 4,
+      "pieces": "VPLNWXZU",
+      "rows": 5,
+      "cols": 8,
+      "cracks": 4,
+      "moveBudget": 10
     },
     {
       "id": "level_019",

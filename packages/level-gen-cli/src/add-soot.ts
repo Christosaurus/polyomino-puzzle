@@ -30,7 +30,8 @@ import { SHAPE_CATALOG } from "./shapes.js";
 const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
-type Pattern = "streak" | "corner" | "specks" | "rim";
+type SootPattern = "streak" | "corner" | "specks" | "rim";
+type Pattern = SootPattern | "cracks";
 
 interface Recipe {
   id: string;
@@ -51,9 +52,13 @@ const RECIPES: Recipe[] = [
   { id: "soot_02", shapeLabel: "rect-4x5", pattern: "streak", difficulty: 1, insertAt: 6, slack: 3 },
   { id: "soot_03", shapeLabel: "rect-5x6", pattern: "specks", difficulty: 2, insertAt: 9, slack: 2 },
   { id: "soot_04", shapeLabel: "rect-5x8", pattern: "rim", difficulty: 2, insertAt: 12, slack: 2 },
+  // Risse — Akt II, die Werkstatt. Hier fällt auf, dass geschnitten wurde.
+  { id: "crack_01", shapeLabel: "rect-4x5", pattern: "cracks", difficulty: 3, insertAt: 16, slack: 3 },
+  { id: "crack_02", shapeLabel: "rect-5x6", pattern: "cracks", difficulty: 3, insertAt: 19, slack: 3 },
+  { id: "crack_03", shapeLabel: "rect-5x8", pattern: "cracks", difficulty: 4, insertAt: 24, slack: 2 },
 ];
 
-function sootFor(pattern: Pattern, cells: Cell[], nth: number): Cell[] {
+function sootFor(pattern: SootPattern, cells: Cell[], nth: number): Cell[] {
   const rows = Math.max(...cells.map((c) => c[0])) + 1;
   const cols = Math.max(...cells.map((c) => c[1])) + 1;
   const has = new Set(cells.map(([r, c]) => `${r},${c}`));
@@ -96,6 +101,69 @@ function sootFor(pattern: Pattern, cells: Cell[], nth: number): Cell[] {
   }
 }
 
+/**
+ * Risse auf eine fertige Packung legen — **nur** auf Kanten, die kein
+ * Lösungsteil ohnehin schon überspannt. Damit bleibt die gespeicherte Lösung
+ * per Konstruktion gültig; es muss nichts nachgerechnet werden.
+ *
+ * Bevorzugt werden Kanten im Inneren (beide Zellen ringsum von Brett umgeben),
+ * weil ein Riss am Rand meist gar keine Platzierung verhindert und sich
+ * deshalb wie Deko anfühlt.
+ */
+function cracksFor(
+  level: Level,
+  shapeCells: Cell[],
+  want: number,
+  nth: number,
+): Array<[Cell, Cell]> {
+  const inShape = new Set(shapeCells.map(([r, c]) => `${r},${c}`));
+  const spannedBySolution = new Set<string>();
+  for (const p of level.solution) {
+    const own = new Set(p.cells.map(([r, c]) => `${r},${c}`));
+    for (const [r, c] of p.cells) {
+      for (const [dr, dc] of [
+        [0, 1],
+        [1, 0],
+      ] as const) {
+        if (own.has(`${r + dr},${c + dc}`)) {
+          spannedBySolution.add([`${r},${c}`, `${r + dr},${c + dc}`].sort().join("|"));
+        }
+      }
+    }
+  }
+
+  const interior = ([r, c]: Cell): boolean =>
+    inShape.has(`${r - 1},${c}`) &&
+    inShape.has(`${r + 1},${c}`) &&
+    inShape.has(`${r},${c - 1}`) &&
+    inShape.has(`${r},${c + 1}`);
+
+  const candidates: Array<[Cell, Cell]> = [];
+  for (const [r, c] of shapeCells) {
+    for (const [dr, dc] of [
+      [0, 1],
+      [1, 0],
+    ] as const) {
+      const nb: Cell = [r + dr, c + dc];
+      if (!inShape.has(`${nb[0]},${nb[1]}`)) continue;
+      const key = [`${r},${c}`, `${nb[0]},${nb[1]}`].sort().join("|");
+      if (spannedBySolution.has(key)) continue; // würde die Lösung zerschneiden
+      if (!interior([r, c]) && !interior(nb)) continue; // Randkanten bringen nichts
+      candidates.push([[r, c], nb]);
+    }
+  }
+  if (candidates.length === 0) return [];
+
+  // gestreut auswählen, damit die Risse nicht als Bündel an einer Stelle sitzen
+  const step = Math.max(1, Math.floor(candidates.length / want));
+  const out: Array<[Cell, Cell]> = [];
+  for (let i = 0; i < want; i++) {
+    const pick = candidates[(nth + i * step) % candidates.length];
+    if (pick && !out.includes(pick)) out.push(pick);
+  }
+  return out;
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -130,6 +198,27 @@ function build(recipe: Recipe): Level {
         if (ch === "#") shapeCells.push([r, c]);
       });
     });
+    if (recipe.pattern === "cracks") {
+      const want = Math.min(5, 2 + Math.floor(level.pieces.length / 3));
+      const local = cracksFor(level, shapeCells, want, attempt);
+      if (local.length < 2) continue;
+      const cracks: Array<[Cell, Cell]> = local.map(([a, b]) => [
+        [a[0] + originRow, a[1] + originCol],
+        [b[0] + originRow, b[1] + originCol],
+      ]);
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { cracks };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) throw new Error(`${recipe.id}: ${errs.join("; ")}`);
+      console.log(
+        `${recipe.id} ${recipe.shapeLabel.padEnd(9)} cracks  ${String(cracks.length).padStart(2)} Risse` +
+          `                    Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     const local = sootFor(recipe.pattern, shapeCells, attempt);
     const soot: Cell[] = local.map(([r, c]) => [r + originRow, c + originCol]);
     if (soot.length < 3) continue;
@@ -167,7 +256,9 @@ const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
 // erst alle bauen, dann schreiben — ein Fehlschlag soll nichts halb hinterlassen
 const built = RECIPES.map((r) => ({ recipe: r, level: build(r) }));
 
-manifest.levels = manifest.levels.filter((l) => !String(l.id).startsWith("soot_"));
+manifest.levels = manifest.levels.filter(
+  (l) => !String(l.id).startsWith("soot_") && !String(l.id).startsWith("crack_"),
+);
 for (const { recipe, level } of built) {
   writeFileSync(join(OUT, `${level.id}.json`), `${serializeLevel(level)}\n`);
   manifest.levels.splice(recipe.insertAt, 0, {
@@ -176,8 +267,9 @@ for (const { recipe, level } of built) {
     pieces: level.pieces.join(""),
     rows: level.shape.rows.length,
     cols: level.shape.rows[0]?.length ?? 0,
-    goal: "soot",
-    soot: level.mechanics?.soot?.length ?? 0,
+    ...(level.goal ? { goal: level.goal } : {}),
+    ...(level.mechanics?.soot ? { soot: level.mechanics.soot.length } : {}),
+    ...(level.mechanics?.cracks ? { cracks: level.mechanics.cracks.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

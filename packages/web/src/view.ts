@@ -465,6 +465,48 @@ export class GameView {
     }
   }
 
+  /**
+   * Risse: eine gezackte helle Linie auf der Trennkante, mit dunklem Kern
+   * darunter, damit sie auch über einem gesetzten Teil sichtbar bleibt. Der
+   * Zickzack ist aus den Zellkoordinaten abgeleitet, also stabil zwischen
+   * Frames — sonst würde die Linie flimmern.
+   */
+  private drawCracks(b: BoardLayout): void {
+    if (!this.game.hasCracks) return;
+    const ctx = this.ctx;
+    for (const [a, bb] of this.game.crackEdges()) {
+      // gleiche Zeile = Zellen nebeneinander = die Bruchkante läuft senkrecht
+      const vertical = a[0] === bb[0];
+      const r = Math.max(a[0], bb[0]);
+      const c = Math.max(a[1], bb[1]);
+      const x = b.x + c * b.cell;
+      const y = b.y + r * b.cell;
+      const len = b.cell;
+      const amp = Math.max(1.5, b.cell * 0.07);
+      const steps = 6;
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const pass of [0, 1]) {
+        // erst dunkler Grund, dann heller Kern — liest sich als Spalt im Glas
+        ctx.strokeStyle = pass === 0 ? "rgba(8, 5, 22, 0.9)" : "rgba(190, 210, 255, 0.95)";
+        ctx.lineWidth = pass === 0 ? Math.max(3, b.cell * 0.14) : Math.max(1.4, b.cell * 0.06);
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const off = (i % 2 === 0 ? 1 : -1) * amp * (i === 0 || i === steps ? 0 : 1);
+          const px = vertical ? x + off : b.x + c * b.cell + t * len;
+          const py = vertical ? b.y + r * b.cell + t * len : y + off;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -599,6 +641,10 @@ export class GameView {
         { depth: 0.2 },
       );
     }
+
+    // über den Teilen, damit die Bruchkante sichtbar bleibt, wenn beidseitig
+    // etwas liegt — sonst wüsste man nach dem Setzen nicht mehr, wo sie war
+    this.drawCracks(b);
 
     if (this.drag) this.drawDrag(layout);
     if (this.confetti.active) this.confetti.step(ctx, 1 / 60);

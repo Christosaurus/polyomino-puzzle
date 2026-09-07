@@ -65,6 +65,17 @@ export interface LevelMechanics {
    * `solution`. Covering one cleans it.
    */
   soot?: Array<[number, number]>;
+  /**
+   * Cracks in the lead: each entry is a pair of orthogonally adjacent cells,
+   * and **no single piece may span that edge**. The silhouette is unchanged —
+   * the board is partitioned from the inside, which is a very different
+   * constraint from simply removing cells.
+   *
+   * Safe to author on top of a finished packing: crack only edges the solution
+   * does not already cross and that solution stays valid by construction, so
+   * no solver work is needed to keep the level solvable.
+   */
+  cracks?: Array<[[number, number], [number, number]]>;
 }
 
 export interface Level {
@@ -230,6 +241,42 @@ export function validateLevel(level: unknown): string[] {
     }
   } else if (l.goal === "soot") {
     errors.push('goal "soot" needs mechanics.soot');
+  }
+
+  const cracks = l.mechanics?.cracks;
+  if (cracks !== undefined) {
+    if (!Array.isArray(cracks)) {
+      errors.push("mechanics.cracks must be an array");
+    } else {
+      for (const [a, b] of cracks) {
+        const ka = `${a[0]},${a[1]}`;
+        const kb = `${b[0]},${b[1]}`;
+        if (!shapeCells.has(ka)) errors.push(`crack cell ${ka} is outside the shape`);
+        if (!shapeCells.has(kb)) errors.push(`crack cell ${kb} is outside the shape`);
+        if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) !== 1) {
+          errors.push(`crack ${ka}|${kb} is not between two adjacent cells`);
+        }
+      }
+      // Ein Riss, den die Lösung kreuzt, macht das Level unlösbar.
+      const cracked = new Set(
+        cracks.map(([a, b]) => [`${a[0]},${a[1]}`, `${b[0]},${b[1]}`].sort().join("|")),
+      );
+      for (const placement of l.solution) {
+        for (const [r, c] of placement.cells) {
+          for (const [dr, dc] of [
+            [0, 1],
+            [1, 0],
+          ] as const) {
+            const other = `${r + dr},${c + dc}`;
+            if (!placement.cells.some(([pr, pc]) => `${pr},${pc}` === other)) continue;
+            const key = [`${r},${c}`, other].sort().join("|");
+            if (cracked.has(key)) {
+              errors.push(`solution piece ${placement.pieceId} crosses crack ${key}`);
+            }
+          }
+        }
+      }
+    }
   }
   void cellKey; // reserved for a future stricter piece-shape check
 

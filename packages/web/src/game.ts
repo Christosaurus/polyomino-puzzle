@@ -32,6 +32,11 @@ export interface PieceState {
   pos: Pos | null;
 }
 
+/** Kanäle zwischen zwei Nachbarzellen, richtungsunabhängig. */
+function edgeKey(a: [number, number], b: [number, number]): string {
+  return [`${a[0]},${a[1]}`, `${b[0]},${b[1]}`].sort().join("|");
+}
+
 function limitMsFor(level: Level): number {
   const pieces = level.pieces.length;
   const secs = (25 + pieces * 10) * (0.8 + level.difficulty * 0.14);
@@ -60,6 +65,8 @@ export class GameState {
   private movesUsed = 0;
   /** Verrußte Scheiben (Brett-Frame). Bedecken reinigt sie. */
   private readonly soot: Set<string>;
+  /** Gerissene Kanten als `"r,c|r,c"` (sortiert). Kein Teil darf sie überspannen. */
+  private readonly cracks: Set<string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -84,7 +91,36 @@ export class GameState {
     this.soot = new Set(
       (level.mechanics?.soot ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
     );
+    this.cracks = new Set(
+      (level.mechanics?.cracks ?? []).map(([a, b]) =>
+        edgeKey(
+          [a[0] - originRow, a[1] - originCol],
+          [b[0] - originRow, b[1] - originCol],
+        ),
+      ),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Risse ─────────────────────────────────────────────────────────────────
+  get hasCracks(): boolean {
+    return this.cracks.size > 0;
+  }
+  /** Läuft zwischen diesen beiden Nachbarzellen ein Riss? */
+  isCracked(a: [number, number], b: [number, number]): boolean {
+    return this.cracks.has(edgeKey(a, b));
+  }
+  /** Jede gerissene Kante einmal, für die Darstellung. */
+  crackEdges(): Array<[[number, number], [number, number]]> {
+    return [...this.cracks].map((key) => {
+      const [a, b] = key.split("|");
+      const [ar, ac] = a!.split(",").map(Number) as [number, number];
+      const [br, bc] = b!.split(",").map(Number) as [number, number];
+      return [
+        [ar, ac],
+        [br, bc],
+      ];
+    });
   }
 
   // ── Ruß ───────────────────────────────────────────────────────────────────
@@ -314,10 +350,27 @@ export class GameState {
 
   canPlace(piece: PieceState, pos: Pos): boolean {
     const blocked = this.occupied(piece.key);
-    for (const [r, c] of this.cellsAt(piece, pos)) {
+    const cells = this.cellsAt(piece, pos);
+    for (const [r, c] of cells) {
       const key = `${r},${c}`;
       if (!this.shapeCells.has(key) || blocked.has(key)) return false;
       if (this.isFrozen(r, c)) return false;
+    }
+    // Ein Riss trennt das Glas: dasselbe Teil darf nicht auf beiden Seiten
+    // liegen. Zwei verschiedene Teile dürfen sich über den Riss hinweg
+    // berühren — er ist keine Wand, sondern eine Bruchkante.
+    if (this.cracks.size > 0) {
+      const own = new Set(cells.map(([r, c]) => `${r},${c}`));
+      for (const [r, c] of cells) {
+        for (const [dr, dc] of [
+          [0, 1],
+          [1, 0],
+        ] as const) {
+          const nb: [number, number] = [r + dr, c + dc];
+          if (!own.has(`${nb[0]},${nb[1]}`)) continue;
+          if (this.cracks.has(edgeKey([r, c], nb))) return false;
+        }
+      }
     }
     return true;
   }

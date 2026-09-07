@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "id": "crack_01",
+  "difficulty": 3,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "#####",
+      "#####",
+      "#####",
+      "#####"
+    ]
+  },
+  "pieces": [
+    "L",
+    "P",
+    "Z",
+    "Y"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "L",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "pieceId": "Z",
+      "cells": [
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "P",
+      "cells": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          3,
+          1
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "soot:crack_01:0",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 140,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "mechanics": {
+    "cracks": [
+      [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      [
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ]
+      ]
+    ]
+  },
+  "moveBudget": 7
+}
