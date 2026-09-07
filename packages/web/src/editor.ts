@@ -35,7 +35,8 @@ const edgeKey = (a: Cell, b: Cell): string =>
 let level: Level | null = null;
 let soot = new Set<string>();
 let cracks = new Set<string>();
-let mode: "soot" | "crack" = "soot";
+let ice = new Set<string>();
+let mode: "soot" | "crack" | "ice" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -74,6 +75,7 @@ function generate(): void {
   level = res.level;
   soot = new Set();
   cracks = new Set();
+  ice = new Set();
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -206,6 +208,28 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Eis
+  for (const key of ice) {
+    const [ar, ac] = key.split(",").map(Number) as Cell;
+    const ix = x + (ac - originCol) * cell;
+    const iy = y + (ar - originRow) * cell;
+    ctx.save();
+    const g = ctx.createLinearGradient(ix, iy, ix + cell, iy + cell);
+    g.addColorStop(0, "rgba(198,226,255,0.82)");
+    g.addColorStop(1, "rgba(120,160,220,0.72)");
+    ctx.fillStyle = g;
+    ctx.fillRect(ix + 1, iy + 1, cell - 2, cell - 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = Math.max(1, cell * 0.03);
+    ctx.beginPath();
+    ctx.moveTo(ix + cell * 0.2, iy + cell * 0.5);
+    ctx.lineTo(ix + cell * 0.8, iy + cell * 0.5);
+    ctx.moveTo(ix + cell * 0.5, iy + cell * 0.2);
+    ctx.lineTo(ix + cell * 0.5, iy + cell * 0.8);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // erlaubte Schnittkanten andeuten, solange der Riss-Modus aktiv ist
   if (mode === "crack") {
     for (const ek of legalEdges) {
@@ -271,6 +295,32 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
 
+  if (mode === "ice") {
+    const key = cellKey(abs[0], abs[1]);
+    if (ice.has(key)) {
+      ice.delete(key);
+    } else {
+      const next = new Set(ice);
+      next.add(key);
+      const lockedIn = [...next].find((k) => {
+        const [r, c] = k.split(",").map(Number) as Cell;
+        const free = ([[-1, 0], [1, 0], [0, -1], [0, 1]] as const).some(([dr, dc]) => {
+          const nk: Cell = [r + dr, c + dc];
+          return inShape(nk) && !next.has(cellKey(nk[0], nk[1]));
+        });
+        return !free;
+      });
+      if (lockedIn) {
+        flash("Diese Scheibe wäre von Eis eingeschlossen — sie braucht einen freien Nachbarn.");
+        refresh();
+        return;
+      }
+      ice.add(key);
+    }
+    refresh();
+    return;
+  }
+
   // Riss: die nächstgelegene Kante dieser Zelle nehmen
   const dx = fc - c;
   const dy = fr - r;
@@ -315,6 +365,9 @@ function build(): Level | null {
         b!.split(",").map(Number) as Cell,
       ];
     });
+  }
+  if (ice.size > 0) {
+    mech.ice = [...ice].map((k) => k.split(",").map(Number) as Cell);
   }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
@@ -362,7 +415,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -384,19 +437,24 @@ for (const id of ["id", "goal", "diff", "budget"]) {
 }
 $("m-soot").addEventListener("click", () => setMode("soot"));
 $("m-crack").addEventListener("click", () => setMode("crack"));
+$("m-ice").addEventListener("click", () => setMode("ice"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
+  ice = new Set();
   refresh();
 });
-function setMode(m: "soot" | "crack"): void {
+function setMode(m: "soot" | "crack" | "ice"): void {
   mode = m;
   $("m-soot").classList.toggle("on", m === "soot");
   $("m-crack").classList.toggle("on", m === "crack");
+  $("m-ice").classList.toggle("on", m === "ice");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
-      : "Nahe an eine Trennlinie tippen. Nur die blass markierten Kanten dürfen reißen — die anderen würden die Lösung zerschneiden.";
+      : m === "crack"
+        ? "Nahe an eine Trennlinie tippen. Nur die blass markierten Kanten dürfen reißen — die anderen würden die Lösung zerschneiden."
+        : "Auf eine Scheibe tippen, um sie zu vereisen. Eis taut erst, wenn ein Nachbar bedeckt ist — jede Eiszelle braucht mindestens einen freien Nachbarn.";
   refresh();
 }
 

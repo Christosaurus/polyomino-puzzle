@@ -305,6 +305,15 @@
       "meanBranching": 6.33
     },
     {
+      "id": "ice_01",
+      "difficulty": 4,
+      "pieces": "NYVT",
+      "rows": 4,
+      "cols": 5,
+      "ice": 5,
+      "moveBudget": 7
+    },
+    {
       "id": "level_020",
       "difficulty": 4,
       "pieces": "PZVYL",
@@ -338,6 +347,15 @@
       "meanBranching": 6.5
     },
     {
+      "id": "ice_02",
+      "difficulty": 4,
+      "pieces": "VYNIUZ",
+      "rows": 5,
+      "cols": 6,
+      "ice": 10,
+      "moveBudget": 9
+    },
+    {
       "id": "level_023",
       "difficulty": 4,
       "pieces": "XYLWIUPF",
@@ -369,6 +387,15 @@
       "solverNodes": 1469,
       "forcedMoveFraction": 0.25,
       "meanBranching": 7.5
+    },
+    {
+      "id": "ice_03",
+      "difficulty": 5,
+      "pieces": "VZWNXYLU",
+      "rows": 5,
+      "cols": 8,
+      "ice": 10,
+      "moveBudget": 10
     },
     {
       "id": "level_026",

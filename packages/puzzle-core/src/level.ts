@@ -74,6 +74,13 @@ export interface LevelMechanics {
    */
   sootSpread?: number;
   /**
+   * Iced panes, absolute `[row, col]`. A piece may only cover an iced pane if
+   * one of its orthogonal neighbours is already covered — the light has to
+   * reach it. You build inward from the edges. Removing the neighbour re-freezes
+   * it. Every iced pane must border a non-iced pane so it is reachable at all.
+   */
+  ice?: Array<[number, number]>;
+  /**
    * Cracks in the lead: each entry is a pair of orthogonally adjacent cells,
    * and **no single piece may span that edge**. The silhouette is unchanged —
    * the board is partitioned from the inside, which is a very different
@@ -293,9 +300,77 @@ export function validateLevel(level: unknown): string[] {
       }
     }
   }
+  const ice = l.mechanics?.ice;
+  if (ice !== undefined) {
+    if (!Array.isArray(ice)) {
+      errors.push("mechanics.ice must be an array");
+    } else {
+      const iceSet = new Set(ice.map(([r, c]) => `${r},${c}`));
+      for (const [r, c] of ice) {
+        if (!shapeCells.has(`${r},${c}`)) errors.push(`ice cell ${r},${c} is outside the shape`);
+        // muss an eine nicht-vereiste Scheibe grenzen, sonst nie auftaubar
+        const thawable = ([
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ] as const).some(([dr, dc]) => {
+          const k = `${r + dr},${c + dc}`;
+          return shapeCells.has(k) && !iceSet.has(k);
+        });
+        if (!thawable) errors.push(`ice cell ${r},${c} is locked in by ice — no free neighbour`);
+      }
+      // es muss eine Reihenfolge geben, in der die Lösung das Eis respektiert
+      if (iceSet.size > 0 && !solutionRespectsIce(l.solution, iceSet)) {
+        errors.push("no placement order of the solution satisfies the ice");
+      }
+    }
+  }
   void cellKey; // reserved for a future stricter piece-shape check
 
   return errors;
+}
+
+/**
+ * Greedy: can the solution's pieces be placed in *some* order such that every
+ * iced cell has an orthogonal neighbour covered by an *already-placed* piece at
+ * the moment it goes down? (The piece's own cells don't count — the light has
+ * to reach the ice from outside.) Repeatedly place any piece whose ice cells
+ * are all satisfiable, until all are placed or none can be.
+ */
+function solutionRespectsIce(
+  solution: LevelPlacement[],
+  iceSet: Set<string>,
+): boolean {
+  const covered = new Set<string>();
+  const remaining = solution.map((p) => p.cells.map(([r, c]) => `${r},${c}`));
+  let placedSomething = true;
+  while (remaining.length > 0 && placedSomething) {
+    placedSomething = false;
+    for (let i = 0; i < remaining.length; i++) {
+      const cells = remaining[i]!;
+      const ok = cells.every((key) => {
+        if (!iceSet.has(key)) return true;
+        const [r, c] = key.split(",").map(Number) as [number, number];
+        return ([
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ] as const).some(([dr, dc]) => {
+          const n = `${r + dr},${c + dc}`;
+          return covered.has(n);
+        });
+      });
+      if (ok) {
+        for (const key of cells) covered.add(key);
+        remaining.splice(i, 1);
+        placedSomething = true;
+        break;
+      }
+    }
+  }
+  return remaining.length === 0;
 }
 
 /** Pretty-printed JSON, stable key order. */

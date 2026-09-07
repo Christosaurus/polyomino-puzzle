@@ -534,6 +534,62 @@ export class GameView {
     }
   }
 
+  /**
+   * Eis: eine milchig-blaue Scheibe mit Reifkanten. Sobald ein Nachbar bedeckt
+   * ist (die Scheibe also auftaubar wäre), bekommt sie einen warmen Schimmer —
+   * ein Hinweis, wo das Licht als Nächstes hinkann.
+   */
+  private drawIce(b: BoardLayout): void {
+    if (!this.game.hasIce) return;
+    const ctx = this.ctx;
+    const covered = (r: number, c: number) =>
+      this.game.shape.has(r, c) && this.game.isCovered(r, c);
+    for (const [r, c] of this.game.shape.cells) {
+      if (!this.game.isIced(r, c) || this.game.isCovered(r, c)) continue;
+      const x = b.x + c * b.cell;
+      const y = b.y + r * b.cell;
+      const thawable =
+        covered(r - 1, c) || covered(r + 1, c) || covered(r, c - 1) || covered(r, c + 1);
+      ctx.save();
+      const g = ctx.createLinearGradient(x, y, x + b.cell, y + b.cell);
+      g.addColorStop(0, "rgba(198, 226, 255, 0.82)");
+      g.addColorStop(1, "rgba(120, 160, 220, 0.72)");
+      ctx.fillStyle = g;
+      ctx.fillRect(x + 1, y + 1, b.cell - 2, b.cell - 2);
+      // Reif-Kristalle — deterministisch aus der Zelle
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = Math.max(1, b.cell * 0.03);
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = ((r * 11 + c * 17 + i * 71) % 360) * (Math.PI / 180);
+        const cx = x + b.cell / 2;
+        const cy = y + b.cell / 2;
+        const d = b.cell * 0.32;
+        ctx.moveTo(cx - Math.cos(a) * d, cy - Math.sin(a) * d);
+        ctx.lineTo(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+      }
+      ctx.stroke();
+      if (thawable) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.nowMs / 260);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.25 + 0.35 * pulse;
+        const gg = ctx.createRadialGradient(
+          x + b.cell / 2,
+          y + b.cell / 2,
+          0,
+          x + b.cell / 2,
+          y + b.cell / 2,
+          b.cell * 0.7,
+        );
+        gg.addColorStop(0, "rgba(255, 226, 170, 0.9)");
+        gg.addColorStop(1, "rgba(255, 226, 170, 0)");
+        ctx.fillStyle = gg;
+        ctx.fillRect(x, y, b.cell, b.cell);
+      }
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -672,6 +728,7 @@ export class GameView {
     // über den Teilen, damit die Bruchkante sichtbar bleibt, wenn beidseitig
     // etwas liegt — sonst wüsste man nach dem Setzen nicht mehr, wo sie war
     this.drawCracks(b);
+    this.drawIce(b);
 
     if (this.drag) this.drawDrag(layout);
     if (this.confetti.active) this.confetti.step(ctx, 1 / 60);

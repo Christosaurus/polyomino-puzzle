@@ -136,3 +136,46 @@ describe("validateLevel catches broken levels", () => {
     expect(validateLevel(level).some((e) => /difficulty/.test(e))).toBe(true);
   });
 });
+
+describe("validateLevel — ice mechanic", () => {
+  /** A solution cell that borders a cell owned by a different piece. */
+  function cellWithForeignNeighbour(level: Level): [number, number] {
+    const owner = new Map<string, string>();
+    for (const p of level.solution) {
+      for (const [r, c] of p.cells) owner.set(`${r},${c}`, p.pieceId);
+    }
+    for (const p of level.solution) {
+      for (const [r, c] of p.cells) {
+        const foreign = [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ].some(([dr, dc]) => {
+          const k = `${r + dr},${c + dc}`;
+          return owner.has(k) && owner.get(k) !== p.pieceId;
+        });
+        if (foreign) return [r, c];
+      }
+    }
+    throw new Error("no cell with a foreign neighbour");
+  }
+
+  it("accepts ice the solution can still be laid in some order", () => {
+    const { level } = sample3x5();
+    level.mechanics = { ice: [cellWithForeignNeighbour(level)] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags an ice cell outside the shape", () => {
+    const { level } = sample3x5();
+    level.mechanics = { ice: [[99, 99]] };
+    expect(validateLevel(level).some((e) => /ice cell .* outside the shape/.test(e))).toBe(true);
+  });
+
+  it("flags ice with no free neighbour when every pane is iced", () => {
+    const { shape, level } = sample3x5();
+    level.mechanics = { ice: shape.cells.map(([r, c]): [number, number] => [r, c]) };
+    expect(validateLevel(level).some((e) => /locked in by ice/.test(e))).toBe(true);
+  });
+});

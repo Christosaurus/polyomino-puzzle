@@ -868,6 +868,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const assisted = store.pity(entry.id);
   // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
+  introduceMechanic(game);
   mountGame(game, {
     onWin: (stars, ms) => {
       const panesBefore = store.panes();
@@ -1045,6 +1046,21 @@ function startDescent(): void {
  * Der Streifen über dem Brett zeigt das Ziel, sobald es nicht „alles zudecken"
  * ist. Muss auf einen Blick lesbar sein — deshalb große Zahl plus Balken.
  */
+/**
+ * Beim ersten Fenster mit einer neuen Mechanik einmalig kurz erklären, was zu
+ * tun ist — danach spricht die Optik für sich. Merker läuft über `beatsSeen`.
+ */
+function introduceMechanic(game: GameState): void {
+  const seen = store.beatsSeen();
+  if (game.hasIce && !seen.includes("tut-ice")) {
+    store.markBeatSeen("tut-ice");
+    toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
+  } else if (game.hasCracks && !seen.includes("tut-cracks")) {
+    store.markBeatSeen("tut-cracks");
+    toast("✂ Risse im Glas: kein Teil darf über eine Bruchkante liegen.");
+  }
+}
+
 function renderGoalStrip(game: GameState): boolean {
   if (game.goal !== "soot") return false;
   const bar = $("play-stage");

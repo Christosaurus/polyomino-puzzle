@@ -396,6 +396,7 @@ gespeicherten Datenmodell.
 | 2 | **Zugbudget statt Uhr** (Abstieg; Story bleibt Uhr) | ✅ | **XL** |
 | 3 | **Ruß-Mechanik**: statisch (Intro) → **kriechend** (spannend) + Ziel-Streifen | ✅ | L |
 | 3b | **Riss-Mechanik** (zweite Mechanik, Kanten) + **Level-Werkstatt** (Dev-Editor) | ✅ | L |
+| 3c | **Eis-Mechanik** (dritte Mechanik, Reihenfolge): vereiste Scheibe taut erst, wenn ein Nachbar *liegt* — von außen nach innen bauen. `ice_01` (Werkstatt), `ice_02/03` (Farbhof) + Eis-Malmodus im Editor | ✅ | M |
 | 4 | Solver: keine Eindeutigkeits-Zählung mehr nötig — Deckungs-Ziel macht sie überflüssig | ✅ | *(Flaschenhals weg)* |
 
 ### Phase 2 — Eine Achse *(1–2 Wochen)*
@@ -480,7 +481,7 @@ Variation entsteht nicht aus „mehr Mechaniken", sondern daraus, dass man
 | 3 | **Ziel** | Was „gewonnen" heißt | S | ❌ |
 | 4 | **Beschränkung** | Zugbudget, keine Drehung erlaubt | S | ❌ (nur Uhr) |
 | 5 | **Störung** | Etwas auf dem Brett *handelt* (kriechender Schatten) | M | ❌ |
-| 6 | **Reihenfolge** | Ketten, Eis, Kerze | M | teilweise |
+| 6 | **Reihenfolge** | Ketten, Eis, Kerze | M | 🟡 Eis ✅, Ketten/Kerze ❌ |
 | 7 | **Information** | Nächstes Teil sichtbar / verborgen / Vorschau | S | ❌ |
 | 8 | **Brett-Zustand** | Doppelscheibe, Scheiben rücken nach einem Zug | L | ❌ |
 

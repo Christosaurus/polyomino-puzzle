@@ -1,10 +1,10 @@
 /**
- * Fügt handkuratierte **Ruß-Fenster** zur Kampagne hinzu — additiv.
+ * Fügt handkuratierte **Mechanik-Fenster** zur Kampagne hinzu — additiv:
+ * Ruß (`soot_XX`), Risse (`crack_XX`) und Eis (`ice_XX`).
  *
  * Anders als `main.ts` wird hier nichts neu nummeriert: die vorhandenen
  * `level_XXX` behalten ihre IDs, damit gesammelte Sterne erhalten bleiben. Die
- * neuen Level heißen `soot_XX` und werden an gewählten Stellen in die Manifest-
- * Liste eingefügt.
+ * neuen Level werden an gewählten Stellen in die Manifest-Liste eingefügt.
  *
  * Der Ablauf ist der Hybrid aus dem Konzept (§D): **der Generator baut die
  * Packung, der Autor legt die Mechanik darüber.** Weil ein Ruß-Level nur
@@ -31,7 +31,7 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks";
+type Pattern = SootPattern | "cracks" | "ice";
 
 interface Recipe {
   id: string;
@@ -62,6 +62,11 @@ const RECIPES: Recipe[] = [
   { id: "crack_01", shapeLabel: "rect-4x5", pattern: "cracks", difficulty: 3, insertAt: 16, slack: 3 },
   { id: "crack_02", shapeLabel: "rect-5x6", pattern: "cracks", difficulty: 3, insertAt: 19, slack: 3 },
   { id: "crack_03", shapeLabel: "rect-5x8", pattern: "cracks", difficulty: 4, insertAt: 24, slack: 2 },
+  // Eis — Akt III, der Farbhof. Vereiste Scheiben, die erst auftauen, wenn das
+  // Licht sie erreicht: man muss von den Rändern nach innen bauen.
+  { id: "ice_01", shapeLabel: "rect-4x5", pattern: "ice", difficulty: 4, insertAt: 26, slack: 3 },
+  { id: "ice_02", shapeLabel: "rect-5x6", pattern: "ice", difficulty: 4, insertAt: 30, slack: 3 },
+  { id: "ice_03", shapeLabel: "rect-5x8", pattern: "ice", difficulty: 5, insertAt: 34, slack: 2 },
 ];
 
 function sootFor(pattern: SootPattern, cells: Cell[], nth: number): Cell[] {
@@ -170,6 +175,56 @@ function cracksFor(
   return out;
 }
 
+/**
+ * Eis auf eine fertige Packung legen: die Zellen eines oder zweier Lösungsteile
+ * nahe der Fenstermitte vereisen. So taut das Eis erst auf, wenn die Teile
+ * ringsum liegen — man baut von den Rändern nach innen.
+ *
+ * Randregel: jede Eiszelle braucht mindestens einen nicht-vereisten Nachbarn,
+ * sonst wäre sie nie erreichbar. Passt das gewählte Teil nicht, `[]` → nächster
+ * Versuch. Die eigentliche Reihenfolge-Prüfung macht `validateLevel`.
+ */
+function iceFor(level: Level, shapeCells: Cell[], nth: number): Cell[] {
+  const inShape = new Set(shapeCells.map(([r, c]) => `${r},${c}`));
+  const rows = Math.max(...shapeCells.map((c) => c[0])) + 1;
+  const cols = Math.max(...shapeCells.map((c) => c[1])) + 1;
+  const cr = (rows - 1) / 2;
+  const cc = (cols - 1) / 2;
+
+  const ranked = level.solution
+    .map((p) => {
+      const local = p.cells.map(
+        ([r, c]): Cell => [r - level.shape.originRow, c - level.shape.originCol],
+      );
+      const mr = local.reduce((s, [r]) => s + r, 0) / local.length;
+      const mc = local.reduce((s, [, c]) => s + c, 0) / local.length;
+      return { local, d: Math.hypot(mr - cr, mc - cc) };
+    })
+    .sort((a, b) => a.d - b.d);
+  if (ranked.length < 3) return [];
+
+  const take = level.solution.length >= 6 ? 2 : 1;
+  const start = nth % Math.max(1, ranked.length - take - 1);
+  const chosen = ranked.slice(start, start + take);
+
+  const out: Cell[] = [];
+  for (const p of chosen) for (const cell of p.local) out.push(cell);
+  const iceSet = new Set(out.map(([r, c]) => `${r},${c}`));
+  for (const [r, c] of out) {
+    const free = ([
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as const).some(([dr, dc]) => {
+      const k = `${r + dr},${c + dc}`;
+      return inShape.has(k) && !iceSet.has(k);
+    });
+    if (!free) return [];
+  }
+  return out;
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -225,6 +280,23 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "ice") {
+      const localIce = iceFor(level, shapeCells, attempt);
+      if (localIce.length < 3) continue;
+      const ice: Cell[] = localIce.map(([r, c]) => [r + originRow, c + originCol]);
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { ice };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue; // Eis-Reihenfolge unlösbar → nächster Versuch
+      console.log(
+        `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} ice     ${String(ice.length).padStart(2)} Scheiben vereist` +
+          `             Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     const local = sootFor(recipe.pattern, shapeCells, attempt);
     const soot: Cell[] = local.map(([r, c]) => [r + originRow, c + originCol]);
     if (soot.length < 3) continue;
@@ -266,7 +338,10 @@ const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
 const built = RECIPES.map((r) => ({ recipe: r, level: build(r) }));
 
 manifest.levels = manifest.levels.filter(
-  (l) => !String(l.id).startsWith("soot_") && !String(l.id).startsWith("crack_"),
+  (l) =>
+    !String(l.id).startsWith("soot_") &&
+    !String(l.id).startsWith("crack_") &&
+    !String(l.id).startsWith("ice_"),
 );
 for (const { recipe, level } of built) {
   writeFileSync(join(OUT, `${level.id}.json`), `${serializeLevel(level)}\n`);
@@ -279,6 +354,7 @@ for (const { recipe, level } of built) {
     ...(level.goal ? { goal: level.goal } : {}),
     ...(level.mechanics?.soot ? { soot: level.mechanics.soot.length } : {}),
     ...(level.mechanics?.cracks ? { cracks: level.mechanics.cracks.length } : {}),
+    ...(level.mechanics?.ice ? { ice: level.mechanics.ice.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

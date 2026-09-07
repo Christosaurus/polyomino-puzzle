@@ -80,6 +80,8 @@ export class GameState {
   private sootJustSpread: string[] = [];
   /** Gerissene Kanten als `"r,c|r,c"` (sortiert). Kein Teil darf sie überspannen. */
   private readonly cracks: Set<string>;
+  /** Vereiste Scheiben. Deckbar erst, wenn ein Nachbar bedeckt ist. */
+  private readonly ice: Set<string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -114,7 +116,37 @@ export class GameState {
         ),
       ),
     );
+    this.ice = new Set(
+      (level.mechanics?.ice ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Eis ───────────────────────────────────────────────────────────────────
+  get hasIce(): boolean {
+    return this.ice.size > 0;
+  }
+  /** Ist diese Scheibe vereist? */
+  isIced(row: number, col: number): boolean {
+    return this.ice.has(`${row},${col}`);
+  }
+  /**
+   * Ist die vereiste Scheibe gerade auftaubar? Nur, wenn ein orthogonaler
+   * Nachbar schon von einem *liegenden* Teil bedeckt ist — das Licht muss die
+   * Scheibe von außen erreichen. Das eigene Teil zählt nicht: man baut von den
+   * Rändern nach innen.
+   */
+  private iceThawable(key: string, covered: Set<string>): boolean {
+    const [r, c] = key.split(",").map(Number) as [number, number];
+    return [
+      [r - 1, c],
+      [r + 1, c],
+      [r, c - 1],
+      [r, c + 1],
+    ].some(([nr, nc]) => {
+      const nb = `${nr},${nc}`;
+      return this.shapeCells.has(nb) && covered.has(nb);
+    });
   }
 
   // ── Risse ─────────────────────────────────────────────────────────────────
@@ -427,6 +459,16 @@ export class GameState {
           if (!own.has(`${nb[0]},${nb[1]}`)) continue;
           if (this.cracks.has(edgeKey([r, c], nb))) return false;
         }
+      }
+    }
+    // Eis: eine vereiste Scheibe lässt sich nur decken, wenn das Licht sie
+    // erreicht — ein orthogonaler Nachbar muss schon bedeckt sein (durch ein
+    // liegendes Teil oder durch dasselbe Teil).
+    if (this.ice.size > 0) {
+      for (const [r, c] of cells) {
+        const key = `${r},${c}`;
+        if (!this.ice.has(key)) continue;
+        if (!this.iceThawable(key, blocked)) return false;
       }
     }
     return true;
