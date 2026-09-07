@@ -72,10 +72,49 @@ function pillValue(id: string, value: string): void {
 
 function renderTopPills(): void {
   const s = store.load();
+  const l = store.lives();
+  const livesTxt = l.count >= store.MAX_LIVES ? `${l.count}` : `${l.count} · ${fmt(l.msToNext)}`;
+  pillValue("home-lives", livesTxt);
   pillValue("home-shards", String(s.shards));
-  pillValue("play-shards", String(s.shards));
+  pillValue("play-lives", livesTxt);
   const rs = document.getElementById("region-stars");
   if (rs) pillValue("region-stars", String(store.totalStars(s)));
+}
+
+/**
+ * Herzen sind eine bewusste künstliche Verknappung — **nur im Story-Modus**.
+ * Abstieg, Kaskade und das Tagesfenster kosten kein Herz. Wer nicht 20 min auf
+ * ein Herz warten will, soll sich später über einen Werbe-Block eins holen
+ * können (siehe `KONZEPT-lumen.md` §H — diese Entscheidung überschreibt den
+ * dortigen Vorschlag, keine Herzen zu haben).
+ */
+function livesGate(onBuy: () => void): boolean {
+  if (store.lives().count > 0) return true;
+  const l = store.lives();
+  const canPay = store.load().shards >= 30;
+  showScreen("play");
+  showOverlay({
+    title: "Keine Herzen",
+    sub: `Ein Herz kommt in <b>${fmt(l.msToNext)}</b> zurück.`,
+    rewards: [
+      "📺 Werbe-Block ansehen → +1 Herz  (bald)",
+      canPay ? "✦ 30 Splitter → Herzen voll" : `✦ ${store.load().shards} / 30 Splitter`,
+    ],
+    nextLabel: canPay ? "Herzen kaufen (30 ✦)" : "Zurück",
+    onNext: () => {
+      if (store.spendShards(30)) {
+        store.refillLives();
+        toast("Herzen aufgefüllt");
+        renderTopPills();
+        onBuy();
+      } else {
+        setTab("home");
+      }
+    },
+    quitLabel: "Zurück",
+    onQuit: () => setTab("home"),
+  });
+  return false;
 }
 
 // ── Settings (sound / music / haptics) ─────────────────────────────────────
@@ -556,6 +595,9 @@ function mountGame(
   cb.onSolved ??= winStarBurst; // every solve gets the full-screen star shower
   // Der Streifen zeigt entweder die Abstiegs-Stufe oder das Level-Ziel
   $("play-stage").hidden = mode !== "descent" && game.goal === "cover";
+  // Herzen kosten nur im Story-Modus — sonst zeigt das HUD die Splitter
+  $("play-lives").hidden = mode !== "campaign";
+  $("play-shards").hidden = mode === "campaign";
   activeGame = game;
   if (import.meta.env.DEV) (window as unknown as { __game: GameState }).__game = game;
   gameView = new GameView($<HTMLCanvasElement>("play-canvas"), $("play-wrap"), game, cb);
@@ -596,6 +638,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
 async function playCampaign(region: Region, index: number): Promise<void> {
   mode = "campaign";
   campaignAt = { region, index };
+  if (!livesGate(() => void playCampaign(region, index))) return;
   const entry = region.levels[index];
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
@@ -632,14 +675,21 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       });
     },
     onTimeout: () => {
-      // No lives, no gate: "Nochmal" is the most important button in the game
-      // and must never be greyed out. Failure costs nothing but the attempt.
+      // Story-Modus: ein Fehlschlag kostet ein Herz (bewusste Verknappung).
+      store.spendLife();
       const fails = store.recordFail(entry.id);
+      renderTopPills();
+      const l = store.lives();
       showOverlay({
         title: "Das Licht flackert aus",
-        sub: fails >= 2 ? "Knifflig. Beim nächsten Versuch hilft dir Mira." : "Nochmal.",
-        nextLabel: "Nochmal",
-        onNext: () => playCampaign(region, index),
+        sub:
+          l.count > 0
+            ? `Noch <b>${l.count}</b> ${l.count === 1 ? "Herz" : "Herzen"}.` +
+              (fails >= 2 ? " Beim nächsten Versuch hilft dir Mira." : "")
+            : `Keine Herzen mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`,
+        nextLabel: l.count > 0 ? "Nochmal" : "Übersicht",
+        onNext: () =>
+          l.count > 0 ? playCampaign(region, index) : openRegion(regions.indexOf(region)),
         quitLabel: "Übersicht",
         onQuit: () => openRegion(regions.indexOf(region)),
       });
@@ -770,13 +820,15 @@ function renderGoalStrip(game: GameState): boolean {
   if (game.goal !== "soot") return false;
   const bar = $("play-stage");
   bar.hidden = false;
-  bar.classList.remove("hot");
   const done = game.sootCleared;
   const total = game.sootTotal;
+  // kriecht der Ruß und ist noch offen → Warnlampe an
+  const creeping = game.sootSpreads && done < total;
+  bar.classList.toggle("hot", creeping);
   bar.innerHTML =
-    `<span class="ps-lvl">Ruß</span>` +
+    `<span class="ps-lvl">Ruß${game.sootSpreads ? " 🕯" : ""}</span>` +
     `<span class="ps-bar"><i style="width:${Math.round((done / total) * 100)}%"></i></span>` +
-    `<span class="ps-note">${done} / ${total}</span>`;
+    `<span class="ps-note">${done} / ${total}${creeping ? " · kriecht" : ""}</span>`;
   return true;
 }
 
@@ -1014,6 +1066,7 @@ const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void }
   { icon: "ui/hint.webp", label: "Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
   { icon: "ui/time.webp", label: "+20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
   { icon: "ui/solvent.webp", label: "Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+  { icon: "ui/life.webp", label: "Herzen auffüllen", cost: 30, buy: () => store.refillLives() },
 ];
 
 function renderShop(): void {
@@ -1026,7 +1079,9 @@ function renderShop(): void {
       const btn = document.createElement("button");
       btn.className = "gold";
       btn.textContent = `${item.cost} ✦`;
-      btn.disabled = s.shards < item.cost;
+      btn.disabled =
+        s.shards < item.cost ||
+        (item.icon === "ui/life.webp" && s.lives.count >= store.MAX_LIVES);
       btn.addEventListener("click", () => {
         if (store.spendShards(item.cost)) {
           item.buy();
@@ -1177,9 +1232,13 @@ function leavePlay(): void {
     activeGame?.pause();
     showOverlay({
       title: "Level verlassen?",
-      sub: "Der Fortschritt in diesem Fenster geht verloren.",
+      sub: "Du verlierst <b>1 Herz</b> und den Fortschritt in diesem Fenster.",
       nextLabel: "Trotzdem raus",
-      onNext: doLeave,
+      onNext: () => {
+        store.spendLife();
+        renderTopPills();
+        doLeave();
+      },
       quitLabel: "Weiterspielen",
       onQuit: resume,
     });

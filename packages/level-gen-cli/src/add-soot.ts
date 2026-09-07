@@ -41,6 +41,8 @@ interface Recipe {
   /** Wohin in der Manifest-Liste (Index), damit das Level in der Region landet, in die es gehört. */
   insertAt: number;
   slack: number;
+  /** Alle N Züge kriecht der Ruß eine Scheibe weiter (0 = statisch). */
+  spread?: number;
 }
 
 /**
@@ -48,10 +50,14 @@ interface Recipe {
  * (Einführung → Ausbau → Wendung → Prüfung, KONZEPT-lumen.md §I).
  */
 const RECIPES: Recipe[] = [
+  // 1 Einführung: statischer Ruß, viel Luft — "so wird gereinigt".
   { id: "soot_01", shapeLabel: "rect-3x5", pattern: "corner", difficulty: 1, insertAt: 3, slack: 3 },
-  { id: "soot_02", shapeLabel: "rect-4x5", pattern: "streak", difficulty: 1, insertAt: 6, slack: 3 },
-  { id: "soot_03", shapeLabel: "rect-5x6", pattern: "specks", difficulty: 2, insertAt: 9, slack: 2 },
-  { id: "soot_04", shapeLabel: "rect-5x8", pattern: "rim", difficulty: 2, insertAt: 12, slack: 2 },
+  // 2 Ausbau: jetzt kriecht er. Alle 3 Züge eine Scheibe.
+  { id: "soot_02", shapeLabel: "rect-4x5", pattern: "streak", difficulty: 2, insertAt: 6, slack: 4, spread: 3 },
+  // 3 Wendung: kriecht schneller, verstreut — man muss sich entscheiden, wo zuerst.
+  { id: "soot_03", shapeLabel: "rect-5x6", pattern: "specks", difficulty: 3, insertAt: 9, slack: 3, spread: 2 },
+  // 4 Prüfung: kriecht + knappes Budget. Kein Zug darf daneben.
+  { id: "soot_04", shapeLabel: "rect-5x8", pattern: "rim", difficulty: 3, insertAt: 12, slack: 2, spread: 2 },
   // Risse — Akt II, die Werkstatt. Hier fällt auf, dass geschnitten wurde.
   { id: "crack_01", shapeLabel: "rect-4x5", pattern: "cracks", difficulty: 3, insertAt: 16, slack: 3 },
   { id: "crack_02", shapeLabel: "rect-5x6", pattern: "cracks", difficulty: 3, insertAt: 19, slack: 3 },
@@ -232,8 +238,11 @@ function build(recipe: Recipe): Level {
     level.id = recipe.id;
     level.difficulty = recipe.difficulty;
     level.goal = "soot";
-    level.mechanics = { soot };
-    level.moveBudget = need + recipe.slack;
+    level.mechanics = recipe.spread ? { soot, sootSpread: recipe.spread } : { soot };
+    // kriecht der Ruß, braucht es Luft: das Budget deckt auch die Scheiben,
+    // die noch dazukommen, bevor man alle erreicht
+    const spreadExtra = recipe.spread ? Math.ceil((level.pieces.length + recipe.slack) / recipe.spread) : 0;
+    level.moveBudget = need + recipe.slack + spreadExtra;
 
     const errors = validateLevel(level);
     if (errors.length > 0) throw new Error(`${recipe.id}: ${errors.join("; ")}`);

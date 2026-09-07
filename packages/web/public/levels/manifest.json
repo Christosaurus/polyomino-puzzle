@@ -95,13 +95,13 @@
     },
     {
       "id": "soot_02",
-      "difficulty": 1,
+      "difficulty": 2,
       "pieces": "PUZV",
       "rows": 4,
       "cols": 5,
       "goal": "soot",
       "soot": 5,
-      "moveBudget": 5
+      "moveBudget": 9
     },
     {
       "id": "level_006",
@@ -127,13 +127,13 @@
     },
     {
       "id": "soot_03",
-      "difficulty": 2,
+      "difficulty": 3,
       "pieces": "VUILPT",
       "rows": 5,
       "cols": 6,
       "goal": "soot",
       "soot": 4,
-      "moveBudget": 6
+      "moveBudget": 12
     },
     {
       "id": "level_008",
@@ -159,13 +159,13 @@
     },
     {
       "id": "soot_04",
-      "difficulty": 2,
+      "difficulty": 3,
       "pieces": "XUZVTLIY",
       "rows": 5,
       "cols": 8,
       "goal": "soot",
       "soot": 22,
-      "moveBudget": 8
+      "moveBudget": 13
     },
     {
       "id": "level_010",

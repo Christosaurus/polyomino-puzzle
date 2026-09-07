@@ -66,6 +66,14 @@ export interface LevelMechanics {
    */
   soot?: Array<[number, number]>;
   /**
+   * If set, the soot **creeps**: every this-many placements, if any sooty pane
+   * is still uncovered, the stain grows onto one adjacent clean pane. Leaving
+   * soot alone loses you the window; covering it fast contains it. This is what
+   * turns "cover N cells" into a race (see the concept doc §D — the creeping
+   * dark). Absent or 0 = static soot.
+   */
+  sootSpread?: number;
+  /**
    * Cracks in the lead: each entry is a pair of orthogonally adjacent cells,
    * and **no single piece may span that edge**. The silhouette is unchanged —
    * the board is partitioned from the inside, which is a very different
@@ -225,6 +233,13 @@ export function validateLevel(level: unknown): string[] {
     if (typeof l.moveBudget !== "number" || l.moveBudget < 1) {
       errors.push(`moveBudget must be a positive number, got ${String(l.moveBudget)}`);
     }
+  }
+  const spread = l.mechanics?.sootSpread;
+  if (spread !== undefined) {
+    if (typeof spread !== "number" || spread < 1) {
+      errors.push(`mechanics.sootSpread must be a positive number, got ${String(spread)}`);
+    }
+    if (!l.mechanics?.soot?.length) errors.push("mechanics.sootSpread needs soot to spread from");
   }
   const soot = l.mechanics?.soot;
   if (soot !== undefined) {

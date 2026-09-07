@@ -101,6 +101,8 @@ export class GameView {
   private hintUntil = 0;
   /** Ruß, der gerade weggewischt wurde — kurzes Aufleuchten pro Scheibe. */
   private sootFlash: Array<{ r: number; c: number; t: number }> = [];
+  /** Ruß, der gerade dazugekrochen ist — dunkler Puls. */
+  private spreadFlash: Array<{ r: number; c: number; t: number }> = [];
   /** Bereits gereinigte Scheiben, damit jede nur einmal aufleuchtet. */
   private sootLit = new Set<string>();
   private nowMs = 0;
@@ -141,6 +143,7 @@ export class GameView {
     this.hintUntil = 0;
     this.unlockFlashT = -1;
     this.sootFlash = [];
+    this.spreadFlash = [];
     this.sootLit.clear();
     this.kick();
   }
@@ -212,6 +215,13 @@ export class GameView {
       if (this.unlockFlashT > 0.9) this.unlockFlashT = -1;
     }
     this.sootFlash = this.sootFlash.filter((f) => (f.t += dt) < 0.5);
+    this.spreadFlash = this.spreadFlash.filter((f) => (f.t += dt) < 0.7);
+    // frisch gekrochener Ruß — dunkler, unheilvoller Puls
+    for (const key of this.game.consumeSpread()) {
+      const [r, c] = key.split(",").map(Number) as [number, number];
+      this.spreadFlash.push({ r, c, t: 0 });
+      sfx.invalid();
+    }
     // Den Deckungszustand pollen statt am Platzieren zu hängen: so leuchtet es
     // auch, wenn ein Teil weggenommen und woanders hingelegt wird.
     if (this.game.sootTotal > 0) {
@@ -460,6 +470,23 @@ export class GameView {
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(cx, cy, b.cell * (0.4 + p * 0.6), 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+    // frisch dazugekrochen → dunkle Welle, die aus der Nachbarscheibe greift
+    for (const f of this.spreadFlash) {
+      const p = f.t / 0.7;
+      const cx = b.x + (f.c + 0.5) * b.cell;
+      const cy = b.y + (f.r + 0.5) * b.cell;
+      ctx.save();
+      ctx.globalAlpha = Math.sin(Math.min(1, p) * Math.PI) * 0.85;
+      const rad = b.cell * (0.15 + p * 0.6);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, "#05030d");
+      g.addColorStop(1, "rgba(5, 3, 13, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, 0, 6.28);
       ctx.fill();
       ctx.restore();
     }

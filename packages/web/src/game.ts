@@ -37,6 +37,13 @@ function edgeKey(a: [number, number], b: [number, number]): string {
   return [`${a[0]},${a[1]}`, `${b[0]},${b[1]}`].sort().join("|");
 }
 
+/** `"r,c"` numerisch vergleichen — Zeile zuerst, dann Spalte. */
+function compareKey(a: string, b: string): number {
+  const [ar, ac] = a.split(",").map(Number);
+  const [br, bc] = b.split(",").map(Number);
+  return ar! - br! || ac! - bc!;
+}
+
 function limitMsFor(level: Level): number {
   const pieces = level.pieces.length;
   const secs = (25 + pieces * 10) * (0.8 + level.difficulty * 0.14);
@@ -64,7 +71,13 @@ export class GameState {
   private moveBudget: number | null = null;
   private movesUsed = 0;
   /** Verrußte Scheiben (Brett-Frame). Bedecken reinigt sie. */
-  private readonly soot: Set<string>;
+  private soot: Set<string>;
+  /** Wie viele davon von Anfang an da waren — für Anzeige und Wert-Sperren. */
+  private readonly sootInitial: number;
+  /** Alle N Züge kriecht der Ruß weiter (0 = statisch). */
+  private readonly sootSpreadEvery: number;
+  /** Zellen, die gerade dazugekommen sind — einmalig für die Anzeige. */
+  private sootJustSpread: string[] = [];
   /** Gerissene Kanten als `"r,c|r,c"` (sortiert). Kein Teil darf sie überspannen. */
   private readonly cracks: Set<string>;
 
@@ -91,6 +104,8 @@ export class GameState {
     this.soot = new Set(
       (level.mechanics?.soot ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
     );
+    this.sootInitial = this.soot.size;
+    this.sootSpreadEvery = level.mechanics?.sootSpread ?? 0;
     this.cracks = new Set(
       (level.mechanics?.cracks ?? []).map(([a, b]) =>
         edgeKey(
@@ -144,6 +159,48 @@ export class GameState {
     let n = 0;
     for (const key of this.soot) if (covered.has(key)) n += 1;
     return n;
+  }
+  get sootSpreads(): boolean {
+    return this.sootSpreadEvery > 0;
+  }
+  /** Zellen, die beim letzten Zug dazukamen — nach dem Lesen geleert. */
+  consumeSpread(): string[] {
+    const out = this.sootJustSpread;
+    this.sootJustSpread = [];
+    return out;
+  }
+
+  /**
+   * Der Ruß kriecht: die nächste freie, saubere Nachbarscheibe eines noch
+   * unbedeckten Rußfeldes wird selbst rußig. Nur *eine* pro Tick — langsam,
+   * unaufhaltsam, gut lesbar. Deterministisch (kleinste Zeile, dann Spalte),
+   * damit ein Neustart identisch verläuft. Deckelt bei 2× Startmenge, damit es
+   * nie unmöglich wird.
+   */
+  private spreadSoot(): void {
+    if (!this.sootSpreads || this.soot.size >= this.sootInitial * 2 + 1) return;
+    const covered = this.occupied();
+    const uncoveredSoot = [...this.soot].filter((k) => !covered.has(k));
+    if (uncoveredSoot.length === 0) return; // eingedämmt — kein Kriechen
+
+    let best: string | null = null;
+    for (const key of uncoveredSoot) {
+      const [r, c] = key.split(",").map(Number) as [number, number];
+      for (const [dr, dc] of [
+        [-1, 0],
+        [0, -1],
+        [0, 1],
+        [1, 0],
+      ] as const) {
+        const nb = `${r + dr},${c + dc}`;
+        if (!this.shapeCells.has(nb) || this.soot.has(nb) || covered.has(nb)) continue;
+        if (best === null || compareKey(nb, best) < 0) best = nb;
+      }
+    }
+    if (best !== null) {
+      this.soot.add(best);
+      this.sootJustSpread.push(best);
+    }
   }
 
   /** Add time (joker). */
@@ -380,9 +437,20 @@ export class GameState {
     // dasselbe Teil aufs selbe Feld zurückzulegen ist kein neuer Zug —
     // sonst kostet schon ein verrutschter Finger Budget
     const samePlace = piece.pos && piece.pos.row === pos.row && piece.pos.col === pos.col;
-    if (!samePlace) this.movesUsed += 1;
     piece.pos = { ...pos };
     this.checkUnlock();
+    if (!samePlace) {
+      this.movesUsed += 1;
+      // nach dem Zug: kriecht der Ruß? Nur wenn der Zug das Ziel nicht
+      // ohnehin erreicht hat — der letzte, reinigende Zug wird nicht bestraft
+      if (
+        this.sootSpreadEvery > 0 &&
+        this.movesUsed % this.sootSpreadEvery === 0 &&
+        !this.isWon()
+      ) {
+        this.spreadSoot();
+      }
+    }
     return true;
   }
   removeToTray(piece: PieceState): void {
@@ -424,6 +492,12 @@ export class GameState {
     this.usedUndo = false;
     this.justUnlocked = false;
     this.movesUsed = 0;
+    this.sootJustSpread = [];
+    this.soot = new Set(
+      (this.level.mechanics?.soot ?? []).map(
+        ([r, c]) => `${r - this.level.shape.originRow},${c - this.level.shape.originCol}`,
+      ),
+    );
     if (this.frozenCells) this.frozenUnlocked = false;
   }
 }

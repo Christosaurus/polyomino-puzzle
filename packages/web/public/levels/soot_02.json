@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "soot_02",
-  "difficulty": 1,
+  "difficulty": 2,
   "shape": {
     "originRow": 0,
     "originCol": 0,
@@ -152,7 +152,8 @@
         3,
         4
       ]
-    ]
+    ],
+    "sootSpread": 3
   },
-  "moveBudget": 5
+  "moveBudget": 9
 }

@@ -390,12 +390,13 @@ gespeicherten Datenmodell.
 > Danach ist die Kernschleife eine Hyper-Casual-Schleife. Das ist der wichtigste
 > Block im ganzen Dokument.
 
-| # | Maßnahme | Aufwand | Wirkung |
+| # | Maßnahme | Stand | Wirkung |
 |---|---|---|---|
-| 1 | **Leben raus.** Sofort-Neustart nach Fehlschlag. | S | **XL** |
-| 2 | **Ziel + Zugbudget** als zweiter Level-Typ. Uhr im Story-Modus weg. | M | **XL** |
-| 3 | **Ruß-Mechanik** + Ziel-Anzeige im HUD („3 von 8"). | M | L |
-| 4 | Solver: Lösbarkeits-Prüfung statt Eindeutigkeits-Zählung. | S | L *(entfesselt Abstieg)* |
+| 1 | ~~Leben raus~~ → **Herzen: nur Story-Modus, + Rewarded-Ad-Stub** | ✅ | Verknappung + Ad-Hebel |
+| 2 | **Zugbudget statt Uhr** (Abstieg; Story bleibt Uhr) | ✅ | **XL** |
+| 3 | **Ruß-Mechanik**: statisch (Intro) → **kriechend** (spannend) + Ziel-Streifen | ✅ | L |
+| 3b | **Riss-Mechanik** (zweite Mechanik, Kanten) + **Level-Werkstatt** (Dev-Editor) | ✅ | L |
+| 4 | Solver: keine Eindeutigkeits-Zählung mehr nötig — Deckungs-Ziel macht sie überflüssig | ✅ | *(Flaschenhals weg)* |
 
 ### Phase 2 — Eine Achse *(1–2 Wochen)*
 
@@ -430,9 +431,17 @@ Verhältnis — Sofort-Neustart, sichtbarer Druck, eine Stimme im Spiel.
 
 ## H. Was ich wegwerfen würde
 
+> **Nachtrag (Christians Entscheidung, überschreibt den Punkt unten):** Herzen
+> bleiben — aber **nur im Story-Modus**, als bewusste künstliche Verknappung.
+> Abstieg, Kaskade, Tagesfenster kosten kein Herz. Wer nicht 20 min auf ein
+> Herz warten will, holt sich später über einen Rewarded-Ad-Block eins. Damit
+> verkauft das Spiel *Zugang*, nicht nur *Hilfe* — die klassische
+> Casual-Monetarisierung. Der „one more try"-Sog bleibt trotzdem erhalten,
+> weil Fehlschläge in den Endlosmodi frei sind.
+
 | Weg damit | Grund |
 |---|---|
-| **Leben + Regeneration** | Blockiert die Kernschleife. Ohne Monetarisierung gibt es keinen Grund dafür. |
+| ~~**Leben + Regeneration**~~ *(behalten, s. o.)* | ~~Blockiert die Kernschleife.~~ Als Story-Verknappung + Ad-Hebel doch gewollt. |
 | **Sterne als eigene Währung** | Zweite Ökonomie für dasselbe Ziel. Als *Anzeige* (3 Funken) behalten, als Währung → Licht. |
 | **„Stufe" als eigene XP-Formel** | Doppelt die Hauptzahl. Stufe **ist** „Fenster erhellt". |
 | **Ø Lösezeit** | Belohnt Hetze in einem gemütlichen Spiel. |
