@@ -30,8 +30,14 @@ export interface SaveData {
   regionRewards: string[];
   /** Highest milestone threshold already claimed. */
   milestone: number;
-  /** Light shards — the soft currency. */
+  /** Light shards — the spendable currency (shop, hearts). */
   shards: number;
+  /**
+   * Fenster erhellt — the one monotonic progression number. Every mode adds to
+   * it, it is never spent, and it is what the Laterne (region gate) and the
+   * player's "Stufe" read. Keeps the modes on one axis (KONZEPT-lumen.md §B).
+   */
+  panes: number;
   lives: { count: number; nextAt: number };
   stats: { solved: number; totalMs: number; noUndoStreak: number; bestNoUndoStreak: number };
 }
@@ -47,6 +53,7 @@ const EMPTY: SaveData = {
   regionRewards: [],
   milestone: 0,
   shards: 0,
+  panes: 0,
   lives: { count: MAX_LIVES, nextAt: 0 },
   stats: { solved: 0, totalMs: 0, noUndoStreak: 0, bestNoUndoStreak: 0 },
 };
@@ -69,6 +76,9 @@ export function load(): SaveData {
       regionRewards: parsed.regionRewards ?? [],
       milestone: parsed.milestone ?? 0,
       shards: parsed.shards ?? 0,
+      // Altstände ohne `panes`: aus der Zahl gelöster Fenster ableiten, damit
+      // ein bestehender Spieler nicht bei null anfängt.
+      panes: parsed.panes ?? parsed.stats?.solved ?? 0,
       lives: { ...EMPTY.lives, ...parsed.lives },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
@@ -128,6 +138,7 @@ export function recordLevel(levelId: string, stars: number, ms: number, usedUndo
     d.levels[levelId]!.fails = 0; // a win always clears the pity streak
     earned = stars + (firstClear ? 3 : 1);
     d.shards += earned;
+    if (firstClear) d.panes += 1; // ein neues Fenster erhellt
     d.stats.solved += 1;
     d.stats.totalMs += ms;
     if (usedUndo) {
@@ -181,6 +192,7 @@ export function recordDescent(depth: number): SaveData {
   return update((d) => {
     d.descent.runs += 1;
     d.descent.bestDepth = Math.max(d.descent.bestDepth, depth);
+    d.panes += 1; // jede geschaffte Stollen-Ebene ist ein Fenster
   });
 }
 
@@ -205,7 +217,15 @@ export function recordCascade(score: number, cleared: number): SaveData {
     d.cascade.runs += 1;
     d.cascade.bestScore = Math.max(d.cascade.bestScore, score);
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
+    // gelöschte Reihen im Scherbenregen = erhellte Fenster, aber gedeckelt,
+    // damit ein Glückslauf die Karte nicht auf einmal aufreißt
+    d.panes += Math.min(6, Math.floor(cleared / 3));
   });
+}
+
+/** Fenster erhellt — die eine Fortschrittszahl. */
+export function panes(d: SaveData = load()): number {
+  return d.panes;
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────
@@ -229,18 +249,11 @@ export function setAvatarId(id: string): void {
 }
 
 /**
- * A single "Stufe" number rolled up from everything the player has done — the
- * casual-game vanity level. Climbs fast early, keeps ticking forever.
+ * „Stufe" ist einfach „Fenster erhellt" — eine Zahl, ein Fortschritt, keine
+ * zweite XP-Formel daneben (KONZEPT-lumen.md §F).
  */
 export function playerLevel(d: SaveData = load()): number {
-  const xp =
-    totalStars(d) * 2 +
-    d.stats.solved * 3 +
-    d.descent.bestDepth * 4 +
-    Math.floor(d.cascade.bestScore / 60) +
-    d.daily.bestStreak * 3 +
-    d.achievements.length * 6;
-  return 1 + Math.floor(xp / 9);
+  return 1 + d.panes;
 }
 
 // ── Lives ──────────────────────────────────────────────────────────────────

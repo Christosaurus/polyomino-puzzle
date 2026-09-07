@@ -14,14 +14,15 @@ export interface Region {
   id: string;
   name: string;
   subtitle: string;
-  starsToUnlock: number;
+  /** Fenster erhellt (über *alle* Modi), bevor die Laterne dieser Region angeht. */
+  panesToUnlock: number;
   levels: ManifestEntry[];
 }
 
 const META = [
-  { id: "garden", name: "Der Garten", subtitle: "Wo das Licht zuerst zurückkehrt", starsToUnlock: 0 },
-  { id: "workshop", name: "Die Werkstatt", subtitle: "Enger, kantiger, knäuliger", starsToUnlock: 12 },
-  { id: "courtyard", name: "Der Farbhof", subtitle: "Große Fenster, wenig Zeit", starsToUnlock: 30 },
+  { id: "garden", name: "Der Garten", subtitle: "Wo das Licht zuerst zurückkehrt", panesToUnlock: 0 },
+  { id: "workshop", name: "Die Werkstatt", subtitle: "Enger, kantiger, knäuliger", panesToUnlock: 8 },
+  { id: "courtyard", name: "Der Farbhof", subtitle: "Große Fenster, wenig Zeit", panesToUnlock: 22 },
 ];
 
 export function buildRegions(manifest: Manifest): Region[] {

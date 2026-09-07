@@ -47,8 +47,10 @@ const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
 
 /** How lit the world is (0..1), from campaign stars. */
 function lightFrac(): number {
-  const max = (manifest?.levels.length ?? 15) * 3;
-  return Math.min(1, store.totalStars(store.load()) / Math.max(1, max));
+  // an *jedem* erhellten Fenster wird das Tal heller — nicht nur an Kampagnen-
+  // sternen. „Voll" bei etwa allen Kampagnen-Fenstern plus ein bisschen mehr.
+  const full = Math.max(20, (manifest?.levels.length ?? 30) + 12);
+  return Math.min(1, store.panes(store.load()) / full);
 }
 function refreshLight(): void {
   // steep early curve so the first region visibly warms the world
@@ -247,32 +249,44 @@ function renderHome(): void {
   scenery.setTheme("menu");
   renderTopPills();
   const s = store.load();
-  const total = store.totalStars(s);
+  const panes = store.panes(s);
   const pct = Math.round(lightFrac() * 100);
   $("home-status").innerHTML =
-    `Jeder Stern bringt ein Stück Welt zurück ins Licht. <b>Licht: ${pct}%</b>`;
+    `<b>${panes}</b> Fenster erhellt · das Tal ist zu <b>${pct}%</b> im Licht.`;
 
   const host = $("regions");
   host.replaceChildren();
   regions.forEach((r, i) => {
-    const locked = total < r.starsToUnlock;
+    const locked = panes < r.panesToUnlock;
     const { got, max } = regionStars(r);
     const complete = got >= max && max > 0;
     const station = document.createElement("div");
     station.className = `station${locked ? " locked" : complete ? " done" : " current"}`;
     station.dataset.region = r.id;
+    // Die Laterne: solange gesperrt, füllt sie sich mit jedem Fenster aus
+    // *jedem* Modus. Ist sie an, zeigt die Kachel den Sterne-Fortschritt.
+    const prevUnlock = regions[i - 1]?.panesToUnlock ?? 0;
+    const lanternFill = locked
+      ? Math.round(
+          ((panes - prevUnlock) / Math.max(1, r.panesToUnlock - prevUnlock)) * 100,
+        )
+      : 100;
     station.innerHTML = `
       <div class="st-card">
         <div class="row">
           <div class="name">${r.name}</div>
           <div class="want">${
             locked
-              ? `🔒 ${r.starsToUnlock}★`
+              ? `🏮 ${panes} / ${r.panesToUnlock}`
               : `<b>★ ${got}</b> / ${max}${complete ? " ✓" : ""}`
           }</div>
         </div>
-        <div class="muted">${locked ? `Noch ${r.starsToUnlock - total} Sterne bis hier.` : r.subtitle}</div>
-        <div class="progress"><i style="width:${max ? (got / max) * 100 : 0}%"></i></div>
+        <div class="muted">${
+          locked
+            ? `Die Laterne füllt sich — noch ${r.panesToUnlock - panes} Fenster (in jedem Modus).`
+            : r.subtitle
+        }</div>
+        <div class="progress"><i style="width:${locked ? lanternFill : max ? (got / max) * 100 : 0}%"></i></div>
       </div>`;
     if (!locked) station.addEventListener("click", () => openRegion(i));
     host.append(station);
@@ -614,8 +628,13 @@ function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
 /** Collect the reward lines for a story-level win, applying side effects. */
 function collectStoryRewards(levelId: string, stars: number, ms: number, usedUndo: boolean, region?: Region): string[] {
   const lines: string[] = [];
+  const panesBefore = store.panes();
   const earned = store.recordLevel(levelId, stars, ms, usedUndo);
+  if (store.panes() > panesBefore) lines.push("🏮 +1 Fenster erhellt");
   lines.push(`✦ +${earned} Lichtsplitter`);
+  // schaltet dieses Fenster eine Region auf? dann sagen
+  const nextLocked = regions.find((r) => store.panes() === r.panesToUnlock);
+  if (nextLocked) lines.push(`✨ ${nextLocked.name} — die Laterne ist an!`);
   refreshLight();
   scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
@@ -757,12 +776,17 @@ async function playDaily(): Promise<void> {
   }
   mountGame(game, {
     onWin: (stars, ms) => {
+      const panesBefore = store.panes();
       const earned = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
+      const litPane = store.panes() > panesBefore;
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
       store.addShards(5);
       const milestone = DAILY_MILESTONES.find((m) => m.days === after && after > before);
       if (milestone) store.addShards(milestone.shards);
+      refreshLight();
+      const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
+      if (nowLit) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
       renderTopPills();
       showOverlay({
@@ -770,6 +794,7 @@ async function playDaily(): Promise<void> {
         stars,
         sub: `Zeit <b>${fmt(ms)}</b>`,
         rewards: [
+          ...(litPane ? ["🏮 +1 Fenster erhellt"] : []),
           `✦ +${earned + 5} Lichtsplitter`,
           after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
           ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
@@ -885,9 +910,11 @@ async function playDescentLevel(): Promise<void> {
       const st = descentState!;
       st.depth = depth + 1;
       st.streak += 1;
-      store.recordDescent(depth);
+      store.recordDescent(depth); // +1 Fenster erhellt
       store.addShards(depth);
       scenery.pulse(0.35 + 0.08 * stars); // the workshop brightens with every clear
+      refreshLight();
+      const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
       celebrate(syncAchievements());
       renderTopPills();
 
@@ -910,7 +937,11 @@ async function playDescentLevel(): Promise<void> {
         title: `Ebene ${depth} geschafft`,
         stars,
         sub: `Zeit <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
-        rewards: [`✦ +${depth} Lichtsplitter`],
+        rewards: [
+          "🏮 +1 Fenster erhellt",
+          `✦ +${depth} Lichtsplitter`,
+          ...(nowLit ? [`✨ ${nowLit.name} — die Laterne ist an!`] : []),
+        ],
         // bei einem Hype-Wort schweigt Mira — zwei Stimmen auf einem Screen
         // sind eine zu viel
         mira: hype
@@ -1011,11 +1042,17 @@ function startCascade(): void {
       }
     },
     onEnd: (r) => {
+      const panesBefore = store.panes();
       store.recordCascade(r.score, r.cleared);
+      const lit = store.panes() - panesBefore;
+      refreshLight();
+      const nowLit = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
+      if (nowLit) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
         `<b>${r.score}</b> Punkte · ${r.cleared} Reihen` +
+        (lit > 0 ? ` · 🏮 +${lit} Fenster` : "") +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
         (newRecord ? ` · 🏆 neue Bestmarke!` : "");
       const ov = $("k-overlay");
@@ -1035,8 +1072,8 @@ function renderCollection(): void {
   const s = store.load();
   const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
   const stats: [string, string][] = [
+    ["Fenster erhellt", String(store.panes(s))],
     ["Sterne", String(store.totalStars(s))],
-    ["Fenster gelöst", String(s.stats.solved)],
     ["Ø Zeit", s.stats.solved ? fmt(avg) : "–"],
     ["Abstieg", `Ebene ${s.descent.bestDepth}`],
     ["Kaskade", String(s.cascade.bestScore)],
@@ -1136,7 +1173,7 @@ function openProfile(): void {
 
   const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
   const rows: Array<[string, string, string]> = [
-    ["ui/collection.webp", "Fenster gelöst", String(s.stats.solved)],
+    ["ui/collection.webp", "Fenster erhellt", String(store.panes(s))],
     ["ui/star.webp", "Sterne gesammelt", String(store.totalStars(s))],
     ["ui/time.webp", "Ø Lösezeit", s.stats.solved ? fmt(avg) : "–"],
     ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
