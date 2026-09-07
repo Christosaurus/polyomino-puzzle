@@ -411,9 +411,9 @@ gespeicherten Datenmodell.
 
 | # | Maßnahme | Aufwand | Wirkung |
 |---|---|---|---|
-| 8 | **Mira-Zeilen im Ergebnis-Overlay.** | **S** | **L** ← bestes Verhältnis im Dokument |
-| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L |
-| 10 | Akt I schreiben, Beats auf der Karte setzen. | M | XL *(emotional)* |
+| 8 | **Mira-Zeilen im Ergebnis-Overlay.** | **S** | **L** ← bestes Verhältnis im Dokument | ✅ (`story.ts`) |
+| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L | 🟡 Cutscene-System ✅ (`beats.ts`), Portraits fehlen noch (`PROMPT-charaktere.md`) |
+| 10 | Akt I schreiben, Beats auf der Karte setzen. | M | XL *(emotional)* | ✅ |
 
 ### Phase 4 — Tiefe *(fortlaufend)*
 
@@ -423,7 +423,7 @@ gespeicherten Datenmodell.
 | 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend |
 | 13 | 40–60 handgebaute Story-Fenster. | fortlaufend |
 | 14 | Boss-Fenster (Doppelscheibe + Wanderscherbe + Kerze). | M |
-| 15 | Akt II + III, Finale. | L |
+| 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats, Fenster 1–62). Boss-Fenster als spielbares Finale fehlt noch. | L |
 
 **Wenn du nur eine Woche hast:** #1, #2, #8. Das sind die drei mit dem besten
 Verhältnis — Sofort-Neustart, sichtbarer Druck, eine Stimme im Spiel.
