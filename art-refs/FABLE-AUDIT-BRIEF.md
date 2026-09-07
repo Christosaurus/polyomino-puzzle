@@ -177,26 +177,63 @@ Christian will eine **echte Geschichte**, tief ins Gameplay integriert:
 ---
 
 ## 4. Vorbilder zum Benchmarken
-Nutze die Besten ihrer Kategorie und sag jeweils, **was** du übernimmst:
-- **Meta-Progression / „ein Ziel":** Royal Match, Gardenscapes/Homescapes,
-  Toon Blast.
-- **Story tief im Gameplay:** Homescapes (Renovierung = Fortschritt),
-  Monument Valley (Umgebung erzählt), Gorogoa, A Little to the Left.
-- **Schwierigkeitskurve & „nur noch eine Runde":** Threes, Two Dots,
-  Blockudoku / Woodoku, 1010!.
-- **Gemütliche Bildsprache:** Alba, A Monster's Expedition, Monument Valley,
-  I Love Hue.
-- **Polyomino/Packen speziell:** Blockudoku, Woodoku, IQ Fit, Cross Logic,
-  Tetris Effect (Feiern/Feedback).
-- **Verzahnte Modi:** wie Clash Royale / Marvel Snap Nebenmodi in eine Haupt-
-  Progression zahlen — auf einen ruhigen Puzzler übertragen.
 
-*(Christian: falls du selbst konkrete Lieblingsspiele hast, hier ergänzen —
-„Block Out" bitte präzisieren, welches genau.)*
+**Wichtigste Richtung (Christians eigene Worte):** der Sog von simplen, aber
+extrem süchtig machenden Hyper-Casual-Konzepten — **Bus Jam / Bus Out / Bus
+Sort, Traffic Escape / Car Out, Screw Jam / Nuts & Bolts, Water Sort** u. Ä.
+Diese Spiele haben: sofort verständliche Regel, ein Bildschirm, sofortiger
+Neustart, „nur noch eine Runde"-Kurve, jedes Level knapp lösbar,
+befriedigendes Mikro-Feedback bei jedem Zug, klare Sackgassen. **Kein**
+Menü-Ballast, **keine** Erklärtexte.
+
+- **Süchtiger Kern-Loop / „one more try":** Bus Jam, Traffic Escape, Screw Jam,
+  Water Sort, Blockudoku / Woodoku, Tangle Master, 1010!.
+- **Mikro-Feedback & Feiern:** Tetris Effect, Bus Jam (Combo-Pops), Royal Match
+  (Zug-Feedback).
+- **Schwierigkeit knapp über der Frust-Grenze:** Threes, Two Dots, gute
+  Sokoban-Sammlungen.
+- **Polyomino / Packen speziell:** **Block Out! von Grand Games A.Ş.** (Christians
+  Referenz für Level-Mechaniken — Eis-/Ketten-/gesperrte Blöcke, Hindernisse,
+  Sonderfelder, Sammelziele), Blockudoku, Woodoku, IQ Fit.
+- **Verzahnte Modi in eine Haupt-Progression:** wie Nebenmodi bei Clash
+  Royale / Marvel Snap in ein Ziel zahlen — auf einen ruhigen Puzzler übertragen.
+
+### Die zentrale Spannung, die das Konzept auflösen muss
+Christian will **gleichzeitig**:
+1. die **radikale Einfachheit und den Sog** eines Bus-Jam-artigen Hyper-Casual-
+   Spiels (ein Screen, keine Erklärung, sofort wieder rein), **und**
+2. eine **echte, integrierte Geschichte** mit Figur(en), Sequenzen und einem
+   Antagonisten (§2 C).
+
+Hyper-Casual-Spiele haben normalerweise **null Story**. Dein Job: einen Weg
+finden, wie die Story eine **dünne, optionale Motivations-Schicht** ist, die den
+Kern-Loop **nie unterbricht oder verkompliziert** — z. B. kurze Sequenzen nur an
+großen Meilensteinen, überspringbar, die Welt erzählt visuell statt in Textwänden.
+Wenn du findest, dass sich beides grundsätzlich beißt: sag das klar und schlag
+die tragfähigere Richtung vor.
 
 ---
 
-## 5. Format
+## 5. Soll Fable auch implementieren?
+**Standard: nein.** Der teure Teil eines Frontier-Modells sind lange
+Umbau-Schleifen über viele Dateien mit Builds — genau das frisst Wochenkontingent
+schnell, und Sonnet macht die Umsetzung genauso gut, billiger, mit engerer
+visueller Rückkopplung mit Christian.
+
+**Sinnvoll für Fable, wenn überhaupt:**
+- das Konzept-Dokument (§2 A–G) — der eigentliche Auftrag.
+- optional **1–2 eng abgegrenzte Architektur-Specs**, wo maximale Denkleistung
+  zählt: z. B. das Datenmodell + die Zustandsmaschine für die verzahnte
+  Modus-Progression, oder eine **Plugin-Architektur für Level-Mechaniken**
+  (damit neue Mechaniken ohne Solver-Umbau dazukommen), oder das System für
+  Story-Sequenzen. Als Spezifikation, nicht als fertiger Code.
+
+**Nicht** „bau den ganzen Redesign". Falls Fable Code anfasst: genau eine klar
+umrissene Sache, dann übernimmt Sonnet den Rest entlang der Roadmap (§2 G).
+
+---
+
+## 6. Format
 Langes Markdown-Dokument. Struktur nach §2 (A–G). Konkret, mit Beispielen,
 mit klaren Empfehlungen statt Optionslisten. Wo du eine Zahl aus dem Code
 brauchst, nenn die Datei — der Rest steht oben.
