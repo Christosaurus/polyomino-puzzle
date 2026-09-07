@@ -497,12 +497,6 @@
         width: 100%;
         height: auto;
       }
-      /* soften the two seams where the painted tiles meet */
-      .talkarte img + img {
-        margin-top: -7%;
-        -webkit-mask-image: linear-gradient(180deg, transparent, #000 11%);
-        mask-image: linear-gradient(180deg, transparent, #000 11%);
-      }
       /* keep white UI readable over the painting, and sink the bottom into the app ground */
       .talkarte::before {
         content: "";
@@ -1916,9 +1910,7 @@
     <div id="app">
       <section class="screen" id="screen-home">
         <div class="talkarte" aria-hidden="true">
-          <img src="bg/talkarte-garten.webp" alt="" />
-          <img src="bg/talkarte-werkstatt.webp" alt="" />
-          <img src="bg/talkarte-farbhof.webp" alt="" />
+          <img src="bg/talkarte.webp" alt="" />
         </div>
         <div class="topbar">
           <div class="avatar" id="home-avatar">🙂</div>
