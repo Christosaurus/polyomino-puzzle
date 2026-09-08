@@ -42,7 +42,18 @@ let chainPending: string | null = null;
 let wander: string[] = [];
 let seals = new Map<string, string>();
 let stuck = new Set<string>();
-let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" | "stuck" = "soot";
+let doubles: Array<[string, string]> = [];
+let doublePending: string | null = null;
+let mode:
+  | "soot"
+  | "crack"
+  | "ice"
+  | "candle"
+  | "chain"
+  | "wander"
+  | "seal"
+  | "stuck"
+  | "double" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -88,6 +99,8 @@ function generate(): void {
   wander = [];
   seals = new Map();
   stuck = new Set();
+  doubles = [];
+  doublePending = null;
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -286,6 +299,40 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Doppelscheiben: F (vorne) → 2 (hinten)
+  for (const [f, bk] of doubles) {
+    for (const [k, lbl] of [
+      [f, "F"],
+      [bk, "2"],
+    ] as const) {
+      const [dr, dc] = k.split(",").map(Number) as Cell;
+      const px = x + (dc - originCol + 0.5) * cell;
+      const py = y + (dr - originRow + 0.5) * cell;
+      ctx.save();
+      ctx.strokeStyle = "rgba(200,235,255,0.8)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px - cell * 0.34, py - cell * 0.34, cell * 0.68, cell * 0.68);
+      ctx.fillStyle = "#dbe8ff";
+      ctx.font = `700 ${Math.round(cell * 0.3)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(lbl, px, py);
+      ctx.restore();
+    }
+    // Verbindung
+    const [fr, fc] = f.split(",").map(Number) as Cell;
+    const [br2, bc2] = bk.split(",").map(Number) as Cell;
+    ctx.save();
+    ctx.strokeStyle = "rgba(150,190,240,0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x + (fc - originCol + 0.5) * cell, y + (fr - originRow + 0.5) * cell);
+    ctx.lineTo(x + (bc2 - originCol + 0.5) * cell, y + (br2 - originRow + 0.5) * cell);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Feste Splitter
   for (const key of stuck) {
     const [sr, sc] = key.split(",").map(Number) as Cell;
@@ -463,6 +510,24 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
 
+  if (mode === "double") {
+    const key = cellKey(abs[0], abs[1]);
+    const hit = doubles.findIndex(([f, b]) => f === key || b === key);
+    if (hit >= 0 && !doublePending) {
+      doubles.splice(hit, 1);
+      refresh();
+      return;
+    }
+    if (!doublePending) doublePending = key;
+    else if (doublePending === key) doublePending = null;
+    else {
+      doubles.push([doublePending, key]);
+      doublePending = null;
+    }
+    refresh();
+    return;
+  }
+
   if (mode === "seal") {
     const key = cellKey(abs[0], abs[1]);
     if (seals.has(key)) {
@@ -614,6 +679,12 @@ function build(): Level | null {
   if (stuck.size > 0) {
     mech.stuck = [...stuck].map((k) => k.split(",").map(Number) as Cell);
   }
+  if (doubles.length > 0) {
+    mech.double = doubles.map(([f, b]) => [
+      f.split(",").map(Number) as Cell,
+      b.split(",").map(Number) as Cell,
+    ]);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -661,7 +732,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} ${goal === "moth" ? "Motten" : "Ruß"} · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel · ${stuck.size} Splitter` +
+      : `${out.pieces.length} Teile · ${soot.size} ${goal === "moth" ? "Motten" : "Ruß"} · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel · ${stuck.size} Splitter · ${doubles.length} Doppel` +
         (partial ? ` · ${need} Teile reichen` : "");
 }
 
@@ -691,6 +762,7 @@ $("m-chain").addEventListener("click", () => setMode("chain"));
 $("m-wander").addEventListener("click", () => setMode("wander"));
 $("m-seal").addEventListener("click", () => setMode("seal"));
 $("m-stuck").addEventListener("click", () => setMode("stuck"));
+$("m-double").addEventListener("click", () => setMode("double"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
@@ -701,13 +773,25 @@ $("clear").addEventListener("click", () => {
   wander = [];
   seals = new Map();
   stuck = new Set();
+  doubles = [];
+  doublePending = null;
   refresh();
 });
 function setMode(
-  m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" | "stuck",
+  m:
+    | "soot"
+    | "crack"
+    | "ice"
+    | "candle"
+    | "chain"
+    | "wander"
+    | "seal"
+    | "stuck"
+    | "double",
 ): void {
   mode = m;
   chainPending = null;
+  doublePending = null;
   $("m-soot").classList.toggle("on", m === "soot");
   $("m-crack").classList.toggle("on", m === "crack");
   $("m-ice").classList.toggle("on", m === "ice");
@@ -716,6 +800,7 @@ function setMode(
   $("m-wander").classList.toggle("on", m === "wander");
   $("m-seal").classList.toggle("on", m === "seal");
   $("m-stuck").classList.toggle("on", m === "stuck");
+  $("m-double").classList.toggle("on", m === "double");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
@@ -731,7 +816,9 @@ function setMode(
                 ? "Scheiben der Reihe nach antippen — das ist der Gang der Wanderscherbe (jeder Schritt eine Nachbarscheibe). Auf eine nummerierte Scheibe tippen schneidet den Gang dort ab. Kurz halten (3–5)."
                 : m === "seal"
                   ? "Auf eine Scheibe tippen versiegelt sie mit dem Teil, das sie in der Lösung deckt — nur dieses Teil darf dann dahin. Nochmal tippen entfernt das Siegel."
-                  : "Auf eine Scheibe tippen rammt einen festen Splitter hinein — nie deckbar. Nur an Scheiben sinnvoll, die die Lösung nicht braucht (der Validator meckert sonst).";
+                  : m === "stuck"
+                    ? "Auf eine Scheibe tippen rammt einen festen Splitter hinein — nie deckbar. Nur an Scheiben sinnvoll, die die Lösung nicht braucht (der Validator meckert sonst)."
+                    : "Erst die vordere, dann die hintere Scheibe antippen — die hintere geht erst, wenn die vordere bedeckt ist. Auf ein Ende tippen löscht das Paar. Am besten zwei benachbarte Scheiben aus verschiedenen Teilen.";
   refresh();
 }
 

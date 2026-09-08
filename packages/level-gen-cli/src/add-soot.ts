@@ -41,7 +41,8 @@ type Pattern =
   | "wander"
   | "seal"
   | "stuck"
-  | "moth";
+  | "moth"
+  | "double";
 
 interface Recipe {
   id: string;
@@ -100,6 +101,9 @@ const RECIPES: Recipe[] = [
   // du baust drumherum, bis sie weg ist.
   { id: "wander_01", shapeLabel: "rect-4x5", pattern: "wander", difficulty: 4, insertAt: 33, slack: 4 },
   { id: "wander_02", shapeLabel: "rect-5x8", pattern: "wander", difficulty: 5, insertAt: 39, slack: 3 },
+  // Doppelscheibe — Farbhof / Boss-Tier. Erst die vordere Lage, dann die hintere.
+  { id: "double_01", shapeLabel: "rect-4x5", pattern: "double", difficulty: 5, insertAt: 34, slack: 3 },
+  { id: "double_02", shapeLabel: "rect-5x6", pattern: "double", difficulty: 5, insertAt: 40, slack: 3 },
   // Das letzte Fenster — der Boss. Groß, geschnitten (Risse) und mit der Kerze
   // ganz zum Schluss. Alles, was Anselm gelernt hat, auf einmal.
   { id: "boss_01", shapeLabel: "rect-5x9", pattern: "boss", difficulty: 5, insertAt: 42, slack: 4 },
@@ -402,6 +406,52 @@ function attachStuck(level: Level, nth: number): Cell | null {
   return [sr + originRow, W + originCol];
 }
 
+/**
+ * Doppelscheibe: sucht Kanten zwischen zwei benachbarten Lösungsteilen und
+ * macht die eine Zelle zur vorderen, die andere zur hinteren Lage. Weil das
+ * vordere Teil nicht zwingend zuerst kommen muss (das prüft `validateLevel`),
+ * werden bis zu `want` Paare zurückgegeben; unlösbare fängt der Validator ab.
+ */
+function doubleFor(level: Level, want: number, nth: number): Array<[Cell, Cell]> {
+  const { originRow, originCol } = level.shape;
+  const owner = new Map<string, string>();
+  for (const p of level.solution) {
+    for (const [r, c] of p.cells) owner.set(`${r - originRow},${c - originCol}`, p.pieceId);
+  }
+  const edges: Array<[Cell, Cell]> = [];
+  for (const [k, pid] of owner) {
+    const [r, c] = k.split(",").map(Number) as Cell;
+    for (const [dr, dc] of [
+      [0, 1],
+      [1, 0],
+    ] as const) {
+      const nk = `${r + dr},${c + dc}`;
+      const npid = owner.get(nk);
+      if (npid && npid !== pid) edges.push([[r, c], [r + dr, c + dc]]);
+    }
+  }
+  if (edges.length === 0) return [];
+  const step = Math.max(1, Math.floor(edges.length / Math.max(1, want)));
+  const out: Array<[Cell, Cell]> = [];
+  const usedBack = new Set<string>();
+  const usedFront = new Set<string>();
+  for (let i = 0; i < want && out.length < want; i++) {
+    const e = edges[(nth + i * step) % edges.length]!;
+    // vordere = die zum Rand hin liegende Zelle, hintere = die andere
+    const [a, b] = e;
+    const ka = `${a[0]},${a[1]}`;
+    const kb = `${b[0]},${b[1]}`;
+    if (usedBack.has(kb) || usedBack.has(ka) || usedFront.has(ka) || usedFront.has(kb)) continue;
+    out.push([a, b]);
+    usedFront.add(ka);
+    usedBack.add(kb);
+  }
+  return out.map(([a, b]) => [
+    [a[0] + originRow, a[1] + originCol],
+    [b[0] + originRow, b[1] + originCol],
+  ]);
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -558,6 +608,23 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "double") {
+      const want = recipe.difficulty >= 5 ? 3 : 2;
+      const pairs = doubleFor(level, want, attempt);
+      if (pairs.length < 2) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { double: pairs };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id} ${recipe.shapeLabel.padEnd(9)} double  ${pairs.length} Doppelscheiben` +
+          `          Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     if (recipe.pattern === "chain") {
       const local = chainFor(level, attempt);
       if (local.length === 0) continue;
@@ -681,6 +748,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("seal_") &&
     !String(l.id).startsWith("stuck_") &&
     !String(l.id).startsWith("moth_") &&
+    !String(l.id).startsWith("double_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -701,6 +769,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.seals ? { seals: level.mechanics.seals.length } : {}),
     ...(level.mechanics?.stuck ? { stuck: level.mechanics.stuck.length } : {}),
     ...(level.mechanics?.moths ? { moths: level.mechanics.moths.length } : {}),
+    ...(level.mechanics?.double ? { double: level.mechanics.double.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

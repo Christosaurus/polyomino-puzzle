@@ -379,6 +379,15 @@
       "moveBudget": 8
     },
     {
+      "id": "double_01",
+      "difficulty": 5,
+      "pieces": "YLPZ",
+      "rows": 4,
+      "cols": 5,
+      "double": 3,
+      "moveBudget": 7
+    },
+    {
       "id": "ice_01",
       "difficulty": 4,
       "pieces": "NYVT",
@@ -430,6 +439,15 @@
       "meanBranching": 6.5
     },
     {
+      "id": "double_02",
+      "difficulty": 5,
+      "pieces": "IPYULN",
+      "rows": 5,
+      "cols": 6,
+      "double": 2,
+      "moveBudget": 9
+    },
+    {
       "id": "wander_02",
       "difficulty": 5,
       "pieces": "ULWVYNZT",
@@ -437,6 +455,16 @@
       "cols": 8,
       "wander": 5,
       "moveBudget": 11
+    },
+    {
+      "id": "boss_01",
+      "difficulty": 5,
+      "pieces": "YFTNLXZPW",
+      "rows": 5,
+      "cols": 9,
+      "cracks": 3,
+      "candle": 1,
+      "moveBudget": 13
     },
     {
       "id": "ice_02",
@@ -457,16 +485,6 @@
       "solverNodes": 4457,
       "forcedMoveFraction": 0.5,
       "meanBranching": 7
-    },
-    {
-      "id": "boss_01",
-      "difficulty": 5,
-      "pieces": "YFTNLXZPW",
-      "rows": 5,
-      "cols": 9,
-      "cracks": 3,
-      "candle": 1,
-      "moveBudget": 13
     },
     {
       "id": "candle_01",

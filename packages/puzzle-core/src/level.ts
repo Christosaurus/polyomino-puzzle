@@ -140,6 +140,14 @@ export interface LevelMechanics {
    * a partial goal with a count and a bit of delight.
    */
   moths?: Array<[number, number]>;
+  /**
+   * Double panes: each entry is `[front, back]`. The **back** pane cannot be
+   * covered until the **front** pane is covered — by an already-placed piece, or
+   * by the same piece in the same move. You have to clear the outer glass before
+   * you can reach the inner one. Front and back need not be adjacent. Validated
+   * so some placement order of the solution clears front before back.
+   */
+  double?: Array<[[number, number], [number, number]]>;
 }
 
 export interface Level {
@@ -467,6 +475,23 @@ export function validateLevel(level: unknown): string[] {
       }
     }
   }
+  const dbl = l.mechanics?.double;
+  if (dbl !== undefined) {
+    if (!Array.isArray(dbl)) {
+      errors.push("mechanics.double must be an array");
+    } else {
+      for (const [front, back] of dbl) {
+        const kf = `${front[0]},${front[1]}`;
+        const kb = `${back[0]},${back[1]}`;
+        if (!shapeCells.has(kf)) errors.push(`double front ${kf} is outside the shape`);
+        if (!shapeCells.has(kb)) errors.push(`double back ${kb} is outside the shape`);
+        if (kf === kb) errors.push(`double pane ${kf} points at itself`);
+      }
+      if (dbl.length > 0 && !solutionRespectsDouble(l.solution, dbl)) {
+        errors.push("no placement order of the solution clears every front before its back");
+      }
+    }
+  }
   const seals = l.mechanics?.seals;
   if (seals !== undefined) {
     if (!Array.isArray(seals)) {
@@ -489,6 +514,40 @@ export function validateLevel(level: unknown): string[] {
   void cellKey; // reserved for a future stricter piece-shape check
 
   return errors;
+}
+
+/**
+ * Greedy: can the solution's pieces be laid so that for every [front, back]
+ * pane, the front is covered no later than the back? Repeatedly place any piece
+ * whose back-cells all have their front covered (already, or by the same piece).
+ */
+function solutionRespectsDouble(
+  solution: LevelPlacement[],
+  pairs: Array<[[number, number], [number, number]]>,
+): boolean {
+  const backToFront = new Map<string, string>();
+  for (const [f, b] of pairs) backToFront.set(`${b[0]},${b[1]}`, `${f[0]},${f[1]}`);
+  const covered = new Set<string>();
+  const remaining = solution.map((p) => p.cells.map(([r, c]) => `${r},${c}`));
+  let moved = true;
+  while (remaining.length > 0 && moved) {
+    moved = false;
+    for (let i = 0; i < remaining.length; i++) {
+      const cells = remaining[i]!;
+      const own = new Set(cells);
+      const ok = cells.every((k) => {
+        const front = backToFront.get(k);
+        return front === undefined || covered.has(front) || own.has(front);
+      });
+      if (ok) {
+        for (const k of cells) covered.add(k);
+        remaining.splice(i, 1);
+        moved = true;
+        break;
+      }
+    }
+  }
+  return remaining.length === 0;
 }
 
 /**

@@ -803,6 +803,57 @@ export class GameView {
   }
 
   /**
+   * Doppelscheiben: die vordere Scheibe bekommt einen kühlen Glasschimmer, die
+   * hintere liegt „tiefer" — milchig, mit einem feinen Rahmen, der sich öffnet,
+   * sobald die vordere bedeckt ist.
+   */
+  private drawDouble(b: BoardLayout): void {
+    if (!this.game.hasDouble) return;
+    const ctx = this.ctx;
+    for (const [r, c] of this.game.shape.cells) {
+      const x = b.x + c * b.cell;
+      const y = b.y + r * b.cell;
+      if (this.game.isDoubleFront(r, c) && !this.game.isCovered(r, c)) {
+        ctx.save();
+        const g = ctx.createLinearGradient(x, y, x + b.cell, y + b.cell);
+        g.addColorStop(0, "rgba(180, 220, 255, 0.22)");
+        g.addColorStop(0.5, "rgba(255, 255, 255, 0.1)");
+        g.addColorStop(1, "rgba(120, 170, 230, 0.18)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x + 1, y + 1, b.cell - 2, b.cell - 2);
+        ctx.strokeStyle = "rgba(200, 230, 255, 0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + b.cell * 0.15, y + b.cell * 0.7);
+        ctx.lineTo(x + b.cell * 0.7, y + b.cell * 0.15);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (this.game.isDoubleBack(r, c) && !this.game.isCovered(r, c)) {
+        const open = this.game.isBackOpen(`${r},${c}`);
+        ctx.save();
+        ctx.fillStyle = open ? "rgba(150, 200, 245, 0.28)" : "rgba(70, 90, 130, 0.6)";
+        ctx.fillRect(x + 3, y + 3, b.cell - 6, b.cell - 6);
+        // Rahmen
+        ctx.strokeStyle = open ? "rgba(200, 235, 255, 0.7)" : "rgba(120, 140, 180, 0.7)";
+        ctx.lineWidth = Math.max(1.5, b.cell * 0.05);
+        ctx.setLineDash(open ? [] : [b.cell * 0.14, b.cell * 0.1]);
+        ctx.strokeRect(x + 3, y + 3, b.cell - 6, b.cell - 6);
+        ctx.setLineDash([]);
+        if (!open) {
+          // „2" — zweite Lage, noch verschlossen
+          ctx.fillStyle = "rgba(210, 220, 245, 0.8)";
+          ctx.font = `700 ${Math.round(b.cell * 0.34)}px system-ui, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("2", x + b.cell / 2, y + b.cell / 2);
+        }
+        ctx.restore();
+      }
+    }
+  }
+
+  /**
    * Lichtmotten: auf jeder unbedeckten Motten-Scheibe flattert eine kleine
    * Motte im eigenen Schein. Wird die Scheibe bedeckt, ist sie frei — hier
    * einfach weg. (Der Aufflug-Effekt lebt im Sieg-/Reinigungs-Blitz von
@@ -1039,6 +1090,7 @@ export class GameView {
     this.drawIce(b);
     this.drawChains(b);
     this.drawSeals(b);
+    this.drawDouble(b);
     this.drawCandles(b);
     this.drawWander(b);
 

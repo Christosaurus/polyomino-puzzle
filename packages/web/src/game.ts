@@ -92,6 +92,8 @@ export class GameState {
   private readonly seals: Map<string, PentominoName>;
   /** Feste Splitter: Scheiben, die nie bedeckt werden dürfen. */
   private readonly stuck: Set<string>;
+  /** Doppelscheiben: hintere Scheibe → vordere Scheibe (erst decken, dann geht die hintere). */
+  private readonly doubleBack: Map<string, string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -151,7 +153,33 @@ export class GameState {
     this.stuck = new Set(
       (level.mechanics?.stuck ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
     );
+    this.doubleBack = new Map(
+      (level.mechanics?.double ?? []).map(([f, b]): [string, string] => [
+        `${b[0] - originRow},${b[1] - originCol}`,
+        `${f[0] - originRow},${f[1] - originCol}`,
+      ]),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Doppelscheibe ─────────────────────────────────────────────────────────
+  get hasDouble(): boolean {
+    return this.doubleBack.size > 0;
+  }
+  /** Ist das eine hintere Scheibe (erst deckbar, wenn die vordere liegt)? */
+  isDoubleBack(row: number, col: number): boolean {
+    return this.doubleBack.has(`${row},${col}`);
+  }
+  /** Ist das eine vordere Scheibe (die äußere Lage einer Doppelscheibe)? */
+  isDoubleFront(row: number, col: number): boolean {
+    const k = `${row},${col}`;
+    for (const front of this.doubleBack.values()) if (front === k) return true;
+    return false;
+  }
+  /** Die hintere Scheibe ist frei, wenn ihre vordere schon bedeckt ist. */
+  isBackOpen(backKey: string): boolean {
+    const front = this.doubleBack.get(backKey);
+    return front === undefined || this.occupied().has(front);
   }
 
   // ── Fester Splitter ───────────────────────────────────────────────────────
@@ -602,6 +630,16 @@ export class GameState {
       const after = new Set(blocked);
       for (const [r, c] of cells) after.add(`${r},${c}`);
       if (after.size !== this.shapeCells.size - this.stuck.size) return false;
+    }
+    // Doppelscheibe: eine hintere Scheibe geht nur, wenn ihre vordere schon
+    // liegt — oder dasselbe Teil beide deckt.
+    if (this.doubleBack.size > 0) {
+      const own = new Set(cells.map(([r, c]) => `${r},${c}`));
+      const covered = this.occupied(piece.key);
+      for (const key of own) {
+        const front = this.doubleBack.get(key);
+        if (front !== undefined && !covered.has(front) && !own.has(front)) return false;
+      }
     }
     // Farbsiegel: eine versiegelte Scheibe nimmt nur ihr Teil.
     if (this.seals.size > 0) {

@@ -319,3 +319,36 @@ describe("validateLevel — stuck splinter", () => {
     expect(validateLevel(level).some((e) => /covers stuck splinter/.test(e))).toBe(true);
   });
 });
+
+describe("validateLevel — double pane", () => {
+  /** two orthogonally adjacent cells owned by different solution pieces */
+  function crossPieceEdge(level: Level): [[number, number], [number, number]] | null {
+    const owner = new Map<string, string>();
+    for (const p of level.solution) for (const [r, c] of p.cells) owner.set(`${r},${c}`, p.pieceId);
+    for (const p of level.solution) {
+      for (const [r, c] of p.cells) {
+        for (const [dr, dc] of [
+          [0, 1],
+          [1, 0],
+        ]) {
+          const n = owner.get(`${r + dr},${c + dc}`);
+          if (n && n !== p.pieceId) return [[r, c], [r + dr, c + dc]];
+        }
+      }
+    }
+    return null;
+  }
+
+  it("accepts a front→back pair the solution can clear in order", () => {
+    const { level } = sample3x5();
+    const edge = crossPieceEdge(level)!;
+    level.mechanics = { double: [edge] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a back cell outside the shape", () => {
+    const { level } = sample3x5();
+    level.mechanics = { double: [[level.solution[0]!.cells[0]!, [99, 99]]] };
+    expect(validateLevel(level).some((e) => /double back .* outside the shape/.test(e))).toBe(true);
+  });
+});

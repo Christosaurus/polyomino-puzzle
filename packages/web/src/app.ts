@@ -1076,6 +1076,9 @@ function introduceMechanic(game: GameState): void {
   } else if (game.hasIce && !seen.includes("tut-ice")) {
     store.markBeatSeen("tut-ice");
     toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
+  } else if (game.hasDouble && !seen.includes("tut-double")) {
+    store.markBeatSeen("tut-double");
+    toast("❖ Doppelscheibe: die hintere Lage geht erst, wenn die vordere bedeckt ist.");
   } else if (game.hasStuck && !seen.includes("tut-stuck")) {
     store.markBeatSeen("tut-stuck");
     toast("✦ Ein Splitter steckt fest — den deckst du nie. Bau drumherum.");
