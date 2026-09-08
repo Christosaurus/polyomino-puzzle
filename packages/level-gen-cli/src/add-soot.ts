@@ -31,7 +31,7 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks" | "ice" | "candle";
+type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss";
 
 interface Recipe {
   id: string;
@@ -71,6 +71,9 @@ const RECIPES: Recipe[] = [
   // Teil bis zum letzten Zug zurück. Farbhof, kurz vors Finale.
   { id: "candle_01", shapeLabel: "rect-4x5", pattern: "candle", difficulty: 4, insertAt: 32, slack: 3 },
   { id: "candle_02", shapeLabel: "rect-5x6", pattern: "candle", difficulty: 5, insertAt: 37, slack: 2 },
+  // Das letzte Fenster — der Boss. Groß, geschnitten (Risse) und mit der Kerze
+  // ganz zum Schluss. Alles, was Anselm gelernt hat, auf einmal.
+  { id: "boss_01", shapeLabel: "rect-5x9", pattern: "boss", difficulty: 5, insertAt: 42, slack: 4 },
 ];
 
 function sootFor(pattern: SootPattern, cells: Cell[], nth: number): Cell[] {
@@ -331,6 +334,37 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "boss") {
+      // Risse zerteilen das Fenster, die Kerze schließt es. Zusammen: das
+      // schwerste Fenster im Spiel, das letzte, das du mit Anselm baust.
+      const wantCracks = 3;
+      const local = cracksFor(level, shapeCells, wantCracks, attempt);
+      if (local.length < 2) continue;
+      const localC = candleFor(level, shapeCells, attempt);
+      if (localC.length === 0) continue;
+      // die Kerze darf nicht auf einer Riss-Kante hängen — das Kerzen-Teil
+      // muss frei bis zuletzt platzierbar bleiben
+      const crackCells = new Set(local.flat().map(([r, c]) => `${r},${c}`));
+      if (localC.some(([r, c]) => crackCells.has(`${r},${c}`))) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = {
+        cracks: local.map(([a, b]) => [
+          [a[0] + originRow, a[1] + originCol],
+          [b[0] + originRow, b[1] + originCol],
+        ]),
+        candle: localC.map(([r, c]) => [r + originRow, c + originCol]),
+      };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} boss    ${local.length} Risse + Kerze` +
+          `           Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     if (recipe.pattern === "candle") {
       const localC = candleFor(level, shapeCells, attempt);
       if (localC.length === 0) continue;
@@ -393,7 +427,8 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("soot_") &&
     !String(l.id).startsWith("crack_") &&
     !String(l.id).startsWith("ice_") &&
-    !String(l.id).startsWith("candle_"),
+    !String(l.id).startsWith("candle_") &&
+    !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
   writeFileSync(join(OUT, `${level.id}.json`), `${serializeLevel(level)}\n`);

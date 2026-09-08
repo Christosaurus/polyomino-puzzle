@@ -570,6 +570,12 @@ function queueBeat(panesBefore: number, panesAfter: number): void {
   if (b && !store.beatsSeen().includes(b.id)) pendingBeat = b;
 }
 
+/** Einen bestimmten Beat erzwingen (z. B. das Finale nach dem Boss-Fenster). */
+function forceBeat(id: string): void {
+  const b = BEATS.find((x) => x.id === id);
+  if (b && !store.beatsSeen().includes(b.id)) pendingBeat = b;
+}
+
 /** Wickelt eine „Weiter"-Aktion so ein, dass ein anstehender Beat davor läuft. */
 function throughBeat(next: () => void): () => void {
   return () => {
@@ -861,7 +867,10 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
   $("screen-play").dataset.region = region.id;
-  $("play-title-txt").textContent = `${region.name} · ${index + 1} / ${region.levels.length}`;
+  $("play-title-txt").textContent =
+    entry.id === "boss_01"
+      ? "Das letzte Fenster"
+      : `${region.name} · ${index + 1} / ${region.levels.length}`;
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -872,12 +881,16 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const assisted = store.pity(entry.id);
   // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
-  introduceMechanic(game);
+  if (entry.id === "boss_01") toast("🕯 Das letzte Fenster. Geschnitten wie in der Werkstatt — und die Kerze ganz zum Schluss.");
+  else introduceMechanic(game);
   mountGame(game, {
     onWin: (stars, ms) => {
       const panesBefore = store.panes();
       const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
       queueBeat(panesBefore, store.panes());
+      // das Boss-Fenster ist das Finale — die Szene kommt hier, egal wie viele
+      // Fenster schon hell sind
+      if (entry.id === "boss_01") forceBeat("finale");
       const hasNext = index + 1 < region.levels.length;
       const goNext = (): void =>
         void (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region)));
