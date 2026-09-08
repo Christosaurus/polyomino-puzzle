@@ -634,6 +634,57 @@ export class GameView {
     }
   }
 
+  /**
+   * Ketten: zwei Scheiben, die dasselbe Teil decken muss. Eine leuchtende Linie
+   * mit einem Ring an jedem Ende — sichtbar auch über gesetzten Teilen, damit
+   * man die Bindung nach dem Legen noch sieht.
+   */
+  private drawChains(b: BoardLayout): void {
+    if (!this.game.hasChains) return;
+    const ctx = this.ctx;
+    for (const [[ar, ac], [br, bc]] of this.game.chainPairs()) {
+      const ax = b.x + (ac + 0.5) * b.cell;
+      const ay = b.y + (ar + 0.5) * b.cell;
+      const bx = b.x + (bc + 0.5) * b.cell;
+      const by = b.y + (br + 0.5) * b.cell;
+      ctx.save();
+      ctx.lineCap = "round";
+      // dunkler Grund
+      ctx.strokeStyle = "rgba(10, 6, 24, 0.8)";
+      ctx.lineWidth = Math.max(4, b.cell * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      // heller Kern
+      const g = ctx.createLinearGradient(ax, ay, bx, by);
+      g.addColorStop(0, "#ffd36b");
+      g.addColorStop(0.5, "#ffb43b");
+      g.addColorStop(1, "#ffd36b");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = Math.max(2, b.cell * 0.07);
+      ctx.shadowColor = "#ffb43b";
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      // Ringe an den Enden
+      ctx.shadowBlur = 0;
+      for (const [x, y] of [
+        [ax, ay],
+        [bx, by],
+      ] as const) {
+        ctx.fillStyle = "rgba(255, 211, 107, 0.95)";
+        ctx.beginPath();
+        ctx.arc(x, y, b.cell * 0.14, 0, 6.28);
+        ctx.fill();
+        ctx.fillStyle = "rgba(20, 10, 30, 0.9)";
+        ctx.beginPath();
+        ctx.arc(x, y, b.cell * 0.07, 0, 6.28);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -773,6 +824,7 @@ export class GameView {
     // etwas liegt — sonst wüsste man nach dem Setzen nicht mehr, wo sie war
     this.drawCracks(b);
     this.drawIce(b);
+    this.drawChains(b);
     this.drawCandles(b);
 
     if (this.drag) this.drawDrag(layout);

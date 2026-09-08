@@ -84,6 +84,8 @@ export class GameState {
   private readonly ice: Set<string>;
   /** Kerzen-Scheiben. Müssen zuletzt gedeckt werden. */
   private readonly candle: Set<string>;
+  /** Verkettete Scheibenpaare `[a, b]` — dasselbe Teil muss beide decken. */
+  private readonly chains: Array<[string, string]>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -124,7 +126,27 @@ export class GameState {
     this.candle = new Set(
       (level.mechanics?.candle ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
     );
+    this.chains = (level.mechanics?.chains ?? []).map(([a, b]): [string, string] => [
+      `${a[0] - originRow},${a[1] - originCol}`,
+      `${b[0] - originRow},${b[1] - originCol}`,
+    ]);
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Kette ─────────────────────────────────────────────────────────────────
+  get hasChains(): boolean {
+    return this.chains.length > 0;
+  }
+  /** Jedes Kettenpaar als lokale Zellkoordinaten, für die Darstellung. */
+  chainPairs(): Array<[[number, number], [number, number]]> {
+    return this.chains.map(([a, b]) => {
+      const [ar, ac] = a.split(",").map(Number) as [number, number];
+      const [br, bc] = b.split(",").map(Number) as [number, number];
+      return [
+        [ar, ac],
+        [br, bc],
+      ];
+    });
   }
 
   // ── Kerze ─────────────────────────────────────────────────────────────────
@@ -496,6 +518,14 @@ export class GameState {
         const key = `${r},${c}`;
         if (!this.ice.has(key)) continue;
         if (!this.iceThawable(key, blocked)) return false;
+      }
+    }
+    // Kette: dasselbe Teil muss beide Enden decken — eins ohne das andere geht
+    // nicht.
+    if (this.chains.length > 0) {
+      const own = new Set(cells.map(([r, c]) => `${r},${c}`));
+      for (const [a, b] of this.chains) {
+        if (own.has(a) !== own.has(b)) return false;
       }
     }
     // Kerze: nur decken, wenn dieser Zug das Brett vollmacht — jede andere

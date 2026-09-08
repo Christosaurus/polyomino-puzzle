@@ -205,3 +205,28 @@ describe("validateLevel — candle mechanic", () => {
     expect(validateLevel(level).some((e) => /both cannot be last/.test(e))).toBe(true);
   });
 });
+
+describe("validateLevel — chain mechanic", () => {
+  it("accepts a chain between two cells of one solution piece", () => {
+    const { level } = sample3x5();
+    const p = level.solution[0]!;
+    level.mechanics = { chains: [[p.cells[0]!, p.cells[p.cells.length - 1]!]] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a chain spanning two solution pieces", () => {
+    const { level } = sample3x5();
+    level.mechanics = {
+      chains: [[level.solution[0]!.cells[0]!, level.solution[1]!.cells[0]!]],
+    };
+    expect(validateLevel(level).some((e) => /spans two solution pieces/.test(e))).toBe(true);
+  });
+
+  it("flags a chain cell outside the shape", () => {
+    const { level } = sample3x5();
+    level.mechanics = { chains: [[level.solution[0]!.cells[0]!, [99, 99]]] };
+    expect(
+      validateLevel(level).some((e) => /chain cell 99,99 is outside the shape/.test(e)),
+    ).toBe(true);
+  });
+});

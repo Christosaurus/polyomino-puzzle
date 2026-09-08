@@ -31,7 +31,7 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss";
+type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss" | "chain";
 
 interface Recipe {
   id: string;
@@ -71,6 +71,10 @@ const RECIPES: Recipe[] = [
   // Teil bis zum letzten Zug zurück. Farbhof, kurz vors Finale.
   { id: "candle_01", shapeLabel: "rect-4x5", pattern: "candle", difficulty: 4, insertAt: 32, slack: 3 },
   { id: "candle_02", shapeLabel: "rect-5x6", pattern: "candle", difficulty: 5, insertAt: 37, slack: 2 },
+  // Kette — Akt II, die Werkstatt. Zwei Scheiben, die dasselbe Teil decken
+  // muss. Man muss ein Teil setzen können, bevor man sieht, was es verbindet.
+  { id: "chain_01", shapeLabel: "rect-4x5", pattern: "chain", difficulty: 2, insertAt: 15, slack: 3 },
+  { id: "chain_02", shapeLabel: "rect-5x6", pattern: "chain", difficulty: 3, insertAt: 22, slack: 3 },
   // Das letzte Fenster — der Boss. Groß, geschnitten (Risse) und mit der Kerze
   // ganz zum Schluss. Alles, was Anselm gelernt hat, auf einmal.
   { id: "boss_01", shapeLabel: "rect-5x9", pattern: "boss", difficulty: 5, insertAt: 42, slack: 4 },
@@ -262,6 +266,35 @@ function candleFor(level: Level, shapeCells: Cell[], nth: number): Cell[] {
   return [cell];
 }
 
+/**
+ * Kette: die zwei am weitesten auseinander liegenden Zellen desselben
+ * Lösungsteils. Weit auseinander = die Bindung ist nicht offensichtlich, man
+ * muss das Teil vor sich sehen. Per Konstruktion lösbar, weil beide Zellen
+ * ohnehin von einem Teil gedeckt werden.
+ */
+function chainFor(level: Level, nth: number): Array<[Cell, Cell]> {
+  const { originRow, originCol } = level.shape;
+  const ranked = level.solution
+    .map((p) => {
+      const local = p.cells.map(([r, c]): Cell => [r - originRow, c - originCol]);
+      let best: [Cell, Cell] = [local[0]!, local[0]!];
+      let far = -1;
+      for (let i = 0; i < local.length; i++)
+        for (let j = i + 1; j < local.length; j++) {
+          const d = Math.abs(local[i]![0] - local[j]![0]) + Math.abs(local[i]![1] - local[j]![1]);
+          if (d > far) {
+            far = d;
+            best = [local[i]!, local[j]!];
+          }
+        }
+      return { pair: best, far };
+    })
+    .sort((a, b) => b.far - a.far);
+  const pick = ranked[nth % Math.min(2, ranked.length)];
+  if (!pick || pick.far < 2) return [];
+  return [pick.pair];
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -365,6 +398,28 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "chain") {
+      const local = chainFor(level, attempt);
+      if (local.length === 0) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = {
+        chains: local.map(([a, b]) => [
+          [a[0] + originRow, a[1] + originCol],
+          [b[0] + originRow, b[1] + originCol],
+        ]),
+      };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      const [a, b] = local[0]!;
+      console.log(
+        `${recipe.id} ${recipe.shapeLabel.padEnd(9)} chain   ${a[0]},${a[1]} — ${b[0]},${b[1]}` +
+          `           Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     if (recipe.pattern === "candle") {
       const localC = candleFor(level, shapeCells, attempt);
       if (localC.length === 0) continue;
@@ -428,6 +483,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("crack_") &&
     !String(l.id).startsWith("ice_") &&
     !String(l.id).startsWith("candle_") &&
+    !String(l.id).startsWith("chain_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -443,6 +499,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.cracks ? { cracks: level.mechanics.cracks.length } : {}),
     ...(level.mechanics?.ice ? { ice: level.mechanics.ice.length } : {}),
     ...(level.mechanics?.candle ? { candle: level.mechanics.candle.length } : {}),
+    ...(level.mechanics?.chains ? { chains: level.mechanics.chains.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

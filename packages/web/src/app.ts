@@ -1075,6 +1075,9 @@ function introduceMechanic(game: GameState): void {
   } else if (game.hasIce && !seen.includes("tut-ice")) {
     store.markBeatSeen("tut-ice");
     toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
+  } else if (game.hasChains && !seen.includes("tut-chain")) {
+    store.markBeatSeen("tut-chain");
+    toast("⛓ Verkettete Scheiben: ein und dasselbe Teil muss beide decken.");
   } else if (game.hasCracks && !seen.includes("tut-cracks")) {
     store.markBeatSeen("tut-cracks");
     toast("✂ Risse im Glas: kein Teil darf über eine Bruchkante liegen.");

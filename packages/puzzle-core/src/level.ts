@@ -101,6 +101,14 @@ export interface LevelMechanics {
    * deadlock.
    */
   candle?: Array<[number, number]>;
+  /**
+   * Chained panes: each entry is a pair of cells (need not be adjacent) that
+   * **one and the same piece must cover**. A piece that covers one end of a
+   * chain but not the other cannot be placed. Forces you to see, before you
+   * commit a piece, which far-apart panes it has to bridge. Both cells of every
+   * chain must belong to the same solution piece or the level is unsolvable.
+   */
+  chains?: Array<[[number, number], [number, number]]>;
 }
 
 export interface Level {
@@ -354,6 +362,26 @@ export function validateLevel(level: unknown): string[] {
       }
       if (owners.size > 1) {
         errors.push("candles span more than one solution piece — both cannot be last");
+      }
+    }
+  }
+  const chains = l.mechanics?.chains;
+  if (chains !== undefined) {
+    if (!Array.isArray(chains)) {
+      errors.push("mechanics.chains must be an array");
+    } else {
+      for (const [a, b] of chains) {
+        const ka = `${a[0]},${a[1]}`;
+        const kb = `${b[0]},${b[1]}`;
+        if (!shapeCells.has(ka)) errors.push(`chain cell ${ka} is outside the shape`);
+        if (!shapeCells.has(kb)) errors.push(`chain cell ${kb} is outside the shape`);
+        if (ka === kb) errors.push(`chain ${ka} links a cell to itself`);
+        // beide Enden müssen im selben Lösungsteil liegen, sonst unlösbar
+        const oa = l.solution.find((p) => p.cells.some(([r, c]) => `${r},${c}` === ka));
+        const ob = l.solution.find((p) => p.cells.some(([r, c]) => `${r},${c}` === kb));
+        if (oa && ob && oa.pieceId !== ob.pieceId) {
+          errors.push(`chain ${ka}|${kb} spans two solution pieces (${oa.pieceId}, ${ob.pieceId})`);
+        }
       }
     }
   }

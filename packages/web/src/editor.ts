@@ -37,7 +37,9 @@ let soot = new Set<string>();
 let cracks = new Set<string>();
 let ice = new Set<string>();
 let candle = new Set<string>();
-let mode: "soot" | "crack" | "ice" | "candle" = "soot";
+let chains: Array<[string, string]> = [];
+let chainPending: string | null = null;
+let mode: "soot" | "crack" | "ice" | "candle" | "chain" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -78,6 +80,8 @@ function generate(): void {
   cracks = new Set();
   ice = new Set();
   candle = new Set();
+  chains = [];
+  chainPending = null;
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -232,6 +236,50 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Ketten
+  for (const [a, b] of chains) {
+    const [ar, ac] = a.split(",").map(Number) as Cell;
+    const [br, bc] = b.split(",").map(Number) as Cell;
+    const ax = x + (ac - originCol + 0.5) * cell;
+    const ay = y + (ar - originRow + 0.5) * cell;
+    const bx = x + (bc - originCol + 0.5) * cell;
+    const by = y + (br - originRow + 0.5) * cell;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,180,59,0.9)";
+    ctx.lineWidth = Math.max(2, cell * 0.08);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.fillStyle = "#ffd36b";
+    for (const [px, py] of [
+      [ax, ay],
+      [bx, by],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(px, py, cell * 0.13, 0, 6.28);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (chainPending) {
+    const [pr, pc] = chainPending.split(",").map(Number) as Cell;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,211,107,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(
+      x + (pc - originCol + 0.5) * cell,
+      y + (pr - originRow + 0.5) * cell,
+      cell * 0.3,
+      0,
+      6.28,
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Kerze
   for (const key of candle) {
     const [ar, ac] = key.split(",").map(Number) as Cell;
@@ -327,6 +375,27 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
 
+  if (mode === "chain") {
+    const key = cellKey(abs[0], abs[1]);
+    // auf ein vorhandenes Kettenende tippen → Kette löschen
+    const hit = chains.findIndex(([a, b]) => a === key || b === key);
+    if (hit >= 0 && !chainPending) {
+      chains.splice(hit, 1);
+      refresh();
+      return;
+    }
+    if (!chainPending) {
+      chainPending = key;
+    } else if (chainPending === key) {
+      chainPending = null;
+    } else {
+      chains.push([chainPending, key]);
+      chainPending = null;
+    }
+    refresh();
+    return;
+  }
+
   if (mode === "ice") {
     const key = cellKey(abs[0], abs[1]);
     if (ice.has(key)) {
@@ -404,6 +473,12 @@ function build(): Level | null {
   if (candle.size > 0) {
     mech.candle = [...candle].map((k) => k.split(",").map(Number) as Cell);
   }
+  if (chains.length > 0) {
+    mech.chains = chains.map(([a, b]) => [
+      a.split(",").map(Number) as Cell,
+      b.split(",").map(Number) as Cell,
+    ]);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -450,7 +525,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -474,19 +549,24 @@ $("m-soot").addEventListener("click", () => setMode("soot"));
 $("m-crack").addEventListener("click", () => setMode("crack"));
 $("m-ice").addEventListener("click", () => setMode("ice"));
 $("m-candle").addEventListener("click", () => setMode("candle"));
+$("m-chain").addEventListener("click", () => setMode("chain"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
   ice = new Set();
   candle = new Set();
+  chains = [];
+  chainPending = null;
   refresh();
 });
-function setMode(m: "soot" | "crack" | "ice" | "candle"): void {
+function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain"): void {
   mode = m;
+  chainPending = null;
   $("m-soot").classList.toggle("on", m === "soot");
   $("m-crack").classList.toggle("on", m === "crack");
   $("m-ice").classList.toggle("on", m === "ice");
   $("m-candle").classList.toggle("on", m === "candle");
+  $("m-chain").classList.toggle("on", m === "chain");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
@@ -494,7 +574,9 @@ function setMode(m: "soot" | "crack" | "ice" | "candle"): void {
         ? "Nahe an eine Trennlinie tippen. Nur die blass markierten Kanten dürfen reißen — die anderen würden die Lösung zerschneiden."
         : m === "ice"
           ? "Auf eine Scheibe tippen, um sie zu vereisen. Eis taut erst, wenn ein Nachbar bedeckt ist — jede Eiszelle braucht mindestens einen freien Nachbarn."
-          : "Auf eine Scheibe tippen, um eine Kerze zu setzen. Die Kerze muss zuletzt gedeckt werden — jede Kerze in einem anderen Lösungsteil.";
+          : m === "candle"
+            ? "Auf eine Scheibe tippen, um eine Kerze zu setzen. Die Kerze muss zuletzt gedeckt werden — alle Kerzen in einem Lösungsteil."
+            : "Zwei Scheiben nacheinander antippen, um sie zu verketten — dasselbe Teil muss dann beide decken. Auf ein Kettenende tippen löscht die Kette. Beide Enden müssen im selben Lösungsteil liegen.";
   refresh();
 }
 

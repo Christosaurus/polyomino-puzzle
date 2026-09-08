@@ -190,6 +190,15 @@
       "meanBranching": 4.17
     },
     {
+      "id": "chain_01",
+      "difficulty": 2,
+      "pieces": "LPTY",
+      "rows": 4,
+      "cols": 5,
+      "chains": 1,
+      "moveBudget": 7
+    },
+    {
       "id": "level_012",
       "difficulty": 2,
       "pieces": "LIZPN",
@@ -250,6 +259,15 @@
       "solverNodes": 114,
       "forcedMoveFraction": 0.333,
       "meanBranching": 5.67
+    },
+    {
+      "id": "chain_02",
+      "difficulty": 3,
+      "pieces": "LUFXPT",
+      "rows": 5,
+      "cols": 6,
+      "chains": 1,
+      "moveBudget": 9
     },
     {
       "id": "level_016",
@@ -449,6 +467,16 @@
       "meanBranching": 7.11
     },
     {
+      "id": "boss_01",
+      "difficulty": 5,
+      "pieces": "YFTNLXZPW",
+      "rows": 5,
+      "cols": 9,
+      "cracks": 3,
+      "candle": 1,
+      "moveBudget": 13
+    },
+    {
       "id": "level_029",
       "difficulty": 5,
       "pieces": "WUNTZYFVXP",
@@ -469,16 +497,6 @@
       "solverNodes": 25681,
       "forcedMoveFraction": 0.2,
       "meanBranching": 8.9
-    },
-    {
-      "id": "boss_01",
-      "difficulty": 5,
-      "pieces": "YFTNLXZPW",
-      "rows": 5,
-      "cols": 9,
-      "cracks": 3,
-      "candle": 1,
-      "moveBudget": 13
     }
   ]
 }
