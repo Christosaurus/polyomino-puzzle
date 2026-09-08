@@ -18,6 +18,7 @@ import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { miraLine, type StoryPlace } from "./story.js";
 import { mountTalkarteFx } from "./talkarte.js";
+import { pickChatter } from "./chatter.js";
 import { windowName } from "./windows.js";
 import { GameView } from "./view.js";
 
@@ -427,6 +428,8 @@ function renderHome(): void {
   } else {
     $("screen-home").scrollTop = 0;
   }
+
+  window.setTimeout(maybeShowPeek, 3200);
 }
 
 function openRegion(index: number): void {
@@ -598,16 +601,65 @@ function winStarBurst(): void {
   winfxRaf = requestAnimationFrame(step);
 }
 
+const CHAR_EMOJI: Record<string, string> = { mira: "🏮", anselm: "🕯", gestalt: "◆" };
+
+/** Charakter-Portrait — das gemalte Bild, solange es da ist, sonst ein Emoji. */
+function paintChar(host: HTMLElement, speaker: string): void {
+  const img = document.createElement("img");
+  img.alt = "";
+  img.src = `ui/chars/${speaker}.webp`;
+  img.addEventListener("error", () => {
+    host.textContent = CHAR_EMOJI[speaker] ?? "✦";
+  });
+  host.replaceChildren(img);
+}
 /** Miras Portrait — das gemalte Bild, solange es da ist, sonst ihre Laterne. */
 function paintMira(host: HTMLElement): void {
   if (host.querySelector("img")) return; // schon gesetzt
-  const img = document.createElement("img");
-  img.alt = "Mira";
-  img.src = "ui/chars/mira.webp";
-  img.addEventListener("error", () => {
-    host.textContent = "🏮";
-  });
-  host.replaceChildren(img);
+  paintChar(host, "mira");
+}
+
+// ── Startbildschirm-Sprechblase (selten) ──────────────────────────────────
+let peekShownThisSession = false;
+let homeReturns = 0;
+
+/** Ab und zu schaut eine Figur auf dem Startbildschirm vorbei — höchstens einmal
+ *  pro Sitzung, nicht direkt nach einer Cutscene, und nur wenn schon etwas
+ *  passiert ist. */
+function maybeShowPeek(): void {
+  const peek = $("home-peek");
+  homeReturns += 1;
+  if (peekShownThisSession || pendingBeat || !$("cutscene").hidden) return;
+  const s = store.load();
+  const seen = new Set(store.beatsSeen());
+  if (!seen.has("intro-mira")) return; // Intro läuft/lief noch nicht durch
+  if (homeReturns < 2) return; // nicht gleich beim ersten Aufschlagen
+  const solvedAll = regions.every((r) => regionCleared(r) >= r.levels.length);
+  // die am weitesten freigeschaltete Region — daran hängt die Story-Stimmung
+  let unlockedRegion = 0;
+  for (let i = 0; i < regions.length; i++) if (store.panes(s) >= regions[i]!.panesToUnlock) unlockedRegion = i;
+  const line = pickChatter(
+    {
+      panes: store.panes(s),
+      region: unlockedRegion,
+      sawTwist: seen.has("a2-die-wendung"),
+      finished: solvedAll,
+    },
+    store.panes(s),
+  );
+  if (!line) return;
+  peekShownThisSession = true;
+  paintChar($("peek-face"), line.who);
+  $("peek-say").textContent = line.text;
+  peek.hidden = false;
+  window.setTimeout(() => peek.classList.add("show"), 60);
+  const hide = (): void => {
+    peek.classList.remove("show");
+    window.setTimeout(() => (peek.hidden = true), 450);
+    peek.removeEventListener("click", hide);
+  };
+  peek.addEventListener("click", hide);
+  window.setTimeout(hide, 7000);
 }
 
 // ── Story-Beat / Cutscene ──────────────────────────────────────────────────

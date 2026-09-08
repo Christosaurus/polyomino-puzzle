@@ -522,6 +522,56 @@
         );
       }
 
+      /* ── Sprechblasen-Peek auf dem Startbildschirm ── */
+      .home-peek {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: calc(env(safe-area-inset-bottom) + 78px);
+        max-width: 596px;
+        margin: 0 auto;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px 10px 10px;
+        border: 2px solid color-mix(in srgb, var(--aqua) 40%, var(--border));
+        border-radius: var(--r-md);
+        background: linear-gradient(180deg, rgba(58, 43, 158, 0.97), rgba(30, 22, 84, 0.97));
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 12px 28px -8px rgba(0, 0, 0, 0.7);
+        text-align: left;
+        transform: translateY(140%);
+        transition: transform 0.42s var(--tap);
+      }
+      .home-peek.show {
+        transform: translateY(0);
+      }
+      .peek-face {
+        flex: none;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 24px;
+        overflow: hidden;
+        background: radial-gradient(circle at 34% 28%, #6a4be6, #2b1f7a 78%);
+        border: 2px solid color-mix(in srgb, var(--aqua) 55%, #fff);
+      }
+      .peek-face img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .peek-say {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: #eae4ff;
+        text-shadow: 0 2px 0 var(--stroke);
+      }
+
       /* ── Journey (Reise) ───────────────────────────── */
       .journey {
         position: relative;
@@ -1988,6 +2038,11 @@
         <button class="go big" id="home-play" hidden>Weiter</button>
         <div class="journey" id="regions"></div>
       </section>
+
+      <button class="home-peek" id="home-peek" hidden>
+        <span class="peek-face" id="peek-face"></span>
+        <span class="peek-say" id="peek-say"></span>
+      </button>
 
       <section class="screen" id="screen-region" hidden>
         <div class="topbar">
