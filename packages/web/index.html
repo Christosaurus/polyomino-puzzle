@@ -522,54 +522,91 @@
         );
       }
 
-      /* ── Sprechblasen-Peek auf dem Startbildschirm ── */
+      /* ── Sprechblasen-Peek auf dem Startbildschirm ──
+         Gleiche Bühne wie die Cutscene, nur kleiner: die Figur schiebt sich
+         von unten links ins Bild, die Blase hängt rechts daneben. */
       .home-peek {
+        /* eine Größe steuert Figur, Höhe und den Start der Blase — so bleibt
+           der Zipfel immer neben der Figur, auch auf kurzen Displays */
+        --peek-face: clamp(124px, 23vh, 180px);
         position: fixed;
-        left: 12px;
-        right: 12px;
-        bottom: calc(env(safe-area-inset-bottom) + 78px);
-        max-width: 596px;
+        left: 0;
+        right: 0;
+        bottom: calc(env(safe-area-inset-bottom) + 62px);
+        height: calc(var(--peek-face) + 20px);
+        max-width: 620px;
         margin: 0 auto;
         z-index: 30;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 16px 10px 10px;
-        border: 2px solid color-mix(in srgb, var(--aqua) 40%, var(--border));
-        border-radius: var(--r-md);
-        background: linear-gradient(180deg, rgba(58, 43, 158, 0.97), rgba(30, 22, 84, 0.97));
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 12px 28px -8px rgba(0, 0, 0, 0.7);
+        padding: 0;
+        border: 0;
+        background: none;
+        box-shadow: none;
         text-align: left;
-        transform: translateY(140%);
+        text-shadow: none;
+        transform: translateY(118%);
         transition: transform 0.42s var(--tap);
+        /* nur Figur und Blase fangen Taps — die leere Fläche darf nicht die
+           Regionskarten darunter blockieren */
+        pointer-events: none;
       }
       .home-peek.show {
         transform: translateY(0);
       }
+      .peek-face,
+      .peek-say {
+        pointer-events: auto;
+      }
       .peek-face {
-        flex: none;
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
+        position: absolute;
+        left: -14px;
+        bottom: -12px;
+        width: var(--peek-face);
+        height: var(--peek-face);
         display: grid;
-        place-items: center;
-        font-size: 24px;
-        overflow: hidden;
-        background: radial-gradient(circle at 34% 28%, #6a4be6, #2b1f7a 78%);
-        border: 2px solid color-mix(in srgb, var(--aqua) 55%, #fff);
+        place-items: end center;
+        font-size: 62px;
+        line-height: 1;
+        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.65));
       }
       .peek-face img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
+        object-position: bottom center;
       }
       .peek-say {
-        flex: 1;
+        position: absolute;
+        left: calc(var(--peek-face) - 4px);
+        right: 12px;
+        top: 10px;
+        padding: 11px 13px;
         font-size: 13px;
-        font-weight: 700;
-        line-height: 1.35;
-        color: #eae4ff;
-        text-shadow: 0 2px 0 var(--stroke);
+        font-weight: 800;
+        line-height: 1.3;
+        color: #1a1038;
+        background: #fbf4e4;
+        border: 3px solid #241653;
+        border-radius: 18px;
+        box-shadow:
+          0 10px 24px -6px rgba(0, 0, 0, 0.7),
+          inset 0 0 0 2px rgba(255, 194, 59, 0.4);
+      }
+      .peek-say::before,
+      .peek-say::after {
+        content: "";
+        position: absolute;
+        bottom: 14px;
+        width: 0;
+        height: 0;
+        border: 12px solid transparent;
+      }
+      .peek-say::before {
+        left: -24px;
+        border-right-color: #241653;
+      }
+      .peek-say::after {
+        left: -19px;
+        border-right-color: #fbf4e4;
       }
 
       /* ── Journey (Reise) ───────────────────────────── */
@@ -1632,7 +1669,7 @@
       /* ── Cutscene (Story-Beat) ─────────────────────────────────────── */
       .overlay.cutscene {
         background: rgba(8, 5, 26, 0.92);
-        align-items: flex-end;
+        align-items: stretch;
         padding: 0;
       }
       .cs-scene {
@@ -1687,75 +1724,120 @@
         text-shadow: none;
         border-radius: 999px;
       }
+      /* Bühne: Figur groß unten links, Sprechblase rechts daneben — der
+         Clash-of-Clans-Auftritt, nicht der Chat-Kachel-Look. */
       .cs-box {
         position: relative;
         z-index: 1;
         width: 100%;
         max-width: 620px;
+        height: 100%;
         margin: 0 auto;
-        display: flex;
-        align-items: flex-end;
-        gap: 14px;
-        padding: 20px 18px calc(env(safe-area-inset-bottom) + 24px);
       }
+      /* Die Figur steht auf der Kante und ist links/unten angeschnitten —
+         kein Rahmen, kein Kärtchen. Nur das gemalte Bild. */
       .cs-portrait {
-        flex: none;
-        width: 110px;
-        height: 130px;
-        border-radius: 18px;
+        position: absolute;
+        left: -8%;
+        bottom: calc(env(safe-area-inset-bottom) * -1 - 12px);
+        width: 68%;
+        max-width: 320px;
+        aspect-ratio: 1;
         display: grid;
-        place-items: center;
-        font-size: 52px;
-        overflow: hidden;
-        background: radial-gradient(circle at 34% 26%, #6a4be6, #2b1f7a 78%);
-        border: 3px solid color-mix(in srgb, var(--gold) 45%, #fff);
-        box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.7);
-        animation: cs-portrait-in 0.4s var(--tap) both;
+        place-items: end center;
+        font-size: 108px;
+        line-height: 1;
+        filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.7));
+        animation: cs-portrait-in 0.42s var(--tap) both;
+        pointer-events: none;
       }
       .cs-portrait img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
+        object-position: bottom center;
       }
       @keyframes cs-portrait-in {
         from {
           opacity: 0;
-          transform: translateY(12px) scale(0.9);
+          transform: translate(-14px, 18px);
         }
       }
-      .cs-text {
-        flex: 1;
-        background: linear-gradient(180deg, rgba(58, 43, 158, 0.96), rgba(30, 22, 84, 0.96));
-        border: 2px solid color-mix(in srgb, var(--gold) 40%, var(--border));
-        border-radius: var(--r-md);
-        padding: 14px 16px;
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 8px 20px -6px rgba(0, 0, 0, 0.6);
+      /* Echte Comic-Sprechblase: hell, schwarze Schrift, Zipfel zur Figur. */
+      .cs-bubble {
+        position: absolute;
+        left: 44%;
+        right: 14px;
+        bottom: 40%;
+        background: #fbf4e4;
+        border: 3px solid #241653;
+        border-radius: 20px;
+        padding: 13px 15px 10px;
+        box-shadow:
+          0 12px 28px -6px rgba(0, 0, 0, 0.75),
+          inset 0 0 0 2px rgba(255, 194, 59, 0.4);
+        animation: cs-bubble-in 0.3s var(--tap) 0.12s both;
+      }
+      @keyframes cs-bubble-in {
+        from {
+          opacity: 0;
+          transform: scale(0.9) translateY(8px);
+        }
+      }
+      /* Zipfel: erst die Rahmenfarbe, dann die Innenfläche knapp darüber */
+      .cs-bubble::before,
+      .cs-bubble::after {
+        content: "";
+        position: absolute;
+        bottom: 18px;
+        width: 0;
+        height: 0;
+        border: 15px solid transparent;
+      }
+      .cs-bubble::before {
+        left: -30px;
+        border-right-color: #241653;
+      }
+      .cs-bubble::after {
+        left: -24px;
+        border-right-color: #fbf4e4;
       }
       .cs-name {
         font-weight: 800;
-        font-size: 14px;
-        color: var(--gold);
-        text-shadow: 0 2px 0 var(--stroke);
-        margin-bottom: 4px;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #7a4bd6;
+        margin-bottom: 3px;
       }
       .cs-name:empty {
         display: none;
       }
       .cs-lines {
         font-size: 15px;
-        font-weight: 600;
-        line-height: 1.4;
-        color: #eae4ff;
+        font-weight: 800;
+        line-height: 1.32;
+        color: #1a1038;
         min-height: 3.2em;
       }
       .cs-tap {
-        margin-top: 8px;
-        font-size: 11px;
-        letter-spacing: 0.08em;
+        margin-top: 6px;
+        font-size: 10px;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
-        color: var(--ink-dim);
+        color: rgba(36, 22, 83, 0.45);
         text-align: right;
         animation: cs-tap-pulse 1.4s ease-in-out infinite;
+      }
+      /* schmale Geräte: Blase etwas breiter, Figur etwas kleiner */
+      @media (max-width: 400px) {
+        .cs-portrait {
+          width: 62%;
+        }
+        .cs-bubble {
+          left: 38%;
+          bottom: 38%;
+        }
       }
       .cs-tap.busy {
         visibility: hidden;
@@ -2161,7 +2243,7 @@
         <button class="cs-skip" id="cs-skip">überspringen ›</button>
         <div class="cs-box">
           <div class="cs-portrait" id="cs-portrait"></div>
-          <div class="cs-text">
+          <div class="cs-bubble">
             <div class="cs-name" id="cs-name"></div>
             <div class="cs-lines" id="cs-lines"></div>
             <div class="cs-tap" id="cs-tap">tippen</div>
