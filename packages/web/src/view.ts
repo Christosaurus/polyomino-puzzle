@@ -590,6 +590,50 @@ export class GameView {
     }
   }
 
+  /**
+   * Kerzen: eine kleine Flamme auf der Scheibe, solange sie offen ist. Flackert
+   * unruhig, solange noch woanders Lücken sind — steht ruhig und hell, sobald
+   * der nächste Zug auf sie der letzte wäre. Das ist der ganze Hinweis: „jetzt".
+   */
+  private drawCandles(b: BoardLayout): void {
+    if (!this.game.hasCandle) return;
+    const ctx = this.ctx;
+    const ready = this.game.candleReady;
+    for (const [r, c] of this.game.shape.cells) {
+      if (!this.game.isCandle(r, c) || this.game.isCovered(r, c)) continue;
+      const cx = b.x + (c + 0.5) * b.cell;
+      const cy = b.y + (r + 0.5) * b.cell;
+      const flick = ready ? 0 : Math.sin(this.nowMs / 70) * 0.14 + Math.sin(this.nowMs / 23) * 0.06;
+      const hot = ready ? 1 : 0.72;
+      ctx.save();
+      // Wachsstock
+      ctx.fillStyle = "rgba(240, 230, 205, 0.9)";
+      ctx.fillRect(cx - b.cell * 0.05, cy, b.cell * 0.1, b.cell * 0.22);
+      // Halo
+      const halo = ctx.createRadialGradient(cx, cy - b.cell * 0.05, 0, cx, cy - b.cell * 0.05, b.cell * (0.6 + flick));
+      halo.addColorStop(0, `rgba(255, 224, 150, ${0.55 * hot})`);
+      halo.addColorStop(1, "rgba(255, 224, 150, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(cx, cy - b.cell * 0.05, b.cell * (0.6 + flick), 0, 6.28);
+      ctx.fill();
+      // Flamme
+      const fh = b.cell * (0.3 + flick * 0.5) * hot;
+      const fw = b.cell * 0.11;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - b.cell * 0.02);
+      ctx.quadraticCurveTo(cx - fw, cy - fh * 0.5, cx, cy - fh);
+      ctx.quadraticCurveTo(cx + fw, cy - fh * 0.5, cx, cy - b.cell * 0.02);
+      const fl = ctx.createLinearGradient(cx, cy, cx, cy - fh);
+      fl.addColorStop(0, "#ff9c3d");
+      fl.addColorStop(0.6, "#ffd36b");
+      fl.addColorStop(1, "#fff6d8");
+      ctx.fillStyle = fl;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -729,6 +773,7 @@ export class GameView {
     // etwas liegt — sonst wüsste man nach dem Setzen nicht mehr, wo sie war
     this.drawCracks(b);
     this.drawIce(b);
+    this.drawCandles(b);
 
     if (this.drag) this.drawDrag(layout);
     if (this.confetti.active) this.confetti.step(ctx, 1 / 60);

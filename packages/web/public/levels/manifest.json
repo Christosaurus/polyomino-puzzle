@@ -367,6 +367,15 @@
       "meanBranching": 7
     },
     {
+      "id": "candle_01",
+      "difficulty": 4,
+      "pieces": "FPUY",
+      "rows": 4,
+      "cols": 5,
+      "candle": 1,
+      "moveBudget": 7
+    },
+    {
       "id": "level_024",
       "difficulty": 4,
       "pieces": "TVZXLWIUN",
@@ -407,6 +416,15 @@
       "solverNodes": 682,
       "forcedMoveFraction": 0.125,
       "meanBranching": 6.38
+    },
+    {
+      "id": "candle_02",
+      "difficulty": 5,
+      "pieces": "ULZIYN",
+      "rows": 5,
+      "cols": 6,
+      "candle": 1,
+      "moveBudget": 8
     },
     {
       "id": "level_027",

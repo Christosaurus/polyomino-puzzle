@@ -82,6 +82,8 @@ export class GameState {
   private readonly cracks: Set<string>;
   /** Vereiste Scheiben. Deckbar erst, wenn ein Nachbar bedeckt ist. */
   private readonly ice: Set<string>;
+  /** Kerzen-Scheiben. Müssen zuletzt gedeckt werden. */
+  private readonly candle: Set<string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -119,7 +121,32 @@ export class GameState {
     this.ice = new Set(
       (level.mechanics?.ice ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
     );
+    this.candle = new Set(
+      (level.mechanics?.candle ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Kerze ─────────────────────────────────────────────────────────────────
+  get hasCandle(): boolean {
+    return this.candle.size > 0;
+  }
+  /** Ist diese Scheibe eine Kerze (muss zuletzt gedeckt werden)? */
+  isCandle(row: number, col: number): boolean {
+    return this.candle.has(`${row},${col}`);
+  }
+  /**
+   * Brennt die Kerze gerade „ruhig" — also wäre der nächste Zug auf sie der
+   * letzte? Nur dann darf man sie decken; sonst flackert sie (Warnung).
+   */
+  get candleReady(): boolean {
+    if (this.candle.size === 0) return false;
+    const covered = this.occupied();
+    for (const key of this.shapeCells) {
+      if (this.candle.has(key)) continue;
+      if (!covered.has(key)) return false;
+    }
+    return true;
   }
 
   // ── Eis ───────────────────────────────────────────────────────────────────
@@ -469,6 +496,16 @@ export class GameState {
         const key = `${r},${c}`;
         if (!this.ice.has(key)) continue;
         if (!this.iceThawable(key, blocked)) return false;
+      }
+    }
+    // Kerze: nur decken, wenn dieser Zug das Brett vollmacht — jede andere
+    // Scheibe muss schon liegen. Zu früh = die Flamme geht aus.
+    if (this.candle.size > 0) {
+      const coversCandle = cells.some(([r, c]) => this.candle.has(`${r},${c}`));
+      if (coversCandle) {
+        const after = new Set(blocked);
+        for (const [r, c] of cells) after.add(`${r},${c}`);
+        if (after.size !== this.shapeCells.size) return false;
       }
     }
     return true;

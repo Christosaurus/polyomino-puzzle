@@ -1056,7 +1056,10 @@ function startDescent(): void {
  */
 function introduceMechanic(game: GameState): void {
   const seen = store.beatsSeen();
-  if (game.hasIce && !seen.includes("tut-ice")) {
+  if (game.hasCandle && !seen.includes("tut-candle")) {
+    store.markBeatSeen("tut-candle");
+    toast("🕯 Die Kerze muss zuletzt gedeckt werden — halt ein Teil bis zum Schluss zurück.");
+  } else if (game.hasIce && !seen.includes("tut-ice")) {
     store.markBeatSeen("tut-ice");
     toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
   } else if (game.hasCracks && !seen.includes("tut-cracks")) {

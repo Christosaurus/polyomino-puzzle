@@ -91,6 +91,16 @@ export interface LevelMechanics {
    * no solver work is needed to keep the level solvable.
    */
   cracks?: Array<[[number, number], [number, number]]>;
+  /**
+   * Candle panes, absolute `[row, col]`. A candle must be covered **last**: a
+   * piece may only cover a candle pane if that placement fills the board — every
+   * other pane already covered. Cover it too early and the flame goes out. This
+   * is the endgame-ordering mechanic: you have to hold one piece back for the
+   * final move. All candles must sit in the *same* solution piece — that one
+   * piece goes last and covers them together; two different "last" pieces would
+   * deadlock.
+   */
+  candle?: Array<[number, number]>;
 }
 
 export interface Level {
@@ -323,6 +333,27 @@ export function validateLevel(level: unknown): string[] {
       // es muss eine Reihenfolge geben, in der die Lösung das Eis respektiert
       if (iceSet.size > 0 && !solutionRespectsIce(l.solution, iceSet)) {
         errors.push("no placement order of the solution satisfies the ice");
+      }
+    }
+  }
+  const candle = l.mechanics?.candle;
+  if (candle !== undefined) {
+    if (!Array.isArray(candle)) {
+      errors.push("mechanics.candle must be an array");
+    } else {
+      for (const [r, c] of candle) {
+        if (!shapeCells.has(`${r},${c}`)) errors.push(`candle cell ${r},${c} is outside the shape`);
+      }
+      // Alle Kerzen müssen im selben Lösungsteil liegen — dieses eine Teil geht
+      // zuletzt und deckt sie alle im letzten Zug. Zwei verschiedene „letzte"
+      // Teile verklemmen sich (jedes bräuchte das andere schon liegen).
+      const owners = new Set<string>();
+      for (const [r, c] of candle) {
+        const owner = l.solution.find((p) => p.cells.some(([pr, pc]) => pr === r && pc === c));
+        if (owner) owners.add(owner.pieceId);
+      }
+      if (owners.size > 1) {
+        errors.push("candles span more than one solution piece — both cannot be last");
       }
     }
   }

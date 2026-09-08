@@ -36,7 +36,8 @@ let level: Level | null = null;
 let soot = new Set<string>();
 let cracks = new Set<string>();
 let ice = new Set<string>();
-let mode: "soot" | "crack" | "ice" = "soot";
+let candle = new Set<string>();
+let mode: "soot" | "crack" | "ice" | "candle" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -76,6 +77,7 @@ function generate(): void {
   soot = new Set();
   cracks = new Set();
   ice = new Set();
+  candle = new Set();
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -230,6 +232,28 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Kerze
+  for (const key of candle) {
+    const [ar, ac] = key.split(",").map(Number) as Cell;
+    const cx = x + (ac - originCol + 0.5) * cell;
+    const cy = y + (ar - originRow + 0.5) * cell;
+    ctx.save();
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.5);
+    halo.addColorStop(0, "rgba(255,224,150,0.6)");
+    halo.addColorStop(1, "rgba(255,224,150,0)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.5, 0, 6.28);
+    ctx.fill();
+    ctx.fillStyle = "#ffd36b";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + cell * 0.12);
+    ctx.quadraticCurveTo(cx - cell * 0.1, cy - cell * 0.05, cx, cy - cell * 0.22);
+    ctx.quadraticCurveTo(cx + cell * 0.1, cy - cell * 0.05, cx, cy + cell * 0.12);
+    ctx.fill();
+    ctx.restore();
+  }
+
   // erlaubte Schnittkanten andeuten, solange der Riss-Modus aktiv ist
   if (mode === "crack") {
     for (const ek of legalEdges) {
@@ -291,6 +315,14 @@ canvas.addEventListener("pointerdown", (e) => {
     const key = cellKey(abs[0], abs[1]);
     if (soot.has(key)) soot.delete(key);
     else soot.add(key);
+    refresh();
+    return;
+  }
+
+  if (mode === "candle") {
+    const key = cellKey(abs[0], abs[1]);
+    if (candle.has(key)) candle.delete(key);
+    else candle.add(key);
     refresh();
     return;
   }
@@ -369,6 +401,9 @@ function build(): Level | null {
   if (ice.size > 0) {
     mech.ice = [...ice].map((k) => k.split(",").map(Number) as Cell);
   }
+  if (candle.size > 0) {
+    mech.candle = [...candle].map((k) => k.split(",").map(Number) as Cell);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -415,7 +450,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -438,23 +473,28 @@ for (const id of ["id", "goal", "diff", "budget"]) {
 $("m-soot").addEventListener("click", () => setMode("soot"));
 $("m-crack").addEventListener("click", () => setMode("crack"));
 $("m-ice").addEventListener("click", () => setMode("ice"));
+$("m-candle").addEventListener("click", () => setMode("candle"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
   ice = new Set();
+  candle = new Set();
   refresh();
 });
-function setMode(m: "soot" | "crack" | "ice"): void {
+function setMode(m: "soot" | "crack" | "ice" | "candle"): void {
   mode = m;
   $("m-soot").classList.toggle("on", m === "soot");
   $("m-crack").classList.toggle("on", m === "crack");
   $("m-ice").classList.toggle("on", m === "ice");
+  $("m-candle").classList.toggle("on", m === "candle");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
       : m === "crack"
         ? "Nahe an eine Trennlinie tippen. Nur die blass markierten Kanten dürfen reißen — die anderen würden die Lösung zerschneiden."
-        : "Auf eine Scheibe tippen, um sie zu vereisen. Eis taut erst, wenn ein Nachbar bedeckt ist — jede Eiszelle braucht mindestens einen freien Nachbarn.";
+        : m === "ice"
+          ? "Auf eine Scheibe tippen, um sie zu vereisen. Eis taut erst, wenn ein Nachbar bedeckt ist — jede Eiszelle braucht mindestens einen freien Nachbarn."
+          : "Auf eine Scheibe tippen, um eine Kerze zu setzen. Die Kerze muss zuletzt gedeckt werden — jede Kerze in einem anderen Lösungsteil.";
   refresh();
 }
 

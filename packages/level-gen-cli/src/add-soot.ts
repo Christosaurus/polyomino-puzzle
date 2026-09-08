@@ -31,7 +31,7 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks" | "ice";
+type Pattern = SootPattern | "cracks" | "ice" | "candle";
 
 interface Recipe {
   id: string;
@@ -67,6 +67,10 @@ const RECIPES: Recipe[] = [
   { id: "ice_01", shapeLabel: "rect-4x5", pattern: "ice", difficulty: 4, insertAt: 26, slack: 3 },
   { id: "ice_02", shapeLabel: "rect-5x6", pattern: "ice", difficulty: 4, insertAt: 30, slack: 3 },
   { id: "ice_03", shapeLabel: "rect-5x8", pattern: "ice", difficulty: 5, insertAt: 34, slack: 2 },
+  // Kerze — Endspiel. Eine Scheibe muss zuletzt gedeckt werden: man hält ein
+  // Teil bis zum letzten Zug zurück. Farbhof, kurz vors Finale.
+  { id: "candle_01", shapeLabel: "rect-4x5", pattern: "candle", difficulty: 4, insertAt: 32, slack: 3 },
+  { id: "candle_02", shapeLabel: "rect-5x6", pattern: "candle", difficulty: 5, insertAt: 37, slack: 2 },
 ];
 
 function sootFor(pattern: SootPattern, cells: Cell[], nth: number): Cell[] {
@@ -225,6 +229,36 @@ function iceFor(level: Level, shapeCells: Cell[], nth: number): Cell[] {
   return out;
 }
 
+/**
+ * Kerze: eine Zelle des Lösungsteils nahe der Fenstermitte. Dieses Teil ist
+ * gut vernetzt — man will es früh legen, muss es aber bis zuletzt zurückhalten.
+ * Das ist der ganze Reiz. Ein einzelnes Kerzen-Teil ist per Konstruktion
+ * lösbar (alle anderen zuerst, dann dieses).
+ */
+function candleFor(level: Level, shapeCells: Cell[], nth: number): Cell[] {
+  const rows = Math.max(...shapeCells.map((c) => c[0])) + 1;
+  const cols = Math.max(...shapeCells.map((c) => c[1])) + 1;
+  const cr = (rows - 1) / 2;
+  const cc = (cols - 1) / 2;
+  const ranked = level.solution
+    .map((p) => {
+      const local = p.cells.map(
+        ([r, c]): Cell => [r - level.shape.originRow, c - level.shape.originCol],
+      );
+      const mr = local.reduce((s, [r]) => s + r, 0) / local.length;
+      const mc = local.reduce((s, [, c]) => s + c, 0) / local.length;
+      return { local, d: Math.hypot(mr - cr, mc - cc) };
+    })
+    .sort((a, b) => a.d - b.d);
+  if (ranked.length < 3) return [];
+  const piece = ranked[nth % Math.min(2, ranked.length)]!;
+  // die Kerzen-Zelle: die dem Fensterzentrum nächste Zelle dieses Teils
+  const cell = [...piece.local].sort(
+    (a, b) => Math.hypot(a[0] - cr, a[1] - cc) - Math.hypot(b[0] - cr, b[1] - cc),
+  )[0]!;
+  return [cell];
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -297,6 +331,23 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "candle") {
+      const localC = candleFor(level, shapeCells, attempt);
+      if (localC.length === 0) continue;
+      const cand: Cell[] = localC.map(([r, c]) => [r + originRow, c + originCol]);
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { candle: cand };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id} ${recipe.shapeLabel.padEnd(9)} candle  Kerze bei ${cand[0]![0]},${cand[0]![1]}` +
+          `            Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     const local = sootFor(recipe.pattern, shapeCells, attempt);
     const soot: Cell[] = local.map(([r, c]) => [r + originRow, c + originCol]);
     if (soot.length < 3) continue;
@@ -341,7 +392,8 @@ manifest.levels = manifest.levels.filter(
   (l) =>
     !String(l.id).startsWith("soot_") &&
     !String(l.id).startsWith("crack_") &&
-    !String(l.id).startsWith("ice_"),
+    !String(l.id).startsWith("ice_") &&
+    !String(l.id).startsWith("candle_"),
 );
 for (const { recipe, level } of built) {
   writeFileSync(join(OUT, `${level.id}.json`), `${serializeLevel(level)}\n`);
@@ -355,6 +407,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.soot ? { soot: level.mechanics.soot.length } : {}),
     ...(level.mechanics?.cracks ? { cracks: level.mechanics.cracks.length } : {}),
     ...(level.mechanics?.ice ? { ice: level.mechanics.ice.length } : {}),
+    ...(level.mechanics?.candle ? { candle: level.mechanics.candle.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

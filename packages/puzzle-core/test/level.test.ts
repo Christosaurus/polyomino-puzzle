@@ -179,3 +179,29 @@ describe("validateLevel — ice mechanic", () => {
     expect(validateLevel(level).some((e) => /locked in by ice/.test(e))).toBe(true);
   });
 });
+
+describe("validateLevel — candle mechanic", () => {
+  it("accepts one candle on any solution piece", () => {
+    const { level } = sample3x5();
+    const cell = level.solution[0]!.cells[0]!;
+    level.mechanics = { candle: [cell] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a candle cell outside the shape", () => {
+    const { level } = sample3x5();
+    level.mechanics = { candle: [[99, 99]] };
+    expect(
+      validateLevel(level).some((e) => /candle cell .* outside the shape/.test(e)),
+    ).toBe(true);
+  });
+
+  it("flags two candles that would each have to be the last piece", () => {
+    const { level } = sample3x5();
+    // one cell from piece 0 and one from piece 1 — both can't go last
+    level.mechanics = {
+      candle: [level.solution[0]!.cells[0]!, level.solution[1]!.cells[0]!],
+    };
+    expect(validateLevel(level).some((e) => /both cannot be last/.test(e))).toBe(true);
+  });
+});
