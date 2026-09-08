@@ -5,6 +5,31 @@
 
 ---
 
+## Nachtrag 2026-09-08 — Christians Korrekturen (überschreiben, wo Widerspruch)
+
+Der Umbau ist weit gediehen; dabei hat Christian ein paar Richtungen geändert:
+
+1. **Nebenmodi ≠ Story-Fortschritt.** Abstieg, Kaskade und Tagesfenster erhellen
+   **keine** Story-Fenster mehr. `panes` steigt nur durch neu gelöste
+   Kampagnen-Fenster. Die Nebenmodi zahlen auf **Erfolge** und **Lichtsplitter**
+   ein (Herz-/Joker-Budget). *(überschreibt §A/§B „alle Modi zahlen in eine Achse")*
+2. **Kampagne strikt sequenziell.** Ein Fenster geht erst auf, wenn das davor
+   gelöst ist. Kein Springen mehr innerhalb einer Region.
+3. **Schwierigkeit als steigende Sägezahnkurve** (`regions.ts` `sawtooth`):
+   meist leicht, jeder vierte Platz härter, Grundlinie zieht durchgehend an.
+4. **Serien-Multiplikator** auf die Lichtsplitter: ×1 → ×1.5 → ×2 → ×3, reißt
+   bei jedem Fehlschlag. Sichtbar über dem Brett.
+5. **Intro-Sequenz beim ersten Start** (3 kurze Szenen): die Nacht, **die
+   Gestalt, die das Licht stiehlt** (eigene Szene mit Sog-Effekt), Miras Auftrag.
+   Die Gestalt ist der sichtbare Antagonist — die Akt-II-Wendung (Gestalt =
+   Anselm) bleibt.
+6. **Story greift an den Regionen wieder auf** — Freischalt-Szene bei jeder
+   Region mit Hintergrund zum Ort.
+
+Platzhalter: `gestalt` als Sprecher (◆), `ui/chars/gestalt.webp` fehlt noch.
+
+---
+
 ## 0. Die eine Diagnose
 
 **Lumen ist heute eine Logikrätsel-Sammlung im Kostüm eines Progression-Games.**

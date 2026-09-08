@@ -1,14 +1,15 @@
-# Nano Banana — Charakter-Portraits (Mira & Anselm)
+# Nano Banana — Charakter-Portraits (Mira, Anselm, die Gestalt)
 
-Für die Story-Zeilen im Ergebnis-Fenster und später die Cutscenes
-(siehe `KONZEPT-lumen.md` §C).
+Für die Story-Zeilen im Ergebnis-Fenster und die Cutscenes
+(siehe `KONZEPT-lumen.md` §C + Nachtrag).
 
 **Ablage:** `packages/web/public/ui/chars/<name>.webp`
 **Format:** 512×512 PNG, **transparenter Hintergrund**, Kopf/Schultern mittig.
-Solange die Datei fehlt, zeigt das Spiel Miras Laterne 🏮 als Platzhalter — es
-ist also nichts kaputt, wenn du erst später lieferst.
+Solange eine Datei fehlt, zeigt das Spiel ein Emoji als Platzhalter (🏮 / 🕯 /
+◆) — es ist also nichts kaputt, wenn du erst später lieferst.
 
-Aktuell gebraucht: **`mira.webp`** (die anderen kommen mit Akt II).
+Gebraucht: **`mira.webp`**, **`anselm.webp`**, **`gestalt.webp`** (die drei
+Sprecher der Story).
 
 ---
 
@@ -78,5 +79,38 @@ Transparent background, high resolution, crisp clean edges, no text, no frame.
 
 ---
 
+## Die Gestalt — der Scherbensammler *(Intro + Akt II, bevor die Wendung kommt)*
+
+So sieht der Spieler den Antagonisten, bevor er weiß, dass es Anselm ist. Eine
+Silhouette, kein Gesicht. Muss **rätselhaft und ein bisschen unheimlich**
+wirken — aber nicht monströs; am Ende ist es ein trauernder alter Mann.
+
+```
+Create one character portrait for a cozy mobile puzzle game called "Lumen",
+on a plain flat background, head and shoulders, centred, facing away and
+slightly turned, so the face stays in shadow — an unreadable silhouette.
+
+Character: a hooded figure in a long dark cloak, seen from behind / three-
+quarter-back. The hood and shoulders are a near-black indigo silhouette with
+a thin cold rim light. Inside the cloak, dozens of tiny shards of glowing
+glass are tucked away and leak a faint aqua light through the seams. One
+gloved hand, half-visible, cupped as if holding a mote of light. Mysterious,
+quiet, a little eerie — not a monster, not armoured; the same painterly
+world as the other characters.
+
+Style: painted "township / candy" mobile-game art — thick dark-purple outline
+(#201356), soft rim light, gentle cel-shaded volumes. Same framing and finish
+as Mira and Anselm so all three read as one cast.
+
+Colour palette: near-black indigo #0c0930 and #170f45 for the silhouette;
+cold aqua #2fd9cf for the leaking shard light and the rim; grape purple
+#5039c6 as the mid-shadow. No warm colours at all — the warmth has been
+taken. Keep it readable as a shape even at small size.
+
+Transparent background, high resolution, crisp clean edges, no text, no frame.
+```
+
+---
+
 Schick die Bilder zurück, dann schneide ich sie zu, konvertiere nach WebP und
-lege sie ab — der Platzhalter verschwindet dann von selbst.
+lege sie ab — die Platzhalter verschwinden dann von selbst.
