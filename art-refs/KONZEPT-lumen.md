@@ -33,6 +33,16 @@ Der Umbau ist weit gediehen; dabei hat Christian ein paar Richtungen geändert:
 
 Portraits ✅ geliefert: `ui/chars/{mira,anselm,gestalt}.webp`.
 
+**Offen — Kurve im Farbhof:** die Regionen werden per Drittel-Schnitt aus der
+1–5-Schwierigkeit gebildet, der Farbhof landet dadurch fast komplett auf Stufe
+4–5. Der `sawtooth` hat dort kaum leichtes Material zum Verweben — die hintere
+Hälfte des Farbhofs ist praktisch ein flaches Stufe-5-Plateau statt „meist
+leicht, ab und zu ein Zacken". Wirkt im Spiel noch okay (die Mechaniken tragen
+den Anstieg), aber die Sägezahn-Idee greift dort nicht mehr richtig. Kandidaten:
+feinerer Rang-Schlüssel (Brettgröße + Teilezahl als Tiebreak in der Stufe) statt
+reiner Drittel-Schnitt, oder ein paar leichtere Farbhof-Fenster generieren.
+Christian will das erst selbst durchspielen — nicht vorschnell umbauen.
+
 ---
 
 ## 0. Die eine Diagnose
