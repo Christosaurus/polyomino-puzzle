@@ -86,6 +86,8 @@ export class GameState {
   private readonly candle: Set<string>;
   /** Verkettete Scheibenpaare `[a, b]` — dasselbe Teil muss beide decken. */
   private readonly chains: Array<[string, string]>;
+  /** Der Gang der Wanderscherbe (lokale Zellschlüssel), Schritt = movesUsed. */
+  private readonly wander: string[];
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -130,7 +132,34 @@ export class GameState {
       `${a[0] - originRow},${a[1] - originCol}`,
       `${b[0] - originRow},${b[1] - originCol}`,
     ]);
+    this.wander = (level.mechanics?.wander ?? []).map(
+      ([r, c]) => `${r - originRow},${c - originCol}`,
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Wanderscherbe ─────────────────────────────────────────────────────────
+  get hasWander(): boolean {
+    return this.wander.length > 0;
+  }
+  /** Wo die Scherbe gerade sitzt — oder `null`, wenn sie das Brett verlassen hat. */
+  get wanderCell(): string | null {
+    return this.movesUsed < this.wander.length ? this.wander[this.movesUsed]! : null;
+  }
+  isWander(row: number, col: number): boolean {
+    return this.wanderCell === `${row},${col}`;
+  }
+  /** Der bisher gegangene Weg (für die Spur), ohne die aktuelle Position. */
+  wanderTrail(): Array<[number, number]> {
+    return this.wander
+      .slice(0, Math.min(this.movesUsed, this.wander.length))
+      .map((k) => k.split(",").map(Number) as [number, number]);
+  }
+  /** Die nächste Position, falls es eine gibt (für den Geist-Umriss). */
+  get wanderNext(): [number, number] | null {
+    const k = this.wander[this.movesUsed + 1];
+    if (!k || this.movesUsed + 1 >= this.wander.length) return null;
+    return k.split(",").map(Number) as [number, number];
   }
 
   // ── Kette ─────────────────────────────────────────────────────────────────
@@ -519,6 +548,14 @@ export class GameState {
         if (!this.ice.has(key)) continue;
         if (!this.iceThawable(key, blocked)) return false;
       }
+    }
+    // Wanderscherbe: ihre aktuelle Scheibe ist tabu — außer der Zug macht das
+    // Brett voll (dann wird sie mit rausgefegt).
+    const shard = this.wanderCell;
+    if (shard !== null && cells.some(([r, c]) => `${r},${c}` === shard)) {
+      const after = new Set(blocked);
+      for (const [r, c] of cells) after.add(`${r},${c}`);
+      if (after.size !== this.shapeCells.size) return false;
     }
     // Kette: dasselbe Teil muss beide Enden decken — eins ohne das andere geht
     // nicht.

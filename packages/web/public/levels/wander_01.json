@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "id": "wander_01",
+  "difficulty": 4,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "#####",
+      "#####",
+      "#####",
+      "#####"
+    ]
+  },
+  "pieces": [
+    "T",
+    "Y",
+    "L",
+    "F"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "T",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          0
+        ]
+      ]
+    },
+    {
+      "pieceId": "L",
+      "cells": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ]
+      ]
+    },
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "F",
+      "cells": [
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "soot:wander_01:0",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 83,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "mechanics": {
+    "wander": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ]
+    ]
+  },
+  "moveBudget": 8
+}

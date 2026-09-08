@@ -374,6 +374,15 @@
       "moveBudget": 9
     },
     {
+      "id": "wander_01",
+      "difficulty": 4,
+      "pieces": "TYLF",
+      "rows": 4,
+      "cols": 5,
+      "wander": 2,
+      "moveBudget": 8
+    },
+    {
       "id": "level_023",
       "difficulty": 4,
       "pieces": "XYLWIUPF",
@@ -425,6 +434,15 @@
       "moveBudget": 10
     },
     {
+      "id": "wander_02",
+      "difficulty": 5,
+      "pieces": "ULWVYNZT",
+      "rows": 5,
+      "cols": 8,
+      "wander": 5,
+      "moveBudget": 11
+    },
+    {
       "id": "level_026",
       "difficulty": 5,
       "pieces": "XWILFNVP",
@@ -443,6 +461,16 @@
       "cols": 6,
       "candle": 1,
       "moveBudget": 8
+    },
+    {
+      "id": "boss_01",
+      "difficulty": 5,
+      "pieces": "YFTNLXZPW",
+      "rows": 5,
+      "cols": 9,
+      "cracks": 3,
+      "candle": 1,
+      "moveBudget": 13
     },
     {
       "id": "level_027",
@@ -465,16 +493,6 @@
       "solverNodes": 3872,
       "forcedMoveFraction": 0.333,
       "meanBranching": 7.11
-    },
-    {
-      "id": "boss_01",
-      "difficulty": 5,
-      "pieces": "YFTNLXZPW",
-      "rows": 5,
-      "cols": 9,
-      "cracks": 3,
-      "candle": 1,
-      "moveBudget": 13
     },
     {
       "id": "level_029",

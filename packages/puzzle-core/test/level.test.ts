@@ -230,3 +230,47 @@ describe("validateLevel — chain mechanic", () => {
     ).toBe(true);
   });
 });
+
+describe("validateLevel — wander mechanic", () => {
+  it("accepts a short shard walk the solution can beat", () => {
+    const { level } = sample3x5();
+    // a 1-step walk along the top-left corner
+    level.mechanics = { wander: [[0, 0]] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a non-connected walk", () => {
+    const { level } = sample3x5();
+    level.mechanics = {
+      wander: [
+        [0, 0],
+        [2, 4],
+      ],
+    };
+    expect(validateLevel(level).some((e) => /not to an adjacent cell/.test(e))).toBe(true);
+  });
+
+  it("flags a walk no placement order can beat", () => {
+    const { level } = sample3x5();
+    // the shard parks on one solution piece's cells for the first N moves —
+    // that piece can never be placed. Order that piece's cells into a walk.
+    const cells = [...level.solution[0]!.cells].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const walk: Array<[number, number]> = [cells[0]!];
+    const remaining = cells.slice(1);
+    while (remaining.length) {
+      const last = walk[walk.length - 1]!;
+      const i = remaining.findIndex(
+        ([r, c]) => Math.abs(r - last[0]) + Math.abs(c - last[1]) === 1,
+      );
+      if (i < 0) break;
+      walk.push(remaining.splice(i, 1)[0]!);
+    }
+    // only run the assertion when we actually got a connected walk of ≥3 cells
+    if (walk.length >= 3) {
+      level.mechanics = { wander: walk };
+      expect(
+        validateLevel(level).some((e) => /beats the wandering shard/.test(e)),
+      ).toBe(true);
+    }
+  });
+});

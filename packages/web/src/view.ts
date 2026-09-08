@@ -685,6 +685,77 @@ export class GameView {
     }
   }
 
+  /**
+   * Die Wanderscherbe: ein dunkler, zackiger Splitter auf ihrer Scheibe, mit
+   * einer verblassenden Spur hinter sich und einem Geist-Umriss auf der
+   * nächsten. Rückt jeden Zug eine Zelle weiter, dann ist sie weg.
+   */
+  private drawWander(b: BoardLayout): void {
+    if (!this.game.hasWander) return;
+    const ctx = this.ctx;
+    // Spur
+    for (const [r, c] of this.game.wanderTrail()) {
+      const cx = b.x + (c + 0.5) * b.cell;
+      const cy = b.y + (r + 0.5) * b.cell;
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = "#3a2f5c";
+      ctx.beginPath();
+      ctx.arc(cx, cy, b.cell * 0.16, 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+    // Geist auf der nächsten Scheibe
+    const nxt = this.game.wanderNext;
+    if (nxt) {
+      const [r, c] = nxt;
+      ctx.save();
+      ctx.globalAlpha = 0.3 + 0.15 * Math.sin(this.nowMs / 300);
+      ctx.strokeStyle = "#7a6ba8";
+      ctx.lineWidth = Math.max(1.5, b.cell * 0.04);
+      ctx.setLineDash([b.cell * 0.12, b.cell * 0.1]);
+      ctx.strokeRect(b.x + c * b.cell + 3, b.y + r * b.cell + 3, b.cell - 6, b.cell - 6);
+      ctx.restore();
+    }
+    // die Scherbe selbst
+    const cur = this.game.wanderCell;
+    if (cur) {
+      const [r, c] = cur.split(",").map(Number) as [number, number];
+      const cx = b.x + (c + 0.5) * b.cell;
+      const cy = b.y + (r + 0.5) * b.cell;
+      const rot = this.nowMs / 1400;
+      ctx.save();
+      // Halo
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, b.cell * 0.6);
+      g.addColorStop(0, "rgba(70, 40, 110, 0.55)");
+      g.addColorStop(1, "rgba(70, 40, 110, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, b.cell * 0.6, 0, 6.28);
+      ctx.fill();
+      // zackiger Kristall
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      const R = b.cell * 0.3;
+      ctx.beginPath();
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * 6.28;
+        const rr = i % 2 === 0 ? R : R * 0.5;
+        ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      ctx.closePath();
+      const cg = ctx.createLinearGradient(-R, -R, R, R);
+      cg.addColorStop(0, "#2a1f47");
+      cg.addColorStop(1, "#0c0820");
+      ctx.fillStyle = cg;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(150, 130, 190, 0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -826,6 +897,7 @@ export class GameView {
     this.drawIce(b);
     this.drawChains(b);
     this.drawCandles(b);
+    this.drawWander(b);
 
     if (this.drag) this.drawDrag(layout);
     if (this.confetti.active) this.confetti.step(ctx, 1 / 60);

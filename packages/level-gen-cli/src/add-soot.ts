@@ -31,7 +31,7 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss" | "chain";
+type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss" | "chain" | "wander";
 
 interface Recipe {
   id: string;
@@ -75,6 +75,10 @@ const RECIPES: Recipe[] = [
   // muss. Man muss ein Teil setzen können, bevor man sieht, was es verbindet.
   { id: "chain_01", shapeLabel: "rect-4x5", pattern: "chain", difficulty: 2, insertAt: 15, slack: 3 },
   { id: "chain_02", shapeLabel: "rect-5x6", pattern: "chain", difficulty: 3, insertAt: 22, slack: 3 },
+  // Wanderscherbe — Farbhof. Eine Scherbe wandert die ersten Züge übers Brett;
+  // du baust drumherum, bis sie weg ist.
+  { id: "wander_01", shapeLabel: "rect-4x5", pattern: "wander", difficulty: 4, insertAt: 33, slack: 4 },
+  { id: "wander_02", shapeLabel: "rect-5x8", pattern: "wander", difficulty: 5, insertAt: 39, slack: 3 },
   // Das letzte Fenster — der Boss. Groß, geschnitten (Risse) und mit der Kerze
   // ganz zum Schluss. Alles, was Anselm gelernt hat, auf einmal.
   { id: "boss_01", shapeLabel: "rect-5x9", pattern: "boss", difficulty: 5, insertAt: 42, slack: 4 },
@@ -295,6 +299,34 @@ function chainFor(level: Level, nth: number): Array<[Cell, Cell]> {
   return [pick.pair];
 }
 
+/**
+ * Wanderscherbe: ein kurzer, zusammenhängender Gang entlang einer Kante. Kurz,
+ * weil sie nur die Eröffnung stören soll. Die eigentliche Lösbarkeits-Prüfung
+ * macht `validateLevel` (es muss eine Reihenfolge geben, die sie schlägt).
+ */
+function wanderFor(shapeCells: Cell[], pieceCount: number, nth: number): Cell[] {
+  const inShape = new Set(shapeCells.map(([r, c]) => `${r},${c}`));
+  const rows = Math.max(...shapeCells.map((c) => c[0])) + 1;
+  const cols = Math.max(...shapeCells.map((c) => c[1])) + 1;
+  // kurz halten: nach `len` Zügen ist die Scherbe weg, und die späten Teile
+  // müssen noch Platz haben. Von lang nach kurz durchprobieren — die erste
+  // Länge, die `validateLevel` schlägt, gewinnt.
+  const maxLen = Math.max(2, Math.min(5, pieceCount - 2));
+  const span = Math.max(1, maxLen - 1);
+  const len = maxLen - (nth % span);
+  const edge = Math.floor(nth / span) % 4;
+  const start = Math.floor(nth / (span * 4)) % 3; // Startversatz entlang der Kante
+  const out: Cell[] = [];
+  const push = (r: number, c: number): void => {
+    if (inShape.has(`${r},${c}`)) out.push([r, c]);
+  };
+  if (edge === 0) for (let c = start; c < start + len; c++) push(0, c);
+  else if (edge === 1) for (let c = cols - 1 - start; c > cols - 1 - start - len; c--) push(rows - 1, c);
+  else if (edge === 2) for (let r = start; r < start + len; r++) push(r, 0);
+  else for (let r = rows - 1 - start; r > rows - 1 - start - len; r--) push(r, cols - 1);
+  return out.length >= 2 ? out : [];
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -398,6 +430,24 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "wander") {
+      const local = wanderFor(shapeCells, level.pieces.length, attempt);
+      if (local.length === 0) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = {
+        wander: local.map(([r, c]) => [r + originRow, c + originCol]),
+      };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id} ${recipe.shapeLabel.padEnd(9)} wander  Gang ${local.length} Zellen` +
+          `             Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     if (recipe.pattern === "chain") {
       const local = chainFor(level, attempt);
       if (local.length === 0) continue;
@@ -484,6 +534,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("ice_") &&
     !String(l.id).startsWith("candle_") &&
     !String(l.id).startsWith("chain_") &&
+    !String(l.id).startsWith("wander_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -500,6 +551,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.ice ? { ice: level.mechanics.ice.length } : {}),
     ...(level.mechanics?.candle ? { candle: level.mechanics.candle.length } : {}),
     ...(level.mechanics?.chains ? { chains: level.mechanics.chains.length } : {}),
+    ...(level.mechanics?.wander ? { wander: level.mechanics.wander.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

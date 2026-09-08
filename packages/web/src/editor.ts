@@ -39,7 +39,8 @@ let ice = new Set<string>();
 let candle = new Set<string>();
 let chains: Array<[string, string]> = [];
 let chainPending: string | null = null;
-let mode: "soot" | "crack" | "ice" | "candle" | "chain" = "soot";
+let wander: string[] = [];
+let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -82,6 +83,7 @@ function generate(): void {
   candle = new Set();
   chains = [];
   chainPending = null;
+  wander = [];
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -280,6 +282,38 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Wanderscherbe: nummerierter Gang
+  if (wander.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(122,107,168,0.8)";
+    ctx.lineWidth = Math.max(2, cell * 0.06);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    wander.forEach((k, i) => {
+      const [wr, wc] = k.split(",").map(Number) as Cell;
+      const px = x + (wc - originCol + 0.5) * cell;
+      const py = y + (wr - originRow + 0.5) * cell;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+    wander.forEach((k, i) => {
+      const [wr, wc] = k.split(",").map(Number) as Cell;
+      const px = x + (wc - originCol + 0.5) * cell;
+      const py = y + (wr - originRow + 0.5) * cell;
+      ctx.fillStyle = i === 0 ? "#a875ff" : "#2a1f47";
+      ctx.beginPath();
+      ctx.arc(px, py, cell * 0.18, 0, 6.28);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = `${Math.round(cell * 0.22)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), px, py);
+    });
+    ctx.restore();
+  }
+
   // Kerze
   for (const key of candle) {
     const [ar, ac] = key.split(",").map(Number) as Cell;
@@ -371,6 +405,27 @@ canvas.addEventListener("pointerdown", (e) => {
     const key = cellKey(abs[0], abs[1]);
     if (candle.has(key)) candle.delete(key);
     else candle.add(key);
+    refresh();
+    return;
+  }
+
+  if (mode === "wander") {
+    const key = cellKey(abs[0], abs[1]);
+    const at = wander.indexOf(key);
+    if (at >= 0) {
+      // ab hier abschneiden
+      wander = wander.slice(0, at);
+    } else if (
+      wander.length === 0 ||
+      (() => {
+        const [lr, lc] = wander[wander.length - 1]!.split(",").map(Number) as Cell;
+        return Math.abs(lr - abs[0]) + Math.abs(lc - abs[1]) === 1;
+      })()
+    ) {
+      wander.push(key);
+    } else {
+      flash("Die Scherbe wandert Schritt für Schritt — nur eine Nachbarscheibe.");
+    }
     refresh();
     return;
   }
@@ -479,6 +534,9 @@ function build(): Level | null {
       b.split(",").map(Number) as Cell,
     ]);
   }
+  if (wander.length > 0) {
+    mech.wander = wander.map((k) => k.split(",").map(Number) as Cell);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -525,7 +583,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length}` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -550,6 +608,7 @@ $("m-crack").addEventListener("click", () => setMode("crack"));
 $("m-ice").addEventListener("click", () => setMode("ice"));
 $("m-candle").addEventListener("click", () => setMode("candle"));
 $("m-chain").addEventListener("click", () => setMode("chain"));
+$("m-wander").addEventListener("click", () => setMode("wander"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
@@ -557,9 +616,10 @@ $("clear").addEventListener("click", () => {
   candle = new Set();
   chains = [];
   chainPending = null;
+  wander = [];
   refresh();
 });
-function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain"): void {
+function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander"): void {
   mode = m;
   chainPending = null;
   $("m-soot").classList.toggle("on", m === "soot");
@@ -567,6 +627,7 @@ function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain"): void {
   $("m-ice").classList.toggle("on", m === "ice");
   $("m-candle").classList.toggle("on", m === "candle");
   $("m-chain").classList.toggle("on", m === "chain");
+  $("m-wander").classList.toggle("on", m === "wander");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
@@ -576,7 +637,9 @@ function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain"): void {
           ? "Auf eine Scheibe tippen, um sie zu vereisen. Eis taut erst, wenn ein Nachbar bedeckt ist — jede Eiszelle braucht mindestens einen freien Nachbarn."
           : m === "candle"
             ? "Auf eine Scheibe tippen, um eine Kerze zu setzen. Die Kerze muss zuletzt gedeckt werden — alle Kerzen in einem Lösungsteil."
-            : "Zwei Scheiben nacheinander antippen, um sie zu verketten — dasselbe Teil muss dann beide decken. Auf ein Kettenende tippen löscht die Kette. Beide Enden müssen im selben Lösungsteil liegen.";
+            : m === "chain"
+              ? "Zwei Scheiben nacheinander antippen, um sie zu verketten — dasselbe Teil muss dann beide decken. Auf ein Kettenende tippen löscht die Kette. Beide Enden müssen im selben Lösungsteil liegen."
+              : "Scheiben der Reihe nach antippen — das ist der Gang der Wanderscherbe (jeder Schritt eine Nachbarscheibe). Auf eine nummerierte Scheibe tippen schneidet den Gang dort ab. Kurz halten (3–5).";
   refresh();
 }
 

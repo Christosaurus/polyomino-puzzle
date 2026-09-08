@@ -109,6 +109,16 @@ export interface LevelMechanics {
    * chain must belong to the same solution piece or the level is unsolvable.
    */
   chains?: Array<[[number, number], [number, number]]>;
+  /**
+   * A wandering shard: an ordered walk of orthogonally-adjacent cells. The
+   * shard sits on `wander[movesUsed]` and steps one cell forward with every
+   * placement; once it walks off the end of the list it is gone for good. While
+   * it sits on a pane that pane cannot be covered — **unless** the move would
+   * complete the whole board (then the shard is swept out). Keep the walk short:
+   * it is an opening nuisance you route around, not a timer. Validated so some
+   * placement order of the solution always beats it.
+   */
+  wander?: Array<[number, number]>;
 }
 
 export interface Level {
@@ -385,9 +395,71 @@ export function validateLevel(level: unknown): string[] {
       }
     }
   }
+  const wander = l.mechanics?.wander;
+  if (wander !== undefined) {
+    if (!Array.isArray(wander)) {
+      errors.push("mechanics.wander must be an array");
+    } else {
+      for (const [r, c] of wander) {
+        if (!shapeCells.has(`${r},${c}`)) errors.push(`wander cell ${r},${c} is outside the shape`);
+      }
+      // muss ein zusammenhängender Gang sein
+      for (let i = 1; i < wander.length; i++) {
+        const a = wander[i - 1]!;
+        const b = wander[i]!;
+        if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) !== 1) {
+          errors.push(`wander step ${i} (${a}→${b}) is not to an adjacent cell`);
+        }
+      }
+      if (wander.length > 0 && !solutionBeatsWander(l.solution, wander)) {
+        errors.push("no placement order of the solution beats the wandering shard");
+      }
+    }
+  }
   void cellKey; // reserved for a future stricter piece-shape check
 
   return errors;
+}
+
+/**
+ * Can the N solution pieces be scheduled into moves 1..N so the shard never
+ * blocks the piece being placed? During move m the shard sits on `path[m-1]`
+ * (or is gone once `m-1 >= path.length`). A piece may take move m iff the shard
+ * cell then is not one of its cells. Feasible iff a perfect piece→move matching
+ * exists — a small bipartite matching (Kuhn's algorithm).
+ */
+function solutionBeatsWander(
+  solution: LevelPlacement[],
+  path: Array<[number, number]>,
+): boolean {
+  const n = solution.length;
+  const shardAt = (m: number): string | null =>
+    m - 1 < path.length ? `${path[m - 1]![0]},${path[m - 1]![1]}` : null;
+  const canAt: number[][] = solution.map((p) => {
+    const cells = new Set(p.cells.map(([r, c]) => `${r},${c}`));
+    const moves: number[] = [];
+    for (let m = 1; m <= n; m++) {
+      const s = shardAt(m);
+      if (s === null || !cells.has(s)) moves.push(m);
+    }
+    return moves;
+  });
+  const moveToPiece = new Array<number>(n + 1).fill(-1);
+  const augment = (piece: number, seen: boolean[]): boolean => {
+    for (const m of canAt[piece]!) {
+      if (seen[m]) continue;
+      seen[m] = true;
+      if (moveToPiece[m] === -1 || augment(moveToPiece[m]!, seen)) {
+        moveToPiece[m] = piece;
+        return true;
+      }
+    }
+    return false;
+  };
+  for (let p = 0; p < n; p++) {
+    if (!augment(p, new Array<boolean>(n + 1).fill(false))) return false;
+  }
+  return true;
 }
 
 /**
