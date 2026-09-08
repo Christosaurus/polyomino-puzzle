@@ -281,7 +281,7 @@ Eindeutigkeit bleibt optional für handgebaute Story-Fenster („Meisterstücke"
 | **Farbsiegel** | Diese Scheibe verlangt ein Teil **dieser Farbe**. | Teilewahl statt nur Platz | III |
 | **Kriechender Schatten** | Alle N Züge wird eine freie Scheibe dunkel und unbrauchbar. | **Sichtbarer Druck** — der wichtigste Import | III |
 | **Doppelscheibe** | Hinter der ersten Lage liegt eine zweite. | Mehrstufigkeit | III / Boss |
-| **Wanderscherbe** | Rückt pro Zug eine Zelle weiter. | Bewegtes Brett | Boss |
+| **Wanderscherbe** ✅ | Rückt pro Zug eine Zelle weiter. | Bewegtes Brett | Boss |
 | **Kerze** ✅ | Muss **zuletzt** gedeckt werden, sonst geht sie aus. | Reihenfolge-Endspiel | Boss |
 
 **Einführungsregel:** Eine neue Mechanik pro Region, **wortlos** erklärt — beim
@@ -420,9 +420,9 @@ gespeicherten Datenmodell.
 | # | Maßnahme | Aufwand |
 |---|---|---|
 | 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ | ✅ `level.ts`-Schema + `editor.html` (Ruß / Riss / Eis / Kerze malen) |
-| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | 🟡 Ruß+Kriechruß, Riss, Eis, Kette, Kerze ✅ · Farbsiegel / Lichtmotte / Fester Splitter / Doppelscheibe / Wanderscherbe offen |
+| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | 🟡 Ruß+Kriechruß, Riss, Eis, Kette, Kerze, Wanderscherbe ✅ · Farbsiegel / Lichtmotte / Fester Splitter / Doppelscheibe offen |
 | 13 | 40–60 handgebaute Story-Fenster. | fortlaufend | 🟡 13 Mechanik-Fenster generiert (soot/crack/ice/candle/boss), handkuratiert kommen |
-| 14 | Boss-Fenster. | M | 🟡 `boss_01` „Das letzte Fenster" (Risse + Kerze, 9 Teile) ✅ · Doppelscheibe + Wanderscherbe als eigene Mechaniken noch offen |
+| 14 | Boss-Fenster. | M | 🟡 `boss_01` „Das letzte Fenster" (Risse + Kerze, 9 Teile) ✅ · Wanderscherbe ✅ als eigene Mechanik · Doppelscheibe noch offen; Boss könnte alle drei kombinieren |
 | 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats), Finale-Cutscene nach `boss_01`. |
 
 **Wenn du nur eine Woche hast:** #1, #2, #8. Das sind die drei mit dem besten
