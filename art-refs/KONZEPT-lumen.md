@@ -388,6 +388,14 @@ sichtbare Sammelzahl (die `#memories`-Sektion listet die Beats schon).
 Sortiert nach **Retention-Hebel pro Aufwand**. `⚠` = Bruch mit dem
 gespeicherten Datenmodell.
 
+> **Stand 2026-09-08 — das Gerüst steht.** Phase 1–3 ✅. Zugbudget, ganzer
+> Mechanik-Katalog (12/12), eine Währung, Laternen-Tore, gescrollte Talkarte
+> mit Parallax+Effekten, Story Akt I–III + Finale-Cutscene, zwei Boss-Fenster,
+> 56 benannte Kampagnen-Fenster, Story-gebundene Erfolge.
+> **Was noch fehlt:** Charakter-Portraits (Bild-KI, Prompt raus), echte
+> handkuratierte Story-Fenster mit eigener Packung, Feinschliff Balancing,
+> Rewarded-Ad-Herzen (aktuell Stub).
+
 ### Phase 1 — Der Sog *(1–2 Wochen)*
 > Danach ist die Kernschleife eine Hyper-Casual-Schleife. Das ist der wichtigste
 > Block im ganzen Dokument.
@@ -405,25 +413,25 @@ gespeicherten Datenmodell.
 
 | # | Maßnahme | Aufwand | Wirkung |
 |---|---|---|---|
-| 5 | **Licht als einzige Währung.** Sterne → Sauberkeits-Bonus in Licht. | M ⚠ | L |
-| 6 | **Laternen-Tor** an Regionsgrenzen; alle Modi zahlen ein. | S | L |
-| 7 | **Karte als Startbildschirm**, Seitenmodi als Orte darauf. | L ⚠ | L | — 🟡 Pfad + gemalte Talkarte (Garten→Farbhof, Dunkel→Hell) stehen; Beats/Boss noch offen |
+| 5 | **Licht als einzige Währung.** Sterne → Sauberkeits-Bonus in Licht. | M ⚠ | ✅ `shards` ist die einzige Ausgabe­währung; Sterne nur noch Anzeige |
+| 6 | **Laternen-Tor** an Regionsgrenzen; alle Modi zahlen ein. | S | ✅ `panesToUnlock`; Abstieg/Kaskade/Tagesfenster füttern `panes`; „Noch N Fenster bis <Region>"-Nudge in den Endlosmodi |
+| 7 | **Karte als Startbildschirm**, Seitenmodi als Orte darauf. | L ⚠ | ✅ Lichtpfad mit Stationen, gemalte Talkarte (Dunkel→Hell) mit Parallax + Effektebene (Fenster/Glühwürmchen/Vögel/Falter) |
 
 ### Phase 3 — Die Geschichte *(2–3 Wochen)*
 
 | # | Maßnahme | Aufwand | Wirkung |
 |---|---|---|---|
 | 8 | **Mira-Zeilen im Ergebnis-Overlay.** | **S** | **L** ← bestes Verhältnis im Dokument | ✅ (`story.ts`) |
-| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L | 🟡 Cutscene-System ✅ (`beats.ts`), Portraits fehlen noch (`PROMPT-charaktere.md`) |
+| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L | 🟡 Cutscene-System ✅ (`beats.ts`, Typewriter, Tap-Advance, Skip). **Portraits fehlen** — `PROMPT-charaktere.md` an Christian; bis dahin 🏮/🕯 als Platzhalter |
 | 10 | Akt I schreiben, Beats auf der Karte setzen. | M | XL *(emotional)* | ✅ |
 
 ### Phase 4 — Tiefe *(fortlaufend)*
 
 | # | Maßnahme | Aufwand |
 |---|---|---|
-| 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ | ✅ `level.ts`-Schema + `editor.html` (Ruß / Riss / Eis / Kerze malen) |
-| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | ✅ **Katalog komplett**: Ruß, Kriechruß, Fester Splitter, Lichtmotte, Kette, Riss, Eis, Zugbudget, Farbsiegel, Doppelscheibe, Wanderscherbe, Kerze — alle spielbar + je 1–2 generierte Fenster + Editor-Modus. Nächster Schritt: kombinieren + handkuratieren |
-| 13 | 40–60 handgebaute Story-Fenster. | fortlaufend | 🟡 13 Mechanik-Fenster generiert (soot/crack/ice/candle/boss), handkuratiert kommen |
+| 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ | ✅ `level.ts`-Schema + `editor.html` — alle 9 Mechaniken malbar |
+| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | ✅ **Katalog komplett** (12/12): Ruß, Kriechruß, Fester Splitter, Lichtmotte, Kette, Riss, Eis, Zugbudget, Farbsiegel, Doppelscheibe, Wanderscherbe, Kerze — alle spielbar + je 1–2 generierte Fenster + Editor-Modus |
+| 13 | 40–60 handgebaute Story-Fenster. | fortlaufend | 🟡 56 Kampagnen-Fenster (26 mit Mechanik), **jedes mit Namen** (`windows.ts` — „Das Küchenfenster", „Lys' Fenster"…). Echte hand­kuratierte Story-Fenster mit eigener Packung kommen noch |
 | 14 | Boss-Fenster. | M | ✅ `boss_02` „Anselms Prüfstück" (Doppelscheibe + Wanderscherbe + Kerze) und `boss_01` „Das letzte Fenster" (Risse + Kerze). Finale-Cutscene nach `boss_01`. |
 | 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats), Finale-Cutscene nach `boss_01`. |
 
