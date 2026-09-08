@@ -39,7 +39,8 @@ type Pattern =
   | "boss"
   | "chain"
   | "wander"
-  | "seal";
+  | "seal"
+  | "stuck";
 
 interface Recipe {
   id: string;
@@ -79,6 +80,10 @@ const RECIPES: Recipe[] = [
   // Teil bis zum letzten Zug zurück. Farbhof, kurz vors Finale.
   { id: "candle_01", shapeLabel: "rect-4x5", pattern: "candle", difficulty: 4, insertAt: 32, slack: 3 },
   { id: "candle_02", shapeLabel: "rect-5x6", pattern: "candle", difficulty: 5, insertAt: 37, slack: 2 },
+  // Fester Splitter — Akt I, der Garten. Eine Scheibe ist blockiert, man baut
+  // drumherum. Führt „das passt hier nicht hin, ich muss umbauen" ein.
+  { id: "stuck_01", shapeLabel: "rect-3x5", pattern: "stuck", difficulty: 2, insertAt: 5, slack: 3 },
+  { id: "stuck_02", shapeLabel: "rect-4x5", pattern: "stuck", difficulty: 3, insertAt: 11, slack: 3 },
   // Kette — Akt II, die Werkstatt. Zwei Scheiben, die dasselbe Teil decken
   // muss. Man muss ein Teil setzen können, bevor man sieht, was es verbindet.
   { id: "chain_01", shapeLabel: "rect-4x5", pattern: "chain", difficulty: 2, insertAt: 15, slack: 3 },
@@ -370,6 +375,28 @@ function sealFor(level: Level, want: number, nth: number): Array<[Cell, string]>
   return out;
 }
 
+/**
+ * Fester Splitter: hängt eine einzelne Splitter-Scheibe außen an eine
+ * Randzelle der Packung, verbreitert die Silhouette dafür um eine Spalte. Die
+ * Lösung bleibt unverändert (sie deckt nur die ursprüngliche Fläche), der
+ * Splitter bleibt offen. Mutiert `level.shape.rows` in-place; gibt die
+ * absolute Splitter-Zelle zurück (oder `null`).
+ */
+function attachStuck(level: Level, nth: number): Cell | null {
+  const { originRow, originCol } = level.shape;
+  const rows = level.shape.rows;
+  const H = rows.length;
+  const W = rows[0]?.length ?? 0;
+  // eine Randzeile wählen, deren rechte Zelle voll ist → Splitter rechts anhängen
+  const candidates: number[] = [];
+  for (let r = 0; r < H; r++) if (rows[r]![W - 1] === "#") candidates.push(r);
+  if (candidates.length < 2) return null;
+  const sr = candidates[nth % candidates.length]!;
+  // rechts eine Spalte anfügen: alle Zeilen ".", die gewählte "#"
+  level.shape.rows = rows.map((row, r) => row + (r === sr ? "#" : "."));
+  return [sr + originRow, W + originCol];
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -469,6 +496,22 @@ function build(recipe: Recipe): Level {
       console.log(
         `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} boss    ${local.length} Risse + Kerze` +
           `           Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
+    if (recipe.pattern === "stuck") {
+      const cell = attachStuck(level, attempt);
+      if (!cell) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { stuck: [cell] };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) throw new Error(`${recipe.id}: ${errs.join("; ")}`);
+      console.log(
+        `${recipe.id}  ${recipe.shapeLabel.padEnd(9)} stuck   Splitter bei ${cell[0]},${cell[1]}` +
+          `        Budget ${level.moveBudget}`,
       );
       return level;
     }
@@ -598,6 +641,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("chain_") &&
     !String(l.id).startsWith("wander_") &&
     !String(l.id).startsWith("seal_") &&
+    !String(l.id).startsWith("stuck_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -616,6 +660,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.chains ? { chains: level.mechanics.chains.length } : {}),
     ...(level.mechanics?.wander ? { wander: level.mechanics.wander.length } : {}),
     ...(level.mechanics?.seals ? { seals: level.mechanics.seals.length } : {}),
+    ...(level.mechanics?.stuck ? { stuck: level.mechanics.stuck.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

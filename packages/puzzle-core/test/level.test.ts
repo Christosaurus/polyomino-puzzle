@@ -302,3 +302,20 @@ describe("validateLevel — seal mechanic", () => {
     expect(validateLevel(level).some((e) => /is not in the level/.test(e))).toBe(true);
   });
 });
+
+describe("validateLevel — stuck splinter", () => {
+  it("accepts a stuck cell the solution does not cover", () => {
+    // take a valid 3×5 packing, widen the silhouette by one splinter column
+    const { level } = sample3x5();
+    const { originRow, originCol } = level.shape;
+    level.shape.rows = level.shape.rows.map((row, r) => row + (r === 0 ? "#" : "."));
+    level.mechanics = { stuck: [[originRow + 0, originCol + 5]] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a stuck cell the solution covers", () => {
+    const { level } = sample3x5();
+    level.mechanics = { stuck: [level.solution[0]!.cells[0]!] };
+    expect(validateLevel(level).some((e) => /covers stuck splinter/.test(e))).toBe(true);
+  });
+});

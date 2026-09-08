@@ -90,6 +90,8 @@ export class GameState {
   private readonly wander: string[];
   /** Farbsiegel: Scheibe → erlaubtes Teil. */
   private readonly seals: Map<string, PentominoName>;
+  /** Feste Splitter: Scheiben, die nie bedeckt werden dürfen. */
+  private readonly stuck: Set<string>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -143,7 +145,19 @@ export class GameState {
         name as PentominoName,
       ]),
     );
+    this.stuck = new Set(
+      (level.mechanics?.stuck ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Fester Splitter ───────────────────────────────────────────────────────
+  get hasStuck(): boolean {
+    return this.stuck.size > 0;
+  }
+  /** Steckt hier ein fester Splitter (nie deckbar)? */
+  isStuck(row: number, col: number): boolean {
+    return this.stuck.has(`${row},${col}`);
   }
 
   // ── Farbsiegel ────────────────────────────────────────────────────────────
@@ -546,6 +560,7 @@ export class GameState {
       const key = `${r},${c}`;
       if (!this.shapeCells.has(key) || blocked.has(key)) return false;
       if (this.isFrozen(r, c)) return false;
+      if (this.stuck.has(key)) return false;
     }
     // Ein Riss trennt das Glas: dasselbe Teil darf nicht auf beiden Seiten
     // liegen. Zwei verschiedene Teile dürfen sich über den Riss hinweg
@@ -579,7 +594,7 @@ export class GameState {
     if (shard !== null && cells.some(([r, c]) => `${r},${c}` === shard)) {
       const after = new Set(blocked);
       for (const [r, c] of cells) after.add(`${r},${c}`);
-      if (after.size !== this.shapeCells.size) return false;
+      if (after.size !== this.shapeCells.size - this.stuck.size) return false;
     }
     // Farbsiegel: eine versiegelte Scheibe nimmt nur ihr Teil.
     if (this.seals.size > 0) {
@@ -603,7 +618,7 @@ export class GameState {
       if (coversCandle) {
         const after = new Set(blocked);
         for (const [r, c] of cells) after.add(`${r},${c}`);
-        if (after.size !== this.shapeCells.size) return false;
+        if (after.size !== this.shapeCells.size - this.stuck.size) return false;
       }
     }
     return true;
@@ -652,7 +667,8 @@ export class GameState {
    */
   isWon(): boolean {
     if (this.goal === "soot") return this.soot.size > 0 && this.sootCleared === this.soot.size;
-    return this.occupied().size === this.shape.size;
+    // feste Splitter zählen nicht: jede *andere* Scheibe muss gedeckt sein
+    return this.occupied().size === this.shape.size - this.stuck.size;
   }
   finish(): void {
     if (this.endedAt === null) this.endedAt = performance.now();

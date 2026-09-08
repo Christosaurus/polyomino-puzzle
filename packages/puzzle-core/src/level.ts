@@ -126,6 +126,13 @@ export interface LevelMechanics {
    * pane's solution piece must match the named piece.
    */
   seals?: Array<[[number, number], string]>;
+  /**
+   * Stuck splinters: cells that are part of the silhouette but that no piece may
+   * ever cover — a shard is wedged in. The window is won when every *other* pane
+   * is covered; the splinter stays open. Reshapes the puzzle without changing
+   * the outline you read. The solution must not cover any stuck cell.
+   */
+  stuck?: Array<[number, number]>;
 }
 
 export interface Level {
@@ -246,8 +253,14 @@ export function validateLevel(level: unknown): string[] {
   for (const [key, count] of covered) {
     if (count > 1) errors.push(`solution covers cell ${key} ${count} times`);
   }
+  const stuckSet = new Set(
+    (Array.isArray(l.mechanics?.stuck) ? l.mechanics.stuck : []).map(([r, c]) => `${r},${c}`),
+  );
   for (const key of shapeCells) {
-    if (!covered.has(key)) errors.push(`solution leaves cell ${key} empty`);
+    if (!covered.has(key) && !stuckSet.has(key)) errors.push(`solution leaves cell ${key} empty`);
+  }
+  for (const key of stuckSet) {
+    if (covered.has(key)) errors.push(`solution covers stuck splinter ${key}`);
   }
 
   // The solution's pieces must be exactly the level's piece multiset.
@@ -420,6 +433,16 @@ export function validateLevel(level: unknown): string[] {
       }
       if (wander.length > 0 && !solutionBeatsWander(l.solution, wander)) {
         errors.push("no placement order of the solution beats the wandering shard");
+      }
+    }
+  }
+  const stuck = l.mechanics?.stuck;
+  if (stuck !== undefined) {
+    if (!Array.isArray(stuck)) {
+      errors.push("mechanics.stuck must be an array");
+    } else {
+      for (const [r, c] of stuck) {
+        if (!shapeCells.has(`${r},${c}`)) errors.push(`stuck cell ${r},${c} is outside the shape`);
       }
     }
   }

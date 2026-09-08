@@ -41,7 +41,8 @@ let chains: Array<[string, string]> = [];
 let chainPending: string | null = null;
 let wander: string[] = [];
 let seals = new Map<string, string>();
-let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" = "soot";
+let stuck = new Set<string>();
+let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" | "stuck" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -86,6 +87,7 @@ function generate(): void {
   chainPending = null;
   wander = [];
   seals = new Map();
+  stuck = new Set();
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -284,6 +286,26 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Feste Splitter
+  for (const key of stuck) {
+    const [sr, sc] = key.split(",").map(Number) as Cell;
+    const cx = x + (sc - originCol + 0.5) * cell;
+    const cy = y + (sr - originRow + 0.5) * cell;
+    ctx.save();
+    ctx.fillStyle = "rgba(8,5,18,0.85)";
+    ctx.fillRect(x + (sc - originCol) * cell + 1, y + (sr - originRow) * cell + 1, cell - 2, cell - 2);
+    ctx.fillStyle = "#3a3350";
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * 6.28;
+      const rr = i % 2 === 0 ? cell * 0.32 : cell * 0.14;
+      ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   // Farbsiegel
   for (const [key, name] of seals) {
     const [sr, sc] = key.split(",").map(Number) as Cell;
@@ -433,6 +455,14 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
 
+  if (mode === "stuck") {
+    const key = cellKey(abs[0], abs[1]);
+    if (stuck.has(key)) stuck.delete(key);
+    else stuck.add(key);
+    refresh();
+    return;
+  }
+
   if (mode === "seal") {
     const key = cellKey(abs[0], abs[1]);
     if (seals.has(key)) {
@@ -578,6 +608,9 @@ function build(): Level | null {
   if (seals.size > 0) {
     mech.seals = [...seals].map(([k, name]) => [k.split(",").map(Number) as Cell, name]);
   }
+  if (stuck.size > 0) {
+    mech.stuck = [...stuck].map((k) => k.split(",").map(Number) as Cell);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -624,7 +657,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel · ${stuck.size} Splitter` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -651,6 +684,7 @@ $("m-candle").addEventListener("click", () => setMode("candle"));
 $("m-chain").addEventListener("click", () => setMode("chain"));
 $("m-wander").addEventListener("click", () => setMode("wander"));
 $("m-seal").addEventListener("click", () => setMode("seal"));
+$("m-stuck").addEventListener("click", () => setMode("stuck"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
@@ -660,10 +694,11 @@ $("clear").addEventListener("click", () => {
   chainPending = null;
   wander = [];
   seals = new Map();
+  stuck = new Set();
   refresh();
 });
 function setMode(
-  m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal",
+  m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" | "stuck",
 ): void {
   mode = m;
   chainPending = null;
@@ -674,6 +709,7 @@ function setMode(
   $("m-chain").classList.toggle("on", m === "chain");
   $("m-wander").classList.toggle("on", m === "wander");
   $("m-seal").classList.toggle("on", m === "seal");
+  $("m-stuck").classList.toggle("on", m === "stuck");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
@@ -687,7 +723,9 @@ function setMode(
               ? "Zwei Scheiben nacheinander antippen, um sie zu verketten — dasselbe Teil muss dann beide decken. Auf ein Kettenende tippen löscht die Kette. Beide Enden müssen im selben Lösungsteil liegen."
               : m === "wander"
                 ? "Scheiben der Reihe nach antippen — das ist der Gang der Wanderscherbe (jeder Schritt eine Nachbarscheibe). Auf eine nummerierte Scheibe tippen schneidet den Gang dort ab. Kurz halten (3–5)."
-                : "Auf eine Scheibe tippen versiegelt sie mit dem Teil, das sie in der Lösung deckt — nur dieses Teil darf dann dahin. Nochmal tippen entfernt das Siegel.";
+                : m === "seal"
+                  ? "Auf eine Scheibe tippen versiegelt sie mit dem Teil, das sie in der Lösung deckt — nur dieses Teil darf dann dahin. Nochmal tippen entfernt das Siegel."
+                  : "Auf eine Scheibe tippen rammt einen festen Splitter hinein — nie deckbar. Nur an Scheiben sinnvoll, die die Lösung nicht braucht (der Validator meckert sonst).";
   refresh();
 }
 

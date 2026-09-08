@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "id": "stuck_01",
+  "difficulty": 2,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "######",
+      "#####.",
+      "#####."
+    ]
+  },
+  "pieces": [
+    "Y",
+    "P",
+    "U"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          1
+        ]
+      ]
+    },
+    {
+      "pieceId": "P",
+      "cells": [
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "pieceId": "U",
+      "cells": [
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "soot:stuck_01:0",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 30,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "mechanics": {
+    "stuck": [
+      [
+        0,
+        5
+      ]
+    ]
+  },
+  "moveBudget": 6
+}

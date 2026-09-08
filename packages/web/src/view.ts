@@ -798,6 +798,60 @@ export class GameView {
     }
   }
 
+  /**
+   * Feste Splitter: eine dunkle, in die Scheibe gerammte Scherbe. Steht still,
+   * sitzt tiefer als die Wanderscherbe, mit ein paar Sprüngen im Glas ringsum.
+   */
+  private drawStuck(b: BoardLayout): void {
+    if (!this.game.hasStuck) return;
+    const ctx = this.ctx;
+    for (const [r, c] of this.game.shape.cells) {
+      if (!this.game.isStuck(r, c)) continue;
+      const x = b.x + c * b.cell;
+      const y = b.y + r * b.cell;
+      const cx = x + b.cell / 2;
+      const cy = y + b.cell / 2;
+      ctx.save();
+      // dunkler Sockel
+      ctx.fillStyle = "rgba(8, 5, 18, 0.85)";
+      ctx.fillRect(x + 1, y + 1, b.cell - 2, b.cell - 2);
+      // Sprünge zum Rand
+      ctx.strokeStyle = "rgba(120, 110, 150, 0.5)";
+      ctx.lineWidth = Math.max(1, b.cell * 0.03);
+      for (let i = 0; i < 4; i++) {
+        const a = ((r * 13 + c * 29 + i * 90) % 360) * (Math.PI / 180);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(a) * b.cell * 0.5, cy + Math.sin(a) * b.cell * 0.5);
+        ctx.stroke();
+      }
+      // die Scherbe — spitzes Bruchstück
+      ctx.beginPath();
+      const R = b.cell * 0.34;
+      const seed = r * 7 + c * 11;
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * 6.28 + seed;
+        const rr = i % 2 === 0 ? R : R * 0.42;
+        ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      ctx.closePath();
+      const g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+      g.addColorStop(0, "#3a3350");
+      g.addColorStop(1, "#14101f");
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(170, 160, 200, 0.7)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      // kalter Glanz
+      ctx.fillStyle = "rgba(200, 210, 255, 0.5)";
+      ctx.beginPath();
+      ctx.arc(cx - R * 0.3, cy - R * 0.3, R * 0.16, 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -935,6 +989,7 @@ export class GameView {
 
     // über den Teilen, damit die Bruchkante sichtbar bleibt, wenn beidseitig
     // etwas liegt — sonst wüsste man nach dem Setzen nicht mehr, wo sie war
+    this.drawStuck(b);
     this.drawCracks(b);
     this.drawIce(b);
     this.drawChains(b);
