@@ -23,12 +23,17 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "the-why", name: "Das Warum", hint: "Erfahre, warum er sammelt", icon: "🕯", done: (d) => d.beatsSeen.includes("a3-das-warum") },
   { id: "last-window", name: "Das letzte Fenster", hint: "Bau es mit ihm zu Ende", icon: "🪟", done: (d) => !!d.levels["boss_01"]?.stars },
   // ── die Nebenwege ──
-  { id: "streak-3", name: "Tagesritual", hint: "3 Tage in Folge ein Fenster", icon: "☀", done: (d) => d.daily.bestStreak >= 3 },
+  { id: "win-streak-8", name: "Ununterbrochen", hint: "8 Fenster in Folge ohne Fehlschlag", icon: "🔗", done: (d) => (d.stats.bestWinStreak ?? 0) >= 8 },
+  { id: "streak-3", name: "Tagesritual", hint: "3 Tage in Folge ein Tagesfenster", icon: "☀", done: (d) => d.daily.bestStreak >= 3 },
   { id: "streak-7", name: "Woche im Licht", hint: "7 Tage Streak", icon: "🗓", done: (d) => d.daily.bestStreak >= 7 },
+  { id: "streak-30", name: "Ein Monat Glaserarbeit", hint: "30 Tage Streak", icon: "📅", done: (d) => d.daily.bestStreak >= 30 },
   { id: "descent-5", name: "In Anselms Stollen", hint: "Steig 5 Ebenen hinab", icon: "▼", done: (d) => d.descent.bestDepth >= 5 },
   { id: "descent-10", name: "Tief, wo er war", hint: "10 Ebenen tief in den Stollen", icon: "⛓", done: (d) => d.descent.bestDepth >= 10 },
+  { id: "descent-20", name: "Am Grund des Stollens", hint: "20 Ebenen tief", icon: "🕳", done: (d) => d.descent.bestDepth >= 20 },
   { id: "cascade-500", name: "Im Scherbenregen", hint: "500 Punkte, bevor die Splitter weg sind", icon: "⚡", done: (d) => d.cascade.bestScore >= 500 },
   { id: "cascade-2000", name: "Kein Splitter für ihn", hint: "2000 Punkte im Scherbenregen", icon: "🌊", done: (d) => d.cascade.bestScore >= 2000 },
+  { id: "cascade-5000", name: "Flut", hint: "5000 Punkte im Scherbenregen", icon: "💧", done: (d) => d.cascade.bestScore >= 5000 },
+  { id: "all-modes", name: "Jeden Weg gegangen", hint: "Kampagne, Stollen und Scherbenregen einmal gespielt", icon: "🧭", done: (d) => d.stats.solved >= 1 && d.descent.runs >= 1 && d.cascade.runs >= 1 },
 ];
 
 export function unlockedCount(d: SaveData): number {

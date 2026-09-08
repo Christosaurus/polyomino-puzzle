@@ -35,13 +35,22 @@ export interface SaveData {
   /** Light shards — the spendable currency (shop, hearts). */
   shards: number;
   /**
-   * Fenster erhellt — the one monotonic progression number. Every mode adds to
-   * it, it is never spent, and it is what the Laterne (region gate) and the
-   * player's "Stufe" read. Keeps the modes on one axis (KONZEPT-lumen.md §B).
+   * Fenster erhellt — die Haupt-Fortschrittszahl der **Story**. Steigt nur durch
+   * neu gelöste Kampagnen-Fenster; Abstieg / Kaskade / Tagesfenster füttern sie
+   * bewusst *nicht* mehr (die dienen Erfolgen + Lichtsplittern). Sie treibt die
+   * Laterne (Regionstor) und die Welt-Helligkeit.
    */
   panes: number;
   lives: { count: number; nextAt: number };
-  stats: { solved: number; totalMs: number; noUndoStreak: number; bestNoUndoStreak: number };
+  stats: {
+    solved: number;
+    totalMs: number;
+    noUndoStreak: number;
+    bestNoUndoStreak: number;
+    /** Serie gelöster Kampagnen-Fenster in Folge; reißt bei einem Fehlschlag. */
+    winStreak: number;
+    bestWinStreak: number;
+  };
 }
 
 const EMPTY: SaveData = {
@@ -58,7 +67,14 @@ const EMPTY: SaveData = {
   shards: 0,
   panes: 0,
   lives: { count: MAX_LIVES, nextAt: 0 },
-  stats: { solved: 0, totalMs: 0, noUndoStreak: 0, bestNoUndoStreak: 0 },
+  stats: {
+    solved: 0,
+    totalMs: 0,
+    noUndoStreak: 0,
+    bestNoUndoStreak: 0,
+    winStreak: 0,
+    bestWinStreak: 0,
+  },
 };
 
 export function load(): SaveData {
@@ -128,21 +144,59 @@ export function totalStars(data: SaveData): number {
     .reduce((s, [, r]) => s + r.stars, 0);
 }
 
-/** Record a campaign/daily level completion; keeps the better result. Returns shards earned. */
-export function recordLevel(levelId: string, stars: number, ms: number, usedUndo: boolean): number {
-  let earned = 0;
+/** Der Lichtsplitter-Multiplikator bei einer Serie von `streak` Siegen. */
+export function winMultiplier(streak: number): number {
+  if (streak >= 7) return 3;
+  if (streak >= 4) return 2;
+  if (streak >= 2) return 1.5;
+  return 1;
+}
+export function winStreak(d = load()): number {
+  return d.stats.winStreak;
+}
+
+export interface LevelReward {
+  /** Lichtsplitter nach Multiplikator. */
+  shards: number;
+  /** Der angewandte Multiplikator (1 / 1.5 / 2 / 3). */
+  mult: number;
+  /** Die neue Serienlänge. */
+  streak: number;
+  firstClear: boolean;
+}
+
+/** Record a campaign/daily level completion; keeps the better result. */
+export function recordLevel(
+  levelId: string,
+  stars: number,
+  ms: number,
+  usedUndo: boolean,
+): LevelReward {
+  const out: LevelReward = { shards: 0, mult: 1, streak: 0, firstClear: false };
   update((d) => {
     const prev = d.levels[levelId];
     const firstClear = !prev;
+    out.firstClear = firstClear;
     if (!prev || stars > prev.stars || (stars === prev.stars && ms < prev.bestMs)) {
       d.levels[levelId] = { stars, bestMs: ms };
     } else {
       d.levels[levelId] = { ...prev };
     }
     d.levels[levelId]!.fails = 0; // a win always clears the pity streak
-    earned = stars + (firstClear ? 3 : 1);
-    d.shards += earned;
-    if (firstClear) d.panes += 1; // ein neues Fenster erhellt
+
+    const isCampaign = !levelId.startsWith("daily:");
+    if (isCampaign) {
+      d.stats.winStreak += 1;
+      d.stats.bestWinStreak = Math.max(d.stats.bestWinStreak, d.stats.winStreak);
+    }
+    out.streak = d.stats.winStreak;
+    out.mult = isCampaign ? winMultiplier(d.stats.winStreak) : 1;
+
+    const base = stars + (firstClear ? 3 : 1);
+    out.shards = Math.round(base * out.mult);
+    d.shards += out.shards;
+    if (firstClear && isCampaign) d.panes += 1; // ein neues Fenster im Tal erhellt
+
     d.stats.solved += 1;
     d.stats.totalMs += ms;
     if (usedUndo) {
@@ -152,18 +206,19 @@ export function recordLevel(levelId: string, stars: number, ms: number, usedUndo
       d.stats.bestNoUndoStreak = Math.max(d.stats.bestNoUndoStreak, d.stats.noUndoStreak);
     }
   });
-  return earned;
+  return out;
 }
 
 const PITY_THRESHOLD = 2;
 
-/** A level timed out. Track it so a repeat run can offer a free assist. */
+/** A level timed out. Track it so a repeat run can offer a free assist. Breaks the win streak. */
 export function recordFail(levelId: string): number {
   let fails = 0;
   update((d) => {
     const prev = d.levels[levelId];
     fails = (prev?.fails ?? 0) + 1;
     d.levels[levelId] = { stars: prev?.stars ?? 0, bestMs: prev?.bestMs ?? Infinity, fails };
+    d.stats.winStreak = 0;
   });
   return fails;
 }
@@ -196,7 +251,8 @@ export function recordDescent(depth: number): SaveData {
   return update((d) => {
     d.descent.runs += 1;
     d.descent.bestDepth = Math.max(d.descent.bestDepth, depth);
-    d.panes += 1; // jede geschaffte Stollen-Ebene ist ein Fenster
+    // erhellt bewusst *kein* Story-Fenster — der Abstieg dient Erfolgen +
+    // Lichtsplittern, die Story bleibt der Kampagne vorbehalten
   });
 }
 
@@ -221,9 +277,8 @@ export function recordCascade(score: number, cleared: number): SaveData {
     d.cascade.runs += 1;
     d.cascade.bestScore = Math.max(d.cascade.bestScore, score);
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
-    // gelöschte Reihen im Scherbenregen = erhellte Fenster, aber gedeckelt,
-    // damit ein Glückslauf die Karte nicht auf einmal aufreißt
-    d.panes += Math.min(6, Math.floor(cleared / 3));
+    // erhellt keine Story-Fenster mehr — Punkte zählen für Erfolge, die
+    // Lichtsplitter fürs Herz-/Joker-Budget
   });
 }
 

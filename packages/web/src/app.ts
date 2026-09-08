@@ -389,7 +389,7 @@ function renderHome(): void {
     "🌅",
     "Das Tagesfenster",
     dailyDone ? "erledigt ✓" : `🔥 ${s.daily.streak}`,
-    dailyDone ? "Morgen wartet das nächste." : "Ein Fenster für heute — für alle gleich.",
+    dailyDone ? "Morgen wartet das nächste." : "Ein Fenster für heute — für Splitter und die Serie.",
     () => setTab("daily"),
   );
   const descent = sideStation(
@@ -397,7 +397,7 @@ function renderHome(): void {
     "🕯",
     "Anselms Stollen",
     `Ebene ${s.descent.bestDepth}`,
-    "Tief hinab. Jedes Fenster erhellt die Laterne.",
+    "Wie tief kommst du? Für Erfolge und Lichtsplitter.",
     () => setTab("descent"),
   );
   const cascade = sideStation(
@@ -405,7 +405,7 @@ function renderHome(): void {
     "⚡",
     "Der Scherbenregen",
     nf(s.cascade.bestScore),
-    "2½ Minuten. Fang die Splitter, bevor sie weg sind.",
+    "2½ Minuten. Punkte jagen, Erfolge holen.",
     () => setTab("cascade"),
   );
 
@@ -883,12 +883,20 @@ function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
 function collectStoryRewards(levelId: string, stars: number, ms: number, usedUndo: boolean, region?: Region): string[] {
   const lines: string[] = [];
   const panesBefore = store.panes();
-  const earned = store.recordLevel(levelId, stars, ms, usedUndo);
+  const r = store.recordLevel(levelId, stars, ms, usedUndo);
   if (store.panes() > panesBefore) lines.push("🏮 +1 Fenster erhellt");
-  lines.push(`✦ +${earned} Lichtsplitter`);
-  // schaltet dieses Fenster eine Region auf? dann sagen
-  const nextLocked = regions.find((r) => store.panes() === r.panesToUnlock);
+  lines.push(
+    r.mult > 1
+      ? `✦ +${nf(r.shards)} Lichtsplitter · Serie ×${r.mult}`
+      : `✦ +${nf(r.shards)} Lichtsplitter`,
+  );
+  // schaltet dieses Fenster eine Region auf? dann sagen, sonst wie weit noch
+  const nextLocked = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
   if (nextLocked) lines.push(`✨ ${nextLocked.name} — die Laterne ist an!`);
+  else {
+    const nudge = nextRegionNudge();
+    if (nudge && r.firstClear) lines.push(nudge);
+  }
   refreshLight();
   scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
@@ -920,7 +928,11 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
   $("screen-play").dataset.region = region.id;
-  $("play-title-txt").textContent = windowName(region.id, index, entry.id);
+  const streak = store.winStreak();
+  const mult = store.winMultiplier(streak);
+  $("play-title-txt").innerHTML =
+    windowName(region.id, index, entry.id) +
+    (mult > 1 ? ` <span class="serie">Serie ×${mult}</span>` : "");
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -969,17 +981,19 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     },
     onTimeout: () => {
       // Story-Modus: ein Fehlschlag kostet ein Herz (bewusste Verknappung).
+      const lostStreak = store.winStreak();
       store.spendLife();
-      const fails = store.recordFail(entry.id);
+      const fails = store.recordFail(entry.id); // setzt auch die Serie zurück
       renderTopPills();
       const l = store.lives();
+      const streakNote = lostStreak >= 2 ? ` Serie ×${store.winMultiplier(lostStreak)} weg.` : "";
       showOverlay({
         title: "Das Licht flackert aus",
         sub:
-          l.count > 0
+          (l.count > 0
             ? `Noch <b>${l.count}</b> ${l.count === 1 ? "Herz" : "Herzen"}.` +
               (fails >= 2 ? " Beim nächsten Versuch hilft dir Mira." : "")
-            : `Keine Herzen mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`,
+            : `Keine Herzen mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`) + streakNote,
         nextLabel: l.count > 0 ? "Nochmal" : "Übersicht",
         onNext: () =>
           l.count > 0 ? playCampaign(region, index) : openRegion(regions.indexOf(region)),
@@ -1050,34 +1064,27 @@ async function playDaily(): Promise<void> {
   }
   mountGame(game, {
     onWin: (stars, ms) => {
-      const panesBefore = store.panes();
-      const earned = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
-      const litPane = store.panes() > panesBefore;
+      const r = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
       store.addShards(5);
       const milestone = DAILY_MILESTONES.find((m) => m.days === after && after > before);
       if (milestone) store.addShards(milestone.shards);
-      refreshLight();
-      queueBeat(panesBefore, store.panes());
-      const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
-      if (nowLit) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
       renderTopPills();
       showOverlay({
-        title: "Gelöst!",
+        title: stars === 3 ? "Makellos!" : "Gelöst!",
         stars,
-        sub: `Zeit <b>${fmt(ms)}</b>`,
+        sub: `Das Tagesfenster · <b>${fmt(ms)}</b>`,
         rewards: [
-          ...(litPane ? ["🏮 +1 Fenster erhellt"] : []),
-          `✦ +${earned + 5} Lichtsplitter`,
+          `✦ +${nf(r.shards + 5)} Lichtsplitter`,
           after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
           ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
         ],
-        mira: pendingBeat ? null : miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
+        mira: miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
         nextLabel: "Fertig",
-        onNext: throughBeat(() => setTab("daily")),
-        onQuit: throughBeat(() => setTab("daily")),
+        onNext: () => setTab("daily"),
+        onQuit: () => setTab("daily"),
       });
       if (milestone) scenery.pulse();
     },
@@ -1220,18 +1227,13 @@ async function playDescentLevel(): Promise<void> {
   mountGame(game, {
     onWin: (stars, ms) => {
       const st = descentState!;
-      const panesBefore = store.panes();
       st.depth = depth + 1;
       st.streak += 1;
-      store.recordDescent(depth); // +1 Fenster erhellt
+      store.recordDescent(depth);
       store.addShards(depth);
-      scenery.pulse(0.35 + 0.08 * stars); // the workshop brightens with every clear
-      refreshLight();
-      queueBeat(panesBefore, store.panes());
-      const nowLit = regions.find(
-        (r) => store.panes() >= r.panesToUnlock && panesBefore < r.panesToUnlock,
-      );
-      celebrate(syncAchievements());
+      scenery.pulse(0.35 + 0.08 * stars);
+      const freshAch = syncAchievements();
+      celebrate(freshAch);
       renderTopPills();
 
       // between-levels praise — a new record always lands; otherwise only now
@@ -1252,32 +1254,25 @@ async function playDescentLevel(): Promise<void> {
       showOverlay({
         title: `Ebene ${depth} geschafft`,
         stars,
-        sub: `Zeit <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
+        sub: `Anselms Stollen · <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
         rewards: [
-          "🏮 +1 Fenster erhellt",
-          `✦ +${depth} Lichtsplitter`,
-          ...(nowLit
-            ? [`✨ ${nowLit.name} — die Laterne ist an!`]
-            : nextRegionNudge()
-              ? [nextRegionNudge()!]
-              : []),
+          `✦ +${nf(depth)} Lichtsplitter`,
+          ...(freshAch.length ? [`🏅 ${freshAch[0]!.name} freigeschaltet`] : []),
         ],
-        // bei einem Hype-Wort oder Beat schweigt Mira — eine Sache pro Screen
-        mira:
-          hype || pendingBeat
-            ? null
-            : miraLine({
-                solved: store.load().stats.solved,
-                place: "descent",
-                stars,
-                streak: st.streak,
-                depth,
-              }),
+        mira: hype
+          ? null
+          : miraLine({
+              solved: store.load().stats.solved,
+              place: "descent",
+              stars,
+              streak: st.streak,
+              depth,
+            }),
         nextLabel: "Tiefer ›",
-        onNext: throughBeat(() => void playDescentLevel()),
+        onNext: () => void playDescentLevel(),
         quitLabel: "Aufhören",
-        onQuit: throughBeat(() => endDescent(depth)),
-        ...(hype && !pendingBeat ? { hype, hypeStrong } : {}),
+        onQuit: () => endDescent(depth),
+        ...(hype ? { hype, hypeStrong } : {}),
       });
     },
     onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
@@ -1362,40 +1357,26 @@ function startCascade(): void {
       }
     },
     onEnd: (r) => {
-      const panesBefore = store.panes();
       store.recordCascade(r.score, r.cleared);
-      const lit = store.panes() - panesBefore;
-      refreshLight();
-      queueBeat(panesBefore, store.panes());
-      const nowLit = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
-      if (nowLit && !pendingBeat) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
-      celebrate(syncAchievements());
+      // Punkte → Lichtsplitter fürs Budget (kein Story-Fortschritt)
+      const shards = Math.min(40, 5 + Math.floor(r.score / 120));
+      store.addShards(shards);
+      const freshAch = syncAchievements();
+      celebrate(freshAch);
+      renderTopPills();
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
-      const nudge = !nowLit && lit > 0 ? nextRegionNudge() : null;
       $("k-result").innerHTML =
         `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
-        (lit > 0 ? ` · 🏮 +${lit} Fenster` : "") +
+        ` · ✦ +${nf(shards)}` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
         (newRecord ? ` · 🏆 neue Bestmarke!` : "") +
-        (nudge ? `<br><small>${nudge}</small>` : "");
+        (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} freigeschaltet</small>` : "");
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
       ov.classList.add("show");
-      // ein Beat, sobald der Spieler das Kaskade-Fenster schließt
-      if (pendingBeat) {
-        const b = pendingBeat;
-        pendingBeat = null;
-        const play = (go: () => void) => () => {
-          ov.classList.remove("show");
-          playCutscene(b, go);
-        };
-        $<HTMLButtonElement>("k-quit").onclick = play(() => setTab("cascade"));
-        $<HTMLButtonElement>("k-again").onclick = play(startCascade);
-      } else {
-        $<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
-        $<HTMLButtonElement>("k-again").onclick = startCascade;
-      }
+      $<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
+      $<HTMLButtonElement>("k-again").onclick = startCascade;
     },
   });
   $("k-best").textContent = nf(bestScore);
