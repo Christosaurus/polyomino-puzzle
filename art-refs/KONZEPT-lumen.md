@@ -274,7 +274,7 @@ Eindeutigkeit bleibt optional für handgebaute Story-Fenster („Meisterstücke"
 | **Ruß** ✅ | Verrußte Scheiben. Bedecken reinigt. Ziel: alle rein. | Zieldenken statt „alles voll" | I |
 | **Fester Splitter** | Ein Splitter steckt fest, nicht überdeckbar. | Formgefühl, Umbauen | I |
 | **Lichtmotte** | Gefangene Motte; Bedecken befreit sie. Ziel: N Motten. | Teilziele, hübsches Feedback | I |
-| **Kette** | Zwei Zellen verkettet — **dasselbe Teil** muss beide decken. | Vorausdenken | II |
+| **Kette** ✅ | Zwei Zellen verkettet — **dasselbe Teil** muss beide decken. | Vorausdenken | II |
 | **Riss** ✅ | Zwischen zwei Zellen läuft ein Riss; **kein Teil darf ihn kreuzen**. | Innere Wände ohne Formänderung | II |
 | **Eis** ✅ | Vereiste Scheibe. Erst deckbar, wenn eine Nachbarscheibe gedeckt ist. | Reihenfolge | II |
 | **Zugbudget** | Nur N Platzierungen. | Spannung, knappe Lösbarkeit | II |
@@ -420,7 +420,7 @@ gespeicherten Datenmodell.
 | # | Maßnahme | Aufwand |
 |---|---|---|
 | 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ | ✅ `level.ts`-Schema + `editor.html` (Ruß / Riss / Eis / Kerze malen) |
-| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | 🟡 Ruß+Kriechruß, Riss, Eis, Kerze ✅ · Kette / Farbsiegel / Doppelscheibe / Wanderscherbe offen |
+| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | 🟡 Ruß+Kriechruß, Riss, Eis, Kette, Kerze ✅ · Farbsiegel / Lichtmotte / Fester Splitter / Doppelscheibe / Wanderscherbe offen |
 | 13 | 40–60 handgebaute Story-Fenster. | fortlaufend | 🟡 13 Mechanik-Fenster generiert (soot/crack/ice/candle/boss), handkuratiert kommen |
 | 14 | Boss-Fenster. | M | 🟡 `boss_01` „Das letzte Fenster" (Risse + Kerze, 9 Teile) ✅ · Doppelscheibe + Wanderscherbe als eigene Mechaniken noch offen |
 | 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats), Finale-Cutscene nach `boss_01`. |
