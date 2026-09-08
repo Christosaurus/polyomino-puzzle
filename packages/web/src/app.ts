@@ -871,7 +871,9 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   $("play-title-txt").textContent =
     entry.id === "boss_01"
       ? "Das letzte Fenster"
-      : `${region.name} · ${index + 1} / ${region.levels.length}`;
+      : entry.id === "boss_02"
+        ? "Anselms Prüfstück"
+        : `${region.name} · ${index + 1} / ${region.levels.length}`;
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -882,7 +884,10 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const assisted = store.pity(entry.id);
   // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
-  if (entry.id === "boss_01") toast("🕯 Das letzte Fenster. Geschnitten wie in der Werkstatt — und die Kerze ganz zum Schluss.");
+  if (entry.id === "boss_01")
+    toast("🕯 Das letzte Fenster. Geschnitten wie in der Werkstatt — und die Kerze ganz zum Schluss.");
+  else if (entry.id === "boss_02")
+    toast("❖✦🕯 Doppelscheibe, Wanderscherbe und die Kerze — alles auf einmal. Plan die Reihenfolge.");
   else introduceMechanic(game);
   mountGame(game, {
     onWin: (stars, ms) => {

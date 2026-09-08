@@ -448,6 +448,17 @@
       "moveBudget": 9
     },
     {
+      "id": "boss_02",
+      "difficulty": 5,
+      "pieces": "LWNUXTZY",
+      "rows": 5,
+      "cols": 8,
+      "candle": 1,
+      "wander": 5,
+      "double": 2,
+      "moveBudget": 13
+    },
+    {
       "id": "wander_02",
       "difficulty": 5,
       "pieces": "ULWVYNZT",

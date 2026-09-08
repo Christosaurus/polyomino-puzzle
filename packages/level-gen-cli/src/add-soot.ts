@@ -42,7 +42,8 @@ type Pattern =
   | "seal"
   | "stuck"
   | "moth"
-  | "double";
+  | "double"
+  | "boss2";
 
 interface Recipe {
   id: string;
@@ -107,6 +108,9 @@ const RECIPES: Recipe[] = [
   // Das letzte Fenster — der Boss. Groß, geschnitten (Risse) und mit der Kerze
   // ganz zum Schluss. Alles, was Anselm gelernt hat, auf einmal.
   { id: "boss_01", shapeLabel: "rect-5x9", pattern: "boss", difficulty: 5, insertAt: 42, slack: 4 },
+  // Das vorletzte Fenster — die drei Boss-Mechaniken zusammen: Doppelscheibe,
+  // Wanderscherbe und die Kerze.
+  { id: "boss_02", shapeLabel: "rect-5x8", pattern: "boss2", difficulty: 5, insertAt: 41, slack: 5 },
 ];
 
 function sootFor(pattern: SootPattern, cells: Cell[], nth: number): Cell[] {
@@ -604,6 +608,35 @@ function build(recipe: Recipe): Level {
       console.log(
         `${recipe.id} ${recipe.shapeLabel.padEnd(9)} wander  Gang ${local.length} Zellen` +
           `             Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
+    if (recipe.pattern === "boss2") {
+      // Doppelscheibe + Wanderscherbe + Kerze auf einer Packung
+      const pairs = doubleFor(level, 2, attempt);
+      if (pairs.length < 2) continue;
+      const path = wanderFor(shapeCells, level.pieces.length, attempt);
+      if (path.length < 2) continue;
+      const cand = candleFor(level, shapeCells, attempt);
+      if (cand.length === 0) continue;
+      const wanderAbs: Cell[] = path.map(([r, c]) => [r + originRow, c + originCol]);
+      const candleAbs: Cell[] = cand.map(([r, c]) => [r + originRow, c + originCol]);
+      // Kerze darf nicht auf einer Doppel- oder Wanderscheibe sitzen
+      const taken = new Set([
+        ...pairs.flat().map(([r, c]) => `${r},${c}`),
+        ...wanderAbs.map(([r, c]) => `${r},${c}`),
+      ]);
+      if (candleAbs.some(([r, c]) => taken.has(`${r},${c}`))) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = { double: pairs, wander: wanderAbs, candle: candleAbs };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} boss2   ${pairs.length} Doppel + Scherbe(${path.length}) + Kerze` +
+          `   Budget ${level.moveBudget}`,
       );
       return level;
     }
