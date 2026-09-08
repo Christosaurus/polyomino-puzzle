@@ -1095,18 +1095,22 @@ function introduceMechanic(game: GameState): void {
 }
 
 function renderGoalStrip(game: GameState): boolean {
-  if (game.goal !== "soot") return false;
+  if (game.goal !== "soot" && game.goal !== "moth") return false;
   const bar = $("play-stage");
   bar.hidden = false;
   const done = game.sootCleared;
   const total = game.sootTotal;
+  const moth = game.goal === "moth";
   // kriecht der Ruß und ist noch offen → Warnlampe an
   const creeping = game.sootSpreads && done < total;
   bar.classList.toggle("hot", creeping);
+  const label = moth ? "Motten 🦋" : `Ruß${game.sootSpreads ? " 🕯" : ""}`;
   bar.innerHTML =
-    `<span class="ps-lvl">Ruß${game.sootSpreads ? " 🕯" : ""}</span>` +
+    `<span class="ps-lvl">${label}</span>` +
     `<span class="ps-bar"><i style="width:${Math.round((done / total) * 100)}%"></i></span>` +
-    `<span class="ps-note">${done} / ${total}${creeping ? " · kriecht" : ""}</span>`;
+    `<span class="ps-note">${nf(done)} / ${nf(total)}${
+      moth ? " frei" : creeping ? " · kriecht" : ""
+    }</span>`;
   return true;
 }
 

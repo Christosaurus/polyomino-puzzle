@@ -51,6 +51,16 @@
       "meanBranching": 1.5
     },
     {
+      "id": "moth_01",
+      "difficulty": 1,
+      "pieces": "FYLT",
+      "rows": 4,
+      "cols": 5,
+      "goal": "moth",
+      "moths": 4,
+      "moveBudget": 5
+    },
+    {
       "id": "level_003",
       "difficulty": 1,
       "pieces": "LPV",
@@ -72,6 +82,15 @@
       "moveBudget": 5
     },
     {
+      "id": "stuck_01",
+      "difficulty": 2,
+      "pieces": "YPU",
+      "rows": 3,
+      "cols": 6,
+      "stuck": 1,
+      "moveBudget": 6
+    },
+    {
       "id": "level_004",
       "difficulty": 1,
       "pieces": "NYPU",
@@ -81,15 +100,6 @@
       "solverNodes": 79,
       "forcedMoveFraction": 0.75,
       "meanBranching": 5.25
-    },
-    {
-      "id": "stuck_01",
-      "difficulty": 2,
-      "pieces": "YPU",
-      "rows": 3,
-      "cols": 6,
-      "stuck": 1,
-      "moveBudget": 6
     },
     {
       "id": "level_005",
@@ -113,6 +123,16 @@
       "moveBudget": 9
     },
     {
+      "id": "moth_02",
+      "difficulty": 2,
+      "pieces": "YFUIPN",
+      "rows": 5,
+      "cols": 6,
+      "goal": "moth",
+      "moths": 4,
+      "moveBudget": 5
+    },
+    {
       "id": "level_006",
       "difficulty": 1,
       "pieces": "FZVYPU",
@@ -122,6 +142,15 @@
       "solverNodes": 359,
       "forcedMoveFraction": 0.667,
       "meanBranching": 5.17
+    },
+    {
+      "id": "stuck_02",
+      "difficulty": 3,
+      "pieces": "VTYN",
+      "rows": 4,
+      "cols": 6,
+      "stuck": 1,
+      "moveBudget": 7
     },
     {
       "id": "level_007",
@@ -145,15 +174,6 @@
       "moveBudget": 12
     },
     {
-      "id": "stuck_02",
-      "difficulty": 3,
-      "pieces": "VTYN",
-      "rows": 4,
-      "cols": 6,
-      "stuck": 1,
-      "moveBudget": 7
-    },
-    {
       "id": "level_008",
       "difficulty": 2,
       "pieces": "TPYL",
@@ -163,6 +183,15 @@
       "solverNodes": 139,
       "forcedMoveFraction": 0.5,
       "meanBranching": 5.5
+    },
+    {
+      "id": "chain_01",
+      "difficulty": 2,
+      "pieces": "LPTY",
+      "rows": 4,
+      "cols": 5,
+      "chains": 1,
+      "moveBudget": 7
     },
     {
       "id": "level_009",
@@ -184,15 +213,6 @@
       "goal": "soot",
       "soot": 22,
       "moveBudget": 13
-    },
-    {
-      "id": "chain_01",
-      "difficulty": 2,
-      "pieces": "LPTY",
-      "rows": 4,
-      "cols": 5,
-      "chains": 1,
-      "moveBudget": 7
     },
     {
       "id": "level_010",
@@ -237,6 +257,15 @@
       "moveBudget": 7
     },
     {
+      "id": "chain_02",
+      "difficulty": 3,
+      "pieces": "LUFXPT",
+      "rows": 5,
+      "cols": 6,
+      "chains": 1,
+      "moveBudget": 9
+    },
+    {
       "id": "level_013",
       "difficulty": 3,
       "pieces": "PVLFZI",
@@ -259,15 +288,6 @@
       "meanBranching": 5.2
     },
     {
-      "id": "chain_02",
-      "difficulty": 3,
-      "pieces": "LUFXPT",
-      "rows": 5,
-      "cols": 6,
-      "chains": 1,
-      "moveBudget": 9
-    },
-    {
       "id": "crack_02",
       "difficulty": 3,
       "pieces": "LUFYNT",
@@ -286,6 +306,15 @@
       "solverNodes": 114,
       "forcedMoveFraction": 0.333,
       "meanBranching": 5.67
+    },
+    {
+      "id": "seal_01",
+      "difficulty": 4,
+      "pieces": "UYFP",
+      "rows": 4,
+      "cols": 5,
+      "seals": 2,
+      "moveBudget": 7
     },
     {
       "id": "level_016",
@@ -308,15 +337,6 @@
       "solverNodes": 311,
       "forcedMoveFraction": 0.333,
       "meanBranching": 7.17
-    },
-    {
-      "id": "seal_01",
-      "difficulty": 4,
-      "pieces": "UYFP",
-      "rows": 4,
-      "cols": 5,
-      "seals": 2,
-      "moveBudget": 7
     },
     {
       "id": "level_018",
@@ -350,6 +370,15 @@
       "meanBranching": 6.33
     },
     {
+      "id": "wander_01",
+      "difficulty": 4,
+      "pieces": "TYLF",
+      "rows": 4,
+      "cols": 5,
+      "wander": 2,
+      "moveBudget": 8
+    },
+    {
       "id": "ice_01",
       "difficulty": 4,
       "pieces": "NYVT",
@@ -370,13 +399,13 @@
       "meanBranching": 7
     },
     {
-      "id": "wander_01",
-      "difficulty": 4,
-      "pieces": "TYLF",
-      "rows": 4,
-      "cols": 5,
-      "wander": 2,
-      "moveBudget": 8
+      "id": "seal_02",
+      "difficulty": 5,
+      "pieces": "LYPZIF",
+      "rows": 5,
+      "cols": 6,
+      "seals": 2,
+      "moveBudget": 9
     },
     {
       "id": "level_021",
@@ -401,13 +430,13 @@
       "meanBranching": 6.5
     },
     {
-      "id": "seal_02",
+      "id": "wander_02",
       "difficulty": 5,
-      "pieces": "LYPZIF",
+      "pieces": "ULWVYNZT",
       "rows": 5,
-      "cols": 6,
-      "seals": 2,
-      "moveBudget": 9
+      "cols": 8,
+      "wander": 5,
+      "moveBudget": 11
     },
     {
       "id": "ice_02",
@@ -430,13 +459,14 @@
       "meanBranching": 7
     },
     {
-      "id": "wander_02",
+      "id": "boss_01",
       "difficulty": 5,
-      "pieces": "ULWVYNZT",
+      "pieces": "YFTNLXZPW",
       "rows": 5,
-      "cols": 8,
-      "wander": 5,
-      "moveBudget": 11
+      "cols": 9,
+      "cracks": 3,
+      "candle": 1,
+      "moveBudget": 13
     },
     {
       "id": "candle_01",
@@ -457,16 +487,6 @@
       "solverNodes": 3872,
       "forcedMoveFraction": 0.444,
       "meanBranching": 7.78
-    },
-    {
-      "id": "boss_01",
-      "difficulty": 5,
-      "pieces": "YFTNLXZPW",
-      "rows": 5,
-      "cols": 9,
-      "cracks": 3,
-      "candle": 1,
-      "moveBudget": 13
     },
     {
       "id": "level_025",

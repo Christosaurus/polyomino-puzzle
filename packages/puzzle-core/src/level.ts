@@ -56,7 +56,7 @@ export interface LevelMeta {
  * turns one puzzle into a different kind of thinking (see the concept doc §D),
  * and it is why a level needs a *reachable* solution rather than a unique one.
  */
-export type LevelGoal = "cover" | "soot";
+export type LevelGoal = "cover" | "soot" | "moth";
 
 /** Optional obstacles laid over the board. Absent = a plain packing puzzle. */
 export interface LevelMechanics {
@@ -133,6 +133,13 @@ export interface LevelMechanics {
    * the outline you read. The solution must not cover any stuck cell.
    */
   stuck?: Array<[number, number]>;
+  /**
+   * Trapped light-moths, absolute `[row, col]`. Covering a moth pane frees the
+   * moth. With `goal: "moth"` the window is won once every moth is freed — the
+   * rest of the board may stay open. Same win logic as soot, softer framing:
+   * a partial goal with a count and a bit of delight.
+   */
+  moths?: Array<[number, number]>;
 }
 
 export interface Level {
@@ -281,8 +288,8 @@ export function validateLevel(level: unknown): string[] {
     errors.push(`difficulty must be 0–5, got ${String(l.difficulty)}`);
   }
 
-  if (l.goal !== undefined && l.goal !== "cover" && l.goal !== "soot") {
-    errors.push(`goal must be "cover" or "soot", got ${String(l.goal)}`);
+  if (l.goal !== undefined && l.goal !== "cover" && l.goal !== "soot" && l.goal !== "moth") {
+    errors.push(`goal must be "cover", "soot" or "moth", got ${String(l.goal)}`);
   }
   if (l.moveBudget !== undefined) {
     if (typeof l.moveBudget !== "number" || l.moveBudget < 1) {
@@ -311,6 +318,20 @@ export function validateLevel(level: unknown): string[] {
     }
   } else if (l.goal === "soot") {
     errors.push('goal "soot" needs mechanics.soot');
+  }
+
+  const moths = l.mechanics?.moths;
+  if (moths !== undefined) {
+    if (!Array.isArray(moths)) {
+      errors.push("mechanics.moths must be an array");
+    } else {
+      if (moths.length === 0) errors.push("mechanics.moths is empty — omit it instead");
+      for (const [r, c] of moths) {
+        if (!shapeCells.has(`${r},${c}`)) errors.push(`moth cell ${r},${c} is outside the shape`);
+      }
+    }
+  } else if (l.goal === "moth") {
+    errors.push('goal "moth" needs mechanics.moths');
   }
 
   const cracks = l.mechanics?.cracks;

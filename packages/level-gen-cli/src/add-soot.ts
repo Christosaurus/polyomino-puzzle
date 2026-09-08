@@ -40,7 +40,8 @@ type Pattern =
   | "chain"
   | "wander"
   | "seal"
-  | "stuck";
+  | "stuck"
+  | "moth";
 
 interface Recipe {
   id: string;
@@ -80,6 +81,10 @@ const RECIPES: Recipe[] = [
   // Teil bis zum letzten Zug zurück. Farbhof, kurz vors Finale.
   { id: "candle_01", shapeLabel: "rect-4x5", pattern: "candle", difficulty: 4, insertAt: 32, slack: 3 },
   { id: "candle_02", shapeLabel: "rect-5x6", pattern: "candle", difficulty: 5, insertAt: 37, slack: 2 },
+  // Lichtmotte — Akt I, der Garten. Nur die Motten-Scheiben zählen; der Rest
+  // darf offen bleiben. Teilziel + hübsches Feedback.
+  { id: "moth_01", shapeLabel: "rect-4x5", pattern: "moth", difficulty: 1, insertAt: 2, slack: 3 },
+  { id: "moth_02", shapeLabel: "rect-5x6", pattern: "moth", difficulty: 2, insertAt: 8, slack: 3 },
   // Fester Splitter — Akt I, der Garten. Eine Scheibe ist blockiert, man baut
   // drumherum. Führt „das passt hier nicht hin, ich muss umbauen" ein.
   { id: "stuck_01", shapeLabel: "rect-3x5", pattern: "stuck", difficulty: 2, insertAt: 5, slack: 3 },
@@ -592,6 +597,39 @@ function build(recipe: Recipe): Level {
       return level;
     }
 
+    if (recipe.pattern === "moth") {
+      // die Motten sitzen auf zwei Lösungsteilen — der Rest des Fensters darf
+      // offen bleiben, also braucht man nur diese Teile
+      const order = [...level.solution]
+        .map((p, i) => ({ p, key: (i * 7 + attempt * 13) % Math.max(1, level.solution.length) }))
+        .sort((a, b) => a.key - b.key);
+      const chosen = order.slice(0, 2).map((o) => o.p);
+      if (chosen.length < 2) continue;
+      const picked: Cell[] = [];
+      for (const p of chosen) {
+        const cs = [...p.cells].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        for (const [r, c] of [cs[0]!, cs[cs.length - 1]!]) {
+          picked.push([r - originRow, c - originCol]);
+        }
+      }
+      if (picked.length < 3) continue;
+      const need = piecesTouchingSoot(level, picked);
+      if (need / level.pieces.length > 0.7) continue;
+      const moths: Cell[] = picked.map(([r, c]) => [r + originRow, c + originCol]);
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.goal = "moth";
+      level.mechanics = { moths };
+      level.moveBudget = need + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} moth    ${moths.length} Motten  ${need}/${level.pieces.length} Teile` +
+          `        Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
     const local = sootFor(recipe.pattern, shapeCells, attempt);
     const soot: Cell[] = local.map(([r, c]) => [r + originRow, c + originCol]);
     if (soot.length < 3) continue;
@@ -642,6 +680,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("wander_") &&
     !String(l.id).startsWith("seal_") &&
     !String(l.id).startsWith("stuck_") &&
+    !String(l.id).startsWith("moth_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -661,6 +700,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.wander ? { wander: level.mechanics.wander.length } : {}),
     ...(level.mechanics?.seals ? { seals: level.mechanics.seals.length } : {}),
     ...(level.mechanics?.stuck ? { stuck: level.mechanics.stuck.length } : {}),
+    ...(level.mechanics?.moths ? { moths: level.mechanics.moths.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

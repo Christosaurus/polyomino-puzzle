@@ -574,12 +574,15 @@ function build(): Level | null {
   out.id = $<HTMLInputElement>("id").value.trim() || "unbenannt";
   out.difficulty = Number($<HTMLInputElement>("diff").value) || 1;
   const goal = $<HTMLSelectElement>("goal").value as LevelGoal;
-  if (goal === "soot") out.goal = "soot";
+  if (goal === "soot" || goal === "moth") out.goal = goal;
   else delete out.goal;
 
   const mech: NonNullable<Level["mechanics"]> = {};
   if (soot.size > 0) {
-    mech.soot = [...soot].map((k) => k.split(",").map(Number) as Cell);
+    // dieselbe Malfläche — als Ruß oder Motten, je nach Ziel
+    const cells = [...soot].map((k) => k.split(",").map(Number) as Cell);
+    if (goal === "moth") mech.moths = cells;
+    else mech.soot = cells;
   }
   if (cracks.size > 0) {
     mech.cracks = [...cracks].map((ek) => {
@@ -652,18 +655,21 @@ function refresh(): void {
   $<HTMLTextAreaElement>("json").value = serializeLevel(out);
 
   const goal = $<HTMLSelectElement>("goal").value;
-  const need = goal === "soot" ? piecesTouchingSoot(out) : out.pieces.length;
+  const partial = goal === "soot" || goal === "moth";
+  const need = partial ? piecesTouchingSoot(out) : out.pieces.length;
   $("budget-hint").textContent = `— mindestens ${need} nötig`;
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel · ${stuck.size} Splitter` +
-        (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
+      : `${out.pieces.length} Teile · ${soot.size} ${goal === "moth" ? "Motten" : "Ruß"} · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel · ${stuck.size} Splitter` +
+        (partial ? ` · ${need} Teile reichen` : "");
 }
 
-/** Wie viele Lösungsteile Ruß berühren — eine erreichbare Untergrenze fürs Budget. */
+/** Wie viele Lösungsteile die Zielzellen berühren — eine Untergrenze fürs Budget. */
 function piecesTouchingSoot(l: Level): number {
-  const set = new Set(l.mechanics?.soot?.map(([r, c]) => cellKey(r, c)) ?? []);
+  const set = new Set(
+    (l.mechanics?.soot ?? l.mechanics?.moths ?? []).map(([r, c]) => cellKey(r, c)),
+  );
   if (set.size === 0) return l.pieces.length;
   let n = 0;
   for (const p of l.solution) {

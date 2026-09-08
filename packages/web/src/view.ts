@@ -430,6 +430,10 @@ export class GameView {
    */
   private drawSoot(b: BoardLayout): void {
     if (this.game.sootTotal === 0) return;
+    if (this.game.goal === "moth") {
+      this.drawMoths(b);
+      return;
+    }
     const ctx = this.ctx;
     const R = b.cell * 0.34;
     for (const [r, c] of this.game.shape.cells) {
@@ -793,6 +797,47 @@ export class GameView {
       ctx.fillStyle = "rgba(255,255,255,0.7)";
       ctx.beginPath();
       ctx.arc(-R * 0.35, -R * 0.35, R * 0.22, 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  /**
+   * Lichtmotten: auf jeder unbedeckten Motten-Scheibe flattert eine kleine
+   * Motte im eigenen Schein. Wird die Scheibe bedeckt, ist sie frei — hier
+   * einfach weg. (Der Aufflug-Effekt lebt im Sieg-/Reinigungs-Blitz von
+   * `sootFlash`, den `drawSoot` ohnehin zeichnet — Motten teilen die Menge.)
+   */
+  private drawMoths(b: BoardLayout): void {
+    const ctx = this.ctx;
+    for (const [r, c] of this.game.shape.cells) {
+      if (!this.game.isSooty(r, c) || this.game.isCovered(r, c)) continue;
+      const cx = b.x + (c + 0.5) * b.cell;
+      const cy = b.y + (r + 0.5) * b.cell;
+      const t = this.nowMs / 1000;
+      const wob = Math.sin(t * 3 + r * 2 + c) * b.cell * 0.06;
+      const wob2 = Math.cos(t * 2.3 + r + c * 2) * b.cell * 0.05;
+      ctx.save();
+      // Schein
+      const g = ctx.createRadialGradient(cx + wob, cy + wob2, 0, cx + wob, cy + wob2, b.cell * 0.5);
+      g.addColorStop(0, "rgba(255, 240, 190, 0.5)");
+      g.addColorStop(1, "rgba(255, 240, 190, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx + wob, cy + wob2, b.cell * 0.5, 0, 6.28);
+      ctx.fill();
+      // Motte: zwei Flügel + Körper
+      ctx.translate(cx + wob, cy + wob2);
+      const flap = 0.5 + 0.5 * Math.abs(Math.sin(t * 12 + r + c));
+      ctx.fillStyle = "#f4e7c0";
+      for (const s of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(s * b.cell * 0.09, 0, b.cell * 0.1 * flap, b.cell * 0.15, s * 0.4, 0, 6.28);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#6b5a3a";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, b.cell * 0.035, b.cell * 0.12, 0, 0, 6.28);
       ctx.fill();
       ctx.restore();
     }

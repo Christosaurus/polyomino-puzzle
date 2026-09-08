@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "id": "moth_01",
+  "difficulty": 1,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "#####",
+      "#####",
+      "#####",
+      "#####"
+    ]
+  },
+  "pieces": [
+    "F",
+    "Y",
+    "L",
+    "T"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "F",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          1
+        ]
+      ]
+    },
+    {
+      "pieceId": "L",
+      "cells": [
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          3
+        ]
+      ]
+    },
+    {
+      "pieceId": "T",
+      "cells": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "soot:moth_01:0",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 83,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "goal": "moth",
+  "mechanics": {
+    "moths": [
+      [
+        0,
+        0
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        3,
+        4
+      ]
+    ]
+  },
+  "moveBudget": 5
+}

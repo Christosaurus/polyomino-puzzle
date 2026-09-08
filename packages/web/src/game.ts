@@ -113,8 +113,11 @@ export class GameState {
           .sort((a, b) => a[0] - b[0] || a[1] - b[1]),
       );
     }
+    // Motten teilen die Ziel-Logik von Ruß — dieselbe Menge, andere Optik.
     this.soot = new Set(
-      (level.mechanics?.soot ?? []).map(([r, c]) => `${r - originRow},${c - originCol}`),
+      (level.mechanics?.soot ?? level.mechanics?.moths ?? []).map(
+        ([r, c]) => `${r - originRow},${c - originCol}`,
+      ),
     );
     this.sootInitial = this.soot.size;
     this.sootSpreadEvery = level.mechanics?.sootSpread ?? 0;
@@ -286,9 +289,13 @@ export class GameState {
     });
   }
 
-  // ── Ruß ───────────────────────────────────────────────────────────────────
+  // ── Ruß / Motten ──────────────────────────────────────────────────────────
   get goal(): LevelGoal {
     return this.level.goal ?? "cover";
+  }
+  /** Teilziel-Modi: nur die markierten Scheiben müssen bedeckt sein. */
+  get isPartialGoal(): boolean {
+    return this.goal === "soot" || this.goal === "moth";
   }
   isSooty(row: number, col: number): boolean {
     return this.soot.has(`${row},${col}`);
@@ -473,7 +480,7 @@ export class GameState {
       // richtig, sobald es Ruß deckt. Nach der gespeicherten Lösung zu gehen
       // würde gültige Spielzüge bestrafen.
       const ok =
-        this.goal === "soot"
+        this.isPartialGoal
           ? here.some(([r, c]) => this.isSooty(r, c))
           : (() => {
               const target = this.solutionCells.get(piece.name);
@@ -666,7 +673,7 @@ export class GameState {
    * bisher: die Silhouette muss vollständig gedeckt sein.
    */
   isWon(): boolean {
-    if (this.goal === "soot") return this.soot.size > 0 && this.sootCleared === this.soot.size;
+    if (this.isPartialGoal) return this.soot.size > 0 && this.sootCleared === this.soot.size;
     // feste Splitter zählen nicht: jede *andere* Scheibe muss gedeckt sein
     return this.occupied().size === this.shape.size - this.stuck.size;
   }
@@ -687,7 +694,7 @@ export class GameState {
     this.movesUsed = 0;
     this.sootJustSpread = [];
     this.soot = new Set(
-      (this.level.mechanics?.soot ?? []).map(
+      (this.level.mechanics?.soot ?? this.level.mechanics?.moths ?? []).map(
         ([r, c]) => `${r - this.level.shape.originRow},${c - this.level.shape.originCol}`,
       ),
     );
