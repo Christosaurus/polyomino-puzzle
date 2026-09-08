@@ -1352,13 +1352,15 @@ function startCascade(): void {
 function renderCollection(): void {
   scenery.setTheme("collection");
   const s = store.load();
-  const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
+  // nur Zahlen, die aufs eine Ziel zeigen, ein Rekord sind oder Story-Tatsache
+  // (KONZEPT §F) — Ø-Lösezeit belohnt Hetze und fliegt raus
+  const memSeen = store.beatsSeen().filter((id) => BEATS.some((b) => b.id === id)).length;
   const stats: [string, string][] = [
     ["Fenster erhellt", nf(store.panes(s))],
-    ["Sterne", nf(store.totalStars(s))],
-    ["Ø Zeit", s.stats.solved ? fmt(avg) : "–"],
-    ["Abstieg", `Ebene ${s.descent.bestDepth}`],
-    ["Kaskade", nf(s.cascade.bestScore)],
+    ["Licht gesammelt", nf(s.shards)],
+    ["Erinnerungen", `${memSeen} / ${BEATS.length}`],
+    ["Tiefster Stollen", `Ebene ${s.descent.bestDepth}`],
+    ["Scherbenregen", nf(s.cascade.bestScore)],
     ["Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
   ];
   $("stats").replaceChildren(
@@ -1469,14 +1471,15 @@ function openProfile(): void {
   $("pf-level").textContent = nf(store.playerLevel(s));
   $("pf-picker").hidden = true;
 
-  const avg = s.stats.solved ? s.stats.totalMs / s.stats.solved : 0;
+  const memSeen = store.beatsSeen().filter((id) => BEATS.some((b) => b.id === id)).length;
   const rows: Array<[string, string, string]> = [
     ["ui/collection.webp", "Fenster erhellt", nf(store.panes(s))],
     ["ui/star.webp", "Sterne gesammelt", nf(store.totalStars(s))],
-    ["ui/time.webp", "Ø Lösezeit", s.stats.solved ? fmt(avg) : "–"],
+    ["ui/shard.webp", "Licht gesammelt", nf(s.shards)],
+    ["ui/hint.webp", "Erinnerungen", `${memSeen} / ${BEATS.length}`],
     ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
-    ["ui/descent.webp", "Abstieg — tiefste Ebene", String(s.descent.bestDepth)],
-    ["ui/cascade.webp", "Kaskade — Rekord", nf(s.cascade.bestScore)],
+    ["ui/descent.webp", "Anselms Stollen — tiefste Ebene", String(s.descent.bestDepth)],
+    ["ui/cascade.webp", "Scherbenregen — Rekord", nf(s.cascade.bestScore)],
     ["ui/daily.webp", "Längster Tages-Streak", String(s.daily.bestStreak)],
     ["ui/hint.webp", "Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
   ];

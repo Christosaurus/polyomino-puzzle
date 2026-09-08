@@ -372,12 +372,14 @@ Geschichts-Tatsache ist.
 | „Stufe" als eigene XP-Formel | Zweite Fortschrittszahl neben der echten. |
 | „Läufe", „Reihen gesamt" | Zähler ohne Ziel. |
 
-**Erfolge umschreiben:** Jeder Erfolg wird ein **Story-Meilenstein**, kein
-willkürlicher Schwellwert.
-- statt „Löse 10 Fenster" → **„Das erste Licht im Garten"**
-- statt „Erreiche Ebene 10" → **„Anselms Depot gefunden"**
-- statt „500 Punkte" → **„Kein Splitter ist gefallen"** (ein Scherbenregen-Lauf
-  ohne Verlust)
+**Erfolge umschreiben:** ✅ (`achievements.ts`, 15 Erfolge). Jeder heißt nach
+dem Tal / der Geschichte; drei hängen direkt an Story-Beats („Die Schnitte",
+„Das Warum", „Das letzte Fenster"), die Nebenmodi-Erfolge referenzieren
+„Anselms Stollen" und „Der Scherbenregen" („Kein Splitter für ihn"). Fenster-
+Erfolge zählen `panes` aus allen Modi.
+
+*Noch offen:* Ø-Lösezeit aus den Stats werfen, „Erinnerungen X / Y" als
+sichtbare Sammelzahl (die `#memories`-Sektion listet die Beats schon).
 
 ---
 
