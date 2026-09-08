@@ -274,3 +274,31 @@ describe("validateLevel — wander mechanic", () => {
     }
   });
 });
+
+describe("validateLevel — seal mechanic", () => {
+  it("accepts a seal that names the solution piece covering the cell", () => {
+    const { level } = sample3x5();
+    const p = level.solution[0]!;
+    level.mechanics = { seals: [[p.cells[0]!, p.pieceId]] };
+    expect(validateLevel(level)).toEqual([]);
+  });
+
+  it("flags a seal that names the wrong piece", () => {
+    const { level } = sample3x5();
+    const p0 = level.solution[0]!;
+    const other = level.solution.find((p) => p.pieceId !== p0.pieceId)!.pieceId;
+    level.mechanics = { seals: [[p0.cells[0]!, other]] };
+    expect(
+      validateLevel(level).some((e) => /demands .* but the solution covers it with/.test(e)),
+    ).toBe(true);
+  });
+
+  it("flags a seal naming a piece not in the level", () => {
+    const { level } = sample3x5();
+    const missing = (["F", "I", "L", "N", "P", "T", "U", "V", "W", "X", "Y", "Z"] as const).find(
+      (n) => !level.pieces.includes(n),
+    )!;
+    level.mechanics = { seals: [[level.solution[0]!.cells[0]!, missing]] };
+    expect(validateLevel(level).some((e) => /is not in the level/.test(e))).toBe(true);
+  });
+});

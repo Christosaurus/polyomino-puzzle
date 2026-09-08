@@ -119,6 +119,13 @@ export interface LevelMechanics {
    * placement order of the solution always beats it.
    */
   wander?: Array<[number, number]>;
+  /**
+   * Colour seals: each entry binds a pane to one specific piece — only that
+   * piece may cover that pane. A different piece placed over it cannot go down.
+   * Turns "which shape fits here" into "which shape *belongs* here". The sealed
+   * pane's solution piece must match the named piece.
+   */
+  seals?: Array<[[number, number], string]>;
 }
 
 export interface Level {
@@ -413,6 +420,25 @@ export function validateLevel(level: unknown): string[] {
       }
       if (wander.length > 0 && !solutionBeatsWander(l.solution, wander)) {
         errors.push("no placement order of the solution beats the wandering shard");
+      }
+    }
+  }
+  const seals = l.mechanics?.seals;
+  if (seals !== undefined) {
+    if (!Array.isArray(seals)) {
+      errors.push("mechanics.seals must be an array");
+    } else {
+      const pieceSet = new Set<string>(Array.isArray(l.pieces) ? l.pieces : []);
+      for (const [cell, name] of seals) {
+        const key = `${cell[0]},${cell[1]}`;
+        if (!shapeCells.has(key)) errors.push(`seal cell ${key} is outside the shape`);
+        if (!pieceSet.has(name)) {
+          errors.push(`seal at ${key} names piece ${name}, which is not in the level`);
+        }
+        const owner = l.solution.find((p) => p.cells.some(([r, c]) => `${r},${c}` === key));
+        if (owner && owner.pieceId !== name) {
+          errors.push(`seal at ${key} demands ${name} but the solution covers it with ${owner.pieceId}`);
+        }
       }
     }
   }

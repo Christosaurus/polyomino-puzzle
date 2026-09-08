@@ -1076,6 +1076,9 @@ function introduceMechanic(game: GameState): void {
   } else if (game.hasIce && !seen.includes("tut-ice")) {
     store.markBeatSeen("tut-ice");
     toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
+  } else if (game.hasSeals && !seen.includes("tut-seal")) {
+    store.markBeatSeen("tut-seal");
+    toast("◆ Ein Farbsiegel: diese Scheibe nimmt nur das Teil in ihrer Farbe.");
   } else if (game.hasWander && !seen.includes("tut-wander")) {
     store.markBeatSeen("tut-wander");
     toast("✦ Eine Scherbe wandert übers Brett — bau drumherum, bis sie weg ist.");

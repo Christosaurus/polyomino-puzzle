@@ -5,7 +5,7 @@
  */
 
 import { Confetti } from "./confetti.js";
-import { PIECE_COLORS, cssVar } from "./colors.js";
+import { PIECE_COLORS, cssVar, shade } from "./colors.js";
 import type { GameState, PieceState, Pos } from "./game.js";
 import { drawPieceBody, drawWell, strokeCellOutline } from "./render.js";
 import { sfx } from "./sfx.js";
@@ -756,6 +756,48 @@ export class GameView {
     }
   }
 
+  /**
+   * Farbsiegel: ein Edelstein in der Farbe des verlangten Teils, mit einem
+   * feinen Ring. Verschwindet, sobald die Scheibe (richtig) bedeckt ist.
+   */
+  private drawSeals(b: BoardLayout): void {
+    if (!this.game.hasSeals) return;
+    const ctx = this.ctx;
+    for (const { row, col, piece } of this.game.sealList()) {
+      if (this.game.isCovered(row, col)) continue;
+      const cx = b.x + (col + 0.5) * b.cell;
+      const cy = b.y + (row + 0.5) * b.cell;
+      const col0 = PIECE_COLORS[piece];
+      const R = b.cell * 0.26;
+      ctx.save();
+      // Halo
+      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2);
+      halo.addColorStop(0, `${col0}66`);
+      halo.addColorStop(1, `${col0}00`);
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 2, 0, 6.28);
+      ctx.fill();
+      // Stein — Raute
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      const grd = ctx.createLinearGradient(-R, -R, R, R);
+      grd.addColorStop(0, shade(col0, 0.35));
+      grd.addColorStop(1, shade(col0, -0.25));
+      ctx.fillStyle = grd;
+      ctx.fillRect(-R, -R, R * 2, R * 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.lineWidth = Math.max(1.2, b.cell * 0.03);
+      ctx.strokeRect(-R, -R, R * 2, R * 2);
+      // Glanzpunkt
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath();
+      ctx.arc(-R * 0.35, -R * 0.35, R * 0.22, 0, 6.28);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
     const layout = this.computeLayout();
@@ -896,6 +938,7 @@ export class GameView {
     this.drawCracks(b);
     this.drawIce(b);
     this.drawChains(b);
+    this.drawSeals(b);
     this.drawCandles(b);
     this.drawWander(b);
 

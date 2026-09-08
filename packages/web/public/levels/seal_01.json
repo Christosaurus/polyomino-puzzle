@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "id": "seal_01",
+  "difficulty": 4,
+  "shape": {
+    "originRow": 0,
+    "originCol": 0,
+    "rows": [
+      "#####",
+      "#####",
+      "#####",
+      "#####"
+    ]
+  },
+  "pieces": [
+    "U",
+    "Y",
+    "F",
+    "P"
+  ],
+  "allowReflection": true,
+  "solution": [
+    {
+      "pieceId": "U",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "pieceId": "P",
+      "cells": [
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "pieceId": "Y",
+      "cells": [
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "pieceId": "F",
+      "cells": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ]
+      ]
+    }
+  ],
+  "meta": {
+    "generatorVersion": "0.1.0",
+    "seed": "soot:seal_01:0",
+    "solutionCountChecked": 2,
+    "distinctSolutions": 1,
+    "solverNodes": 60,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "mechanics": {
+    "seals": [
+      [
+        [
+          2,
+          2
+        ],
+        "F"
+      ],
+      [
+        [
+          2,
+          3
+        ],
+        "Y"
+      ]
+    ]
+  },
+  "moveBudget": 7
+}

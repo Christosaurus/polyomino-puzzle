@@ -31,7 +31,15 @@ const OUT = join(process.cwd(), "packages", "web", "public", "levels");
 
 type Cell = [number, number];
 type SootPattern = "streak" | "corner" | "specks" | "rim";
-type Pattern = SootPattern | "cracks" | "ice" | "candle" | "boss" | "chain" | "wander";
+type Pattern =
+  | SootPattern
+  | "cracks"
+  | "ice"
+  | "candle"
+  | "boss"
+  | "chain"
+  | "wander"
+  | "seal";
 
 interface Recipe {
   id: string;
@@ -75,6 +83,9 @@ const RECIPES: Recipe[] = [
   // muss. Man muss ein Teil setzen können, bevor man sieht, was es verbindet.
   { id: "chain_01", shapeLabel: "rect-4x5", pattern: "chain", difficulty: 2, insertAt: 15, slack: 3 },
   { id: "chain_02", shapeLabel: "rect-5x6", pattern: "chain", difficulty: 3, insertAt: 22, slack: 3 },
+  // Farbsiegel — der Farbhof. Eine Scheibe verlangt ein bestimmtes Teil.
+  { id: "seal_01", shapeLabel: "rect-4x5", pattern: "seal", difficulty: 4, insertAt: 27, slack: 3 },
+  { id: "seal_02", shapeLabel: "rect-5x6", pattern: "seal", difficulty: 5, insertAt: 35, slack: 3 },
   // Wanderscherbe — Farbhof. Eine Scherbe wandert die ersten Züge übers Brett;
   // du baust drumherum, bis sie weg ist.
   { id: "wander_01", shapeLabel: "rect-4x5", pattern: "wander", difficulty: 4, insertAt: 33, slack: 4 },
@@ -327,6 +338,38 @@ function wanderFor(shapeCells: Cell[], pieceCount: number, nth: number): Cell[] 
   return out.length >= 2 ? out : [];
 }
 
+/**
+ * Farbsiegel: versiegelt je eine Zelle von ein bis zwei Lösungsteilen mit dem
+ * Namen genau dieses Teils. Bevorzugt Zellen weit vom Rand — dann ist nicht
+ * offensichtlich, welches Teil dahin gehört. Per Konstruktion lösbar.
+ */
+function sealFor(level: Level, want: number, nth: number): Array<[Cell, string]> {
+  const { originRow, originCol } = level.shape;
+  const rows = Math.max(...level.solution.flatMap((p) => p.cells.map(([r]) => r - originRow))) + 1;
+  const cols = Math.max(...level.solution.flatMap((p) => p.cells.map(([, c]) => c - originCol))) + 1;
+  const cr = (rows - 1) / 2;
+  const cc = (cols - 1) / 2;
+  const ranked = level.solution
+    .map((p) => {
+      const local = p.cells.map(([r, c]): Cell => [r - originRow, c - originCol]);
+      const mr = local.reduce((s, [r]) => s + r, 0) / local.length;
+      const mc = local.reduce((s, [, c]) => s + c, 0) / local.length;
+      return { id: p.pieceId, local, d: Math.hypot(mr - cr, mc - cc) };
+    })
+    .sort((a, b) => a.d - b.d);
+  if (ranked.length < 3) return [];
+  const out: Array<[Cell, string]> = [];
+  for (let i = 0; i < want && i < ranked.length; i++) {
+    const p = ranked[(nth + i) % Math.min(3, ranked.length)]!;
+    // die dem Zentrum nächste Zelle dieses Teils
+    const cell = [...p.local].sort(
+      (a, b) => Math.hypot(a[0] - cr, a[1] - cc) - Math.hypot(b[0] - cr, b[1] - cc),
+    )[0]!;
+    if (!out.some(([c]) => c[0] === cell[0] && c[1] === cell[1])) out.push([cell, p.id]);
+  }
+  return out;
+}
+
 /** Wie viele Teile der bekannten Lösung Ruß berühren — eine erreichbare Obergrenze. */
 function piecesTouchingSoot(level: Level, soot: Cell[]): number {
   const set = new Set(soot.map(([r, c]) => `${r},${c}`));
@@ -426,6 +469,25 @@ function build(recipe: Recipe): Level {
       console.log(
         `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} boss    ${local.length} Risse + Kerze` +
           `           Budget ${level.moveBudget}`,
+      );
+      return level;
+    }
+
+    if (recipe.pattern === "seal") {
+      const want = recipe.difficulty >= 4 ? 2 : 1;
+      const local = sealFor(level, want, attempt);
+      if (local.length === 0) continue;
+      level.id = recipe.id;
+      level.difficulty = recipe.difficulty;
+      level.mechanics = {
+        seals: local.map(([[r, c], name]) => [[r + originRow, c + originCol], name]),
+      };
+      level.moveBudget = level.pieces.length + recipe.slack;
+      const errs = validateLevel(level);
+      if (errs.length > 0) continue;
+      console.log(
+        `${recipe.id}   ${recipe.shapeLabel.padEnd(9)} seal    ${local.map(([c, n]) => `${n}@${c[0]},${c[1]}`).join(" ")}` +
+          `        Budget ${level.moveBudget}`,
       );
       return level;
     }
@@ -535,6 +597,7 @@ manifest.levels = manifest.levels.filter(
     !String(l.id).startsWith("candle_") &&
     !String(l.id).startsWith("chain_") &&
     !String(l.id).startsWith("wander_") &&
+    !String(l.id).startsWith("seal_") &&
     !String(l.id).startsWith("boss_"),
 );
 for (const { recipe, level } of built) {
@@ -552,6 +615,7 @@ for (const { recipe, level } of built) {
     ...(level.mechanics?.candle ? { candle: level.mechanics.candle.length } : {}),
     ...(level.mechanics?.chains ? { chains: level.mechanics.chains.length } : {}),
     ...(level.mechanics?.wander ? { wander: level.mechanics.wander.length } : {}),
+    ...(level.mechanics?.seals ? { seals: level.mechanics.seals.length } : {}),
     moveBudget: level.moveBudget,
   });
 }

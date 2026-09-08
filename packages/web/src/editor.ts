@@ -40,7 +40,8 @@ let candle = new Set<string>();
 let chains: Array<[string, string]> = [];
 let chainPending: string | null = null;
 let wander: string[] = [];
-let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" = "soot";
+let seals = new Map<string, string>();
+let mode: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal" = "soot";
 /** Kanten, die kein Lösungsteil überspannt — nur die dürfen reißen. */
 let legalEdges = new Set<string>();
 
@@ -84,6 +85,7 @@ function generate(): void {
   chains = [];
   chainPending = null;
   wander = [];
+  seals = new Map();
   computeLegalEdges();
   // Erzeugen ist ein Neuanfang: mit der Mechanik muss auch das Ziel zurück,
   // sonst steht "nur den Ruß reinigen" über einem Fenster ohne Ruß.
@@ -282,6 +284,28 @@ function draw(): void {
     ctx.restore();
   }
 
+  // Farbsiegel
+  for (const [key, name] of seals) {
+    const [sr, sc] = key.split(",").map(Number) as Cell;
+    const cx = x + (sc - originCol + 0.5) * cell;
+    const cy = y + (sr - originRow + 0.5) * cell;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 4);
+    const R = cell * 0.24;
+    ctx.fillStyle = PIECE_COLORS[name as keyof typeof PIECE_COLORS] ?? "#fff";
+    ctx.fillRect(-R, -R, R * 2, R * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-R, -R, R * 2, R * 2);
+    ctx.restore();
+    ctx.fillStyle = "#fff";
+    ctx.font = `${Math.round(cell * 0.28)}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, cx, cy);
+  }
+
   // Wanderscherbe: nummerierter Gang
   if (wander.length > 0) {
     ctx.save();
@@ -405,6 +429,20 @@ canvas.addEventListener("pointerdown", (e) => {
     const key = cellKey(abs[0], abs[1]);
     if (candle.has(key)) candle.delete(key);
     else candle.add(key);
+    refresh();
+    return;
+  }
+
+  if (mode === "seal") {
+    const key = cellKey(abs[0], abs[1]);
+    if (seals.has(key)) {
+      seals.delete(key);
+    } else {
+      const owner = level.solution.find((p) =>
+        p.cells.some(([r, c]) => cellKey(r, c) === key),
+      );
+      if (owner) seals.set(key, owner.pieceId);
+    }
     refresh();
     return;
   }
@@ -537,6 +575,9 @@ function build(): Level | null {
   if (wander.length > 0) {
     mech.wander = wander.map((k) => k.split(",").map(Number) as Cell);
   }
+  if (seals.size > 0) {
+    mech.seals = [...seals].map(([k, name]) => [k.split(",").map(Number) as Cell, name]);
+  }
   if (Object.keys(mech).length > 0) out.mechanics = mech;
   else delete out.mechanics;
 
@@ -583,7 +624,7 @@ function refresh(): void {
   hint.textContent =
     Date.now() < flashUntil
       ? flashMsg
-      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length}` +
+      : `${out.pieces.length} Teile · ${soot.size} Ruß · ${cracks.size} Risse · ${ice.size} Eis · ${candle.size} Kerze · ${chains.length} Kette · Gang ${wander.length} · ${seals.size} Siegel` +
         (goal === "soot" ? ` · ${need} Teile reichen zum Reinigen` : "");
 }
 
@@ -609,6 +650,7 @@ $("m-ice").addEventListener("click", () => setMode("ice"));
 $("m-candle").addEventListener("click", () => setMode("candle"));
 $("m-chain").addEventListener("click", () => setMode("chain"));
 $("m-wander").addEventListener("click", () => setMode("wander"));
+$("m-seal").addEventListener("click", () => setMode("seal"));
 $("clear").addEventListener("click", () => {
   soot = new Set();
   cracks = new Set();
@@ -617,9 +659,12 @@ $("clear").addEventListener("click", () => {
   chains = [];
   chainPending = null;
   wander = [];
+  seals = new Map();
   refresh();
 });
-function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander"): void {
+function setMode(
+  m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander" | "seal",
+): void {
   mode = m;
   chainPending = null;
   $("m-soot").classList.toggle("on", m === "soot");
@@ -628,6 +673,7 @@ function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander"): v
   $("m-candle").classList.toggle("on", m === "candle");
   $("m-chain").classList.toggle("on", m === "chain");
   $("m-wander").classList.toggle("on", m === "wander");
+  $("m-seal").classList.toggle("on", m === "seal");
   $("mode-hint").textContent =
     m === "soot"
       ? "Auf eine Scheibe tippen, um sie zu verrußen."
@@ -639,7 +685,9 @@ function setMode(m: "soot" | "crack" | "ice" | "candle" | "chain" | "wander"): v
             ? "Auf eine Scheibe tippen, um eine Kerze zu setzen. Die Kerze muss zuletzt gedeckt werden — alle Kerzen in einem Lösungsteil."
             : m === "chain"
               ? "Zwei Scheiben nacheinander antippen, um sie zu verketten — dasselbe Teil muss dann beide decken. Auf ein Kettenende tippen löscht die Kette. Beide Enden müssen im selben Lösungsteil liegen."
-              : "Scheiben der Reihe nach antippen — das ist der Gang der Wanderscherbe (jeder Schritt eine Nachbarscheibe). Auf eine nummerierte Scheibe tippen schneidet den Gang dort ab. Kurz halten (3–5).";
+              : m === "wander"
+                ? "Scheiben der Reihe nach antippen — das ist der Gang der Wanderscherbe (jeder Schritt eine Nachbarscheibe). Auf eine nummerierte Scheibe tippen schneidet den Gang dort ab. Kurz halten (3–5)."
+                : "Auf eine Scheibe tippen versiegelt sie mit dem Teil, das sie in der Lösung deckt — nur dieses Teil darf dann dahin. Nochmal tippen entfernt das Siegel.";
   refresh();
 }
 

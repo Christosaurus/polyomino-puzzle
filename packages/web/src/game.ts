@@ -88,6 +88,8 @@ export class GameState {
   private readonly chains: Array<[string, string]>;
   /** Der Gang der Wanderscherbe (lokale Zellschlüssel), Schritt = movesUsed. */
   private readonly wander: string[];
+  /** Farbsiegel: Scheibe → erlaubtes Teil. */
+  private readonly seals: Map<string, PentominoName>;
 
   constructor(level: Level, limitMsOverride?: number) {
     this.level = level;
@@ -135,7 +137,29 @@ export class GameState {
     this.wander = (level.mechanics?.wander ?? []).map(
       ([r, c]) => `${r - originRow},${c - originCol}`,
     );
+    this.seals = new Map(
+      (level.mechanics?.seals ?? []).map(([[r, c], name]): [string, PentominoName] => [
+        `${r - originRow},${c - originCol}`,
+        name as PentominoName,
+      ]),
+    );
     if (level.moveBudget !== undefined) this.setMoveBudget(level.moveBudget);
+  }
+
+  // ── Farbsiegel ────────────────────────────────────────────────────────────
+  get hasSeals(): boolean {
+    return this.seals.size > 0;
+  }
+  /** Welches Teil diese Scheibe verlangt — oder `null`. */
+  sealAt(row: number, col: number): PentominoName | null {
+    return this.seals.get(`${row},${col}`) ?? null;
+  }
+  /** Alle Siegel als lokale Zelle + Teilname, für die Darstellung. */
+  sealList(): Array<{ row: number; col: number; piece: PentominoName }> {
+    return [...this.seals].map(([k, piece]) => {
+      const [row, col] = k.split(",").map(Number) as [number, number];
+      return { row, col, piece };
+    });
   }
 
   // ── Wanderscherbe ─────────────────────────────────────────────────────────
@@ -556,6 +580,13 @@ export class GameState {
       const after = new Set(blocked);
       for (const [r, c] of cells) after.add(`${r},${c}`);
       if (after.size !== this.shapeCells.size) return false;
+    }
+    // Farbsiegel: eine versiegelte Scheibe nimmt nur ihr Teil.
+    if (this.seals.size > 0) {
+      for (const [r, c] of cells) {
+        const want = this.seals.get(`${r},${c}`);
+        if (want !== undefined && want !== piece.name) return false;
+      }
     }
     // Kette: dasselbe Teil muss beide Enden decken — eins ohne das andere geht
     // nicht.
