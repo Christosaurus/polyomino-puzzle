@@ -61,6 +61,19 @@ function refreshLight(): void {
   scenery.setLight(0.14 + 0.86 * Math.pow(lightFrac(), 0.6));
 }
 
+/**
+ * „Noch N Fenster bis <Region>" — nur wenn eine gesperrte Region in Reichweite
+ * ist. Macht in den Endlosmodi sichtbar, wofür man spielt (KONZEPT §A).
+ */
+function nextRegionNudge(): string | null {
+  const panes = store.panes();
+  const next = regions.find((r) => panes < r.panesToUnlock);
+  if (!next) return null;
+  const left = next.panesToUnlock - panes;
+  if (left > 8) return null;
+  return `🔒 Noch ${left} Fenster bis ${next.name}`;
+}
+
 const REGION_THEME: Record<string, SceneTheme> = {
   garden: "garden",
   workshop: "workshop",
@@ -1181,7 +1194,9 @@ async function playDescentLevel(): Promise<void> {
       scenery.pulse(0.35 + 0.08 * stars); // the workshop brightens with every clear
       refreshLight();
       queueBeat(panesBefore, store.panes());
-      const nowLit = regions.find((r) => store.panes() === r.panesToUnlock);
+      const nowLit = regions.find(
+        (r) => store.panes() >= r.panesToUnlock && panesBefore < r.panesToUnlock,
+      );
       celebrate(syncAchievements());
       renderTopPills();
 
@@ -1207,7 +1222,11 @@ async function playDescentLevel(): Promise<void> {
         rewards: [
           "🏮 +1 Fenster erhellt",
           `✦ +${depth} Lichtsplitter`,
-          ...(nowLit ? [`✨ ${nowLit.name} — die Laterne ist an!`] : []),
+          ...(nowLit
+            ? [`✨ ${nowLit.name} — die Laterne ist an!`]
+            : nextRegionNudge()
+              ? [nextRegionNudge()!]
+              : []),
         ],
         // bei einem Hype-Wort oder Beat schweigt Mira — eine Sache pro Screen
         mira:
@@ -1318,11 +1337,13 @@ function startCascade(): void {
       if (nowLit && !pendingBeat) toast(`✨ ${nowLit.name} — die Laterne ist an!`);
       celebrate(syncAchievements());
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
+      const nudge = !nowLit && lit > 0 ? nextRegionNudge() : null;
       $("k-result").innerHTML =
         `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
         (lit > 0 ? ` · 🏮 +${lit} Fenster` : "") +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
-        (newRecord ? ` · 🏆 neue Bestmarke!` : "");
+        (newRecord ? ` · 🏆 neue Bestmarke!` : "") +
+        (nudge ? `<br><small>${nudge}</small>` : "");
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
