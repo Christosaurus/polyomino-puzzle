@@ -17,6 +17,7 @@ import { buildRegions, type Manifest, type Region } from "./regions.js";
 import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { miraLine, type StoryPlace } from "./story.js";
+import { mountTalkarteFx } from "./talkarte.js";
 import { GameView } from "./view.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -1649,6 +1650,16 @@ $("jk-solvent").addEventListener("click", () => useJoker("solvent"));
 window.setInterval(() => {
   if (!$("screen-home").hidden) renderTopPills();
 }, 4000);
+
+const talkarteEl = document.querySelector<HTMLElement>(".talkarte");
+if (talkarteEl) {
+  mountTalkarteFx({
+    scroller: $("screen-home"),
+    root: talkarteEl,
+    light: lightFrac,
+    visible: () => !$("screen-home").hidden,
+  });
+}
 
 async function boot(): Promise<void> {
   try {

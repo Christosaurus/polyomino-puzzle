@@ -490,16 +490,23 @@
         left: 0;
         right: 0;
         z-index: 0;
-        display: flex;
-        flex-direction: column;
         pointer-events: none;
         /* full-bleed: cancel the screen's top inset + 14px side padding */
         margin: calc(-1 * (env(safe-area-inset-top) + 14px)) -14px 0;
+        /* JS parallaxt das per translateY, damit die Karte langsamer als die
+           Karten davor scrollt */
+        will-change: transform;
       }
       .talkarte img {
         display: block;
         width: 100%;
         height: auto;
+      }
+      .talkarte-fx {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
       }
       /* keep white UI readable over the painting, and sink the bottom into the app ground */
       .talkarte::before {
@@ -1915,6 +1922,7 @@
       <section class="screen" id="screen-home">
         <div class="talkarte" aria-hidden="true">
           <img src="bg/talkarte.webp" alt="" />
+          <canvas class="talkarte-fx"></canvas>
         </div>
         <div class="topbar">
           <div class="avatar" id="home-avatar">🙂</div>
