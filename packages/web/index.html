@@ -471,6 +471,10 @@
       /* ── Der Lichtpfad: gemalte Talkarte hinter dem Startbildschirm ── */
       #screen-home {
         position: relative;
+        /* deckt die feste #scenery-Ebene ab — sonst blitzt sie beim
+           Überscrollen unten unter der Talkarte durch */
+        background: #241a54;
+        overscroll-behavior-y: contain;
       }
       #screen-home > .topbar,
       #screen-home > .brand,
