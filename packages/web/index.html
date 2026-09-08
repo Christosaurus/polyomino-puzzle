@@ -693,6 +693,16 @@
       .lvl.done .s {
         color: rgba(255, 255, 255, 0.35);
       }
+      .lvl.locked {
+        background: linear-gradient(180deg, #3b3268, #2a2350);
+        border-color: var(--border-lo);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+        cursor: default;
+      }
+      .lvl.locked .lock {
+        font-size: 22px;
+        opacity: 0.6;
+      }
 
       /* ── HUD (play / kaskade) ──────────────────────── */
       .hud {

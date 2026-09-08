@@ -267,19 +267,32 @@ function regionStars(r: Region): { got: number; max: number } {
 }
 
 /** Erste offene, noch nicht abgeschlossene Region + erstes ungelöste Fenster darin. */
+/** Wie viele Fenster einer Region gelöst sind — zugleich der Index des ersten,
+ *  das noch gesperrt ist (Fenster schalten nur nacheinander frei). */
+function regionCleared(r: Region): number {
+  const lv = store.load().levels;
+  let i = 0;
+  while (i < r.levels.length && lv[r.levels[i]!.id]?.stars) i++;
+  return i;
+}
+/** Ist dieses Fenster spielbar? (Region offen + alle davor gelöst.) */
+function isLevelUnlocked(r: Region, index: number): boolean {
+  if (store.panes() < r.panesToUnlock) return false;
+  return index <= regionCleared(r);
+}
+
 function currentCampaignTarget(): { region: Region; index: number; regionIndex: number } | null {
-  const s = store.load();
-  const panes = store.panes(s);
+  const panes = store.panes();
   for (let ri = 0; ri < regions.length; ri++) {
     const r = regions[ri]!;
     if (panes < r.panesToUnlock) break;
-    const next = r.levels.findIndex((l) => !s.levels[l.id]);
-    if (next !== -1) return { region: r, index: next, regionIndex: ri };
+    const next = regionCleared(r);
+    if (next < r.levels.length) return { region: r, index: next, regionIndex: ri };
   }
-  // alles gelöst → letztes offene Fenster der letzten offenen Region
+  // alles gelöst → letzte offene Region, letztes Fenster
   for (let ri = regions.length - 1; ri >= 0; ri--) {
     const r = regions[ri]!;
-    if (panes >= r.panesToUnlock) return { region: r, index: 0, regionIndex: ri };
+    if (panes >= r.panesToUnlock) return { region: r, index: r.levels.length - 1, regionIndex: ri };
   }
   return null;
 }
@@ -324,7 +337,11 @@ function renderHome(): void {
   const hero = $<HTMLButtonElement>("home-play");
   if (target) {
     hero.hidden = false;
-    hero.textContent = `Weiter · ${windowName(target.region.id, target.index)}`;
+    hero.textContent = `Weiter · ${windowName(
+      target.region.id,
+      target.index,
+      target.region.levels[target.index]?.id,
+    )}`;
     hero.onclick = () => void playCampaign(target.region, target.index);
   } else {
     hero.hidden = true;
@@ -421,17 +438,31 @@ function openRegion(index: number): void {
   const s = store.load();
   const host = $("region-levels");
   host.replaceChildren();
+  const cleared = regionCleared(r);
   r.levels.forEach((entry, i) => {
     const stars = s.levels[entry.id]?.stars ?? 0;
-    const name = windowName(r.id, i);
+    const name = windowName(r.id, i, entry.id);
+    const locked = i > cleared;
     const el = document.createElement("button");
-    el.className = `lvl${stars > 0 ? " done" : ""}`;
-    el.title = name;
-    el.setAttribute("aria-label", `${name} — ${stars} von 3 Sternen`);
-    el.innerHTML =
-      `<span class="n">${i + 1}</span>` +
-      `<span class="s">${[0, 1, 2].map((k) => `<span class="${k < stars ? "on" : ""}">★</span>`).join("")}</span>`;
-    el.addEventListener("click", () => playCampaign(r, i));
+    el.className = `lvl${stars > 0 ? " done" : ""}${locked ? " locked" : ""}`;
+    el.title = locked ? "Erst das Fenster davor erhellen" : name;
+    el.setAttribute(
+      "aria-label",
+      locked ? `${name} — gesperrt` : `${name} — ${stars} von 3 Sternen`,
+    );
+    el.innerHTML = locked
+      ? `<span class="lock">🔒</span>`
+      : `<span class="n">${i + 1}</span>` +
+        `<span class="s">${[0, 1, 2]
+          .map((k) => `<span class="${k < stars ? "on" : ""}">★</span>`)
+          .join("")}</span>`;
+    el.addEventListener("click", () => {
+      if (locked) {
+        toast("🔒 Erst das Fenster davor erhellen.");
+        return;
+      }
+      void playCampaign(r, i);
+    });
     host.append(el);
   });
   showScreen("region");
@@ -878,6 +909,10 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
 
 // Campaign
 async function playCampaign(region: Region, index: number): Promise<void> {
+  if (!isLevelUnlocked(region, index)) {
+    toast("🔒 Dieses Fenster ist noch gesperrt.");
+    return;
+  }
   mode = "campaign";
   campaignAt = { region, index };
   if (!livesGate(() => void playCampaign(region, index))) return;
@@ -885,7 +920,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
   $("screen-play").dataset.region = region.id;
-  $("play-title-txt").textContent = windowName(region.id, index);
+  $("play-title-txt").textContent = windowName(region.id, index, entry.id);
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -916,7 +951,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       showOverlay({
         title: stars === 3 ? "Makellos!" : "Erhellt!",
         stars,
-        sub: `${windowName(region.id, index)} · <b>${fmt(ms)}</b>`,
+        sub: `${windowName(region.id, index, entry.id)} · <b>${fmt(ms)}</b>`,
         rewards,
         // wenn gleich ein Beat kommt, schweigt Mira hier — eine Szene reicht
         mira: pendingBeat

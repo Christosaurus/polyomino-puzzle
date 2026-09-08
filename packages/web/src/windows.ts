@@ -77,8 +77,15 @@ const POOLS: Record<string, string[]> = {
   courtyard: COURTYARD,
 };
 
+/** Fenster mit festem Namen, egal wo sie in der Region landen. */
+const BY_ID: Record<string, string> = {
+  boss_01: "Das letzte Fenster",
+  boss_02: "Anselms Prüfstück",
+};
+
 /** Der Name des `index`-ten Fensters einer Region, oder ein sanfter Fallback. */
-export function windowName(regionId: string, index: number): string {
+export function windowName(regionId: string, index: number, levelId?: string): string {
+  if (levelId && BY_ID[levelId]) return BY_ID[levelId]!;
   const pool = POOLS[regionId];
   if (pool && pool[index]) return pool[index]!;
   return `Fenster ${index + 1}`;
