@@ -271,18 +271,18 @@ Eindeutigkeit bleibt optional für handgebaute Story-Fenster („Meisterstücke"
 
 | Mechanik | Regel | Erzeugt | Ab Akt |
 |---|---|---|---|
-| **Ruß** | Verrußte Scheiben. Bedecken reinigt. Ziel: alle rein. | Zieldenken statt „alles voll" | I |
+| **Ruß** ✅ | Verrußte Scheiben. Bedecken reinigt. Ziel: alle rein. | Zieldenken statt „alles voll" | I |
 | **Fester Splitter** | Ein Splitter steckt fest, nicht überdeckbar. | Formgefühl, Umbauen | I |
 | **Lichtmotte** | Gefangene Motte; Bedecken befreit sie. Ziel: N Motten. | Teilziele, hübsches Feedback | I |
 | **Kette** | Zwei Zellen verkettet — **dasselbe Teil** muss beide decken. | Vorausdenken | II |
-| **Riss** | Zwischen zwei Zellen läuft ein Riss; **kein Teil darf ihn kreuzen**. | Innere Wände ohne Formänderung | II |
-| **Eis** | Vereiste Scheibe. Erst deckbar, wenn eine Nachbarscheibe gedeckt ist. | Reihenfolge | II |
+| **Riss** ✅ | Zwischen zwei Zellen läuft ein Riss; **kein Teil darf ihn kreuzen**. | Innere Wände ohne Formänderung | II |
+| **Eis** ✅ | Vereiste Scheibe. Erst deckbar, wenn eine Nachbarscheibe gedeckt ist. | Reihenfolge | II |
 | **Zugbudget** | Nur N Platzierungen. | Spannung, knappe Lösbarkeit | II |
 | **Farbsiegel** | Diese Scheibe verlangt ein Teil **dieser Farbe**. | Teilewahl statt nur Platz | III |
 | **Kriechender Schatten** | Alle N Züge wird eine freie Scheibe dunkel und unbrauchbar. | **Sichtbarer Druck** — der wichtigste Import | III |
 | **Doppelscheibe** | Hinter der ersten Lage liegt eine zweite. | Mehrstufigkeit | III / Boss |
 | **Wanderscherbe** | Rückt pro Zug eine Zelle weiter. | Bewegtes Brett | Boss |
-| **Kerze** | Muss **zuletzt** gedeckt werden, sonst geht sie aus. | Reihenfolge-Endspiel | Boss |
+| **Kerze** ✅ | Muss **zuletzt** gedeckt werden, sonst geht sie aus. | Reihenfolge-Endspiel | Boss |
 
 **Einführungsregel:** Eine neue Mechanik pro Region, **wortlos** erklärt — beim
 ersten Auftreten spielt eine kleine Animation den Zug einmal vor. Nie zwei neue
@@ -419,11 +419,11 @@ gespeicherten Datenmodell.
 
 | # | Maßnahme | Aufwand |
 |---|---|---|
-| 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ |
-| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend |
-| 13 | 40–60 handgebaute Story-Fenster. | fortlaufend |
-| 14 | Boss-Fenster (Doppelscheibe + Wanderscherbe + Kerze). | M |
-| 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats, Fenster 1–62). Boss-Fenster als spielbares Finale fehlt noch. | L |
+| 11 | Level-Autoren-Workflow (Mechanik-JSON + Editor-Seite). | L ⚠ | ✅ `level.ts`-Schema + `editor.html` (Ruß / Riss / Eis / Kerze malen) |
+| 12 | Mechanik-Katalog ausbauen, eine pro Region. | fortlaufend | 🟡 Ruß+Kriechruß, Riss, Eis, Kerze ✅ · Kette / Farbsiegel / Doppelscheibe / Wanderscherbe offen |
+| 13 | 40–60 handgebaute Story-Fenster. | fortlaufend | 🟡 13 Mechanik-Fenster generiert (soot/crack/ice/candle/boss), handkuratiert kommen |
+| 14 | Boss-Fenster. | M | 🟡 `boss_01` „Das letzte Fenster" (Risse + Kerze, 9 Teile) ✅ · Doppelscheibe + Wanderscherbe als eigene Mechaniken noch offen |
+| 15 | ~~Akt II + III, Finale.~~ ✅ Text steht (`beats.ts`, 13 Beats), Finale-Cutscene nach `boss_01`. |
 
 **Wenn du nur eine Woche hast:** #1, #2, #8. Das sind die drei mit dem besten
 Verhältnis — Sofort-Neustart, sichtbarer Druck, eine Stimme im Spiel.
