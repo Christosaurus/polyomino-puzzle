@@ -29,6 +29,8 @@ const fmt = (ms: number): string => {
 };
 /** Zahlen im Spiel immer mit Tausenderpunkt — "12.345" statt "12345". */
 const nf = (n: number): string => Math.round(n).toLocaleString("de-DE");
+/** Multiplikator deutsch — "×1,5" statt "×1.5" (nicht runden!). */
+const xf = (n: number | string): string => String(n).replace(".", ",");
 
 type Tab = "home" | "daily" | "descent" | "cascade" | "collection";
 const SCREENS = [
@@ -119,7 +121,7 @@ function livesGate(onBuy: () => void): boolean {
     sub: `Ein Herz kommt in <b>${fmt(l.msToNext)}</b> zurück.`,
     rewards: [
       "📺 Werbe-Block ansehen → +1 Herz  (bald)",
-      canPay ? "✦ 30 Splitter → Herzen voll" : `✦ ${store.load().shards} / 30 Splitter`,
+      canPay ? "✦ 30 Splitter → Herzen voll" : `✦ ${nf(store.load().shards)} / 30 Splitter`,
     ],
     nextLabel: canPay ? "Herzen kaufen (30 ✦)" : "Zurück",
     onNext: () => {
@@ -951,7 +953,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   if (store.panes() > panesBefore) lines.push("🏮 +1 Fenster erhellt");
   lines.push(
     r.mult > 1
-      ? `✦ +${nf(r.shards)} Lichtsplitter · Serie ×${r.mult}`
+      ? `✦ +${nf(r.shards)} Lichtsplitter · Serie ×${xf(r.mult)}`
       : `✦ +${nf(r.shards)} Lichtsplitter`,
   );
   // schaltet dieses Fenster eine Region auf? dann sagen, sonst wie weit noch
@@ -965,7 +967,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
   for (const m of store.claimMilestones()) {
-    lines.push(`🏆 Meilenstein ${m.threshold}★ · ✦ +${m.shards}, Joker +2`);
+    lines.push(`🏆 Meilenstein ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}, Joker +2`);
     scenery.pulse();
   }
   if (region) {
@@ -996,7 +998,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const mult = store.winMultiplier(streak);
   $("play-title-txt").innerHTML =
     windowName(region.id, index, entry.id) +
-    (mult > 1 ? ` <span class="serie">Serie ×${mult}</span>` : "");
+    (mult > 1 ? ` <span class="serie">Serie ×${xf(mult)}</span>` : "");
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -1050,7 +1052,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       const fails = store.recordFail(entry.id); // setzt auch die Serie zurück
       renderTopPills();
       const l = store.lives();
-      const streakNote = lostStreak >= 2 ? ` Serie ×${store.winMultiplier(lostStreak)} weg.` : "";
+      const streakNote = lostStreak >= 2 ? ` Serie ×${xf(store.winMultiplier(lostStreak))} weg.` : "";
       showOverlay({
         title: "Das Licht flackert aus",
         sub:
@@ -1142,8 +1144,8 @@ async function playDaily(): Promise<void> {
         sub: `Das Tagesfenster · <b>${fmt(ms)}</b>`,
         rewards: [
           `✦ +${nf(r.shards + 5)} Lichtsplitter`,
-          after > before ? `🔥 Streak ${after} Tage` : `🔥 Streak ${after}`,
-          ...(milestone ? [`🏆 ${milestone.days}-Tage-Serie · ✦ +${milestone.shards}`] : []),
+          after > before ? `🔥 Streak ${nf(after)} Tage` : `🔥 Streak ${nf(after)}`,
+          ...(milestone ? [`🏆 ${nf(milestone.days)}-Tage-Serie · ✦ +${nf(milestone.shards)}`] : []),
         ],
         mira: miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
         nextLabel: "Fertig",
@@ -1355,8 +1357,8 @@ function endDescent(reachedDepth?: number): void {
   descentState = null;
   showOverlay({
     title: depth > 0 ? "Züge alle" : "Abstieg beendet",
-    sub: `Ebene <b>${depth}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
-    rewards: [`✦ +${depth} Lichtsplitter gesammelt`],
+    sub: `Ebene <b>${nf(depth)}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
+    rewards: [`✦ +${nf(depth)} Lichtsplitter gesammelt`],
     nextLabel: "Neuer Lauf",
     onNext: startDescent,
     onQuit: () => setTab("descent"),
@@ -1386,7 +1388,7 @@ function startCascade(): void {
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
       $("k-score-txt").textContent = nf(h.score);
-      $("k-mult").textContent = `×${h.mult.toFixed(1)}`;
+      $("k-mult").textContent = `×${xf(h.mult.toFixed(1))}`;
       $("k-cleared").textContent = nf(h.cleared);
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
