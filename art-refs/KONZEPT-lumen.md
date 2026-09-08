@@ -26,7 +26,12 @@ Der Umbau ist weit gediehen; dabei hat Christian ein paar Richtungen geändert:
 6. **Story greift an den Regionen wieder auf** — Freischalt-Szene bei jeder
    Region mit Hintergrund zum Ort.
 
-Platzhalter: `gestalt` als Sprecher (◆), `ui/chars/gestalt.webp` fehlt noch.
+7. **Charaktere winken zwischendurch.** Zusätzlich zu den Cutscenes und der
+   Mira-Zeile im Ergebnis-Overlay schaut auf dem Startbildschirm ab und zu eine
+   Figur mit einer Sprechblase vorbei (`chatter.ts`) — **höchstens einmal pro
+   Sitzung**, damit es Würze bleibt.
+
+Portraits ✅ geliefert: `ui/chars/{mira,anselm,gestalt}.webp`.
 
 ---
 
@@ -447,7 +452,7 @@ gespeicherten Datenmodell.
 | # | Maßnahme | Aufwand | Wirkung |
 |---|---|---|---|
 | 8 | **Mira-Zeilen im Ergebnis-Overlay.** | **S** | **L** ← bestes Verhältnis im Dokument | ✅ (`story.ts`) |
-| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L | 🟡 Cutscene-System ✅ (`beats.ts`, Typewriter, Tap-Advance, Skip). **Portraits fehlen** — `PROMPT-charaktere.md` an Christian; bis dahin 🏮/🕯 als Platzhalter |
+| 9 | Portraits (Bild-KI) + Cutscene-System (DOM). | M | L | ✅ Cutscene-System (`beats.ts`) + Portraits `mira/anselm/gestalt.webp` + Startbildschirm-Sprechblasen (`chatter.ts`) |
 | 10 | Akt I schreiben, Beats auf der Karte setzen. | M | XL *(emotional)* | ✅ |
 
 ### Phase 4 — Tiefe *(fortlaufend)*
