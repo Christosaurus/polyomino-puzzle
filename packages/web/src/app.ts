@@ -1455,8 +1455,9 @@ function renderShop(): void {
 }
 
 // ── Profil ─────────────────────────────────────────────────────────────────
-/** Avatar options. The art lives at `ui/avatars/<id>.webp`; until a file is
- *  dropped in, the emoji is the fallback so the picker still works. */
+/** Avatar options. The art lives at `ui/avatars/<id>.webp`; until the files are
+ *  dropped in and `AVATAR_ART` flipped to true, the emoji stands in (kein 404). */
+const AVATAR_ART = false;
 const AVATARS: Array<{ id: string; emoji: string }> = [
   { id: "grin", emoji: "😄" },
   { id: "cool", emoji: "😎" },
@@ -1471,6 +1472,10 @@ const AVATARS: Array<{ id: string; emoji: string }> = [
 /** Fill `host` with the avatar for `id` — the painted webp, or the emoji if it's not there yet. */
 function paintAvatar(host: HTMLElement, id: string): void {
   const found = AVATARS.find((a) => a.id === id) ?? AVATARS[0]!;
+  if (!AVATAR_ART) {
+    host.textContent = found.emoji;
+    return;
+  }
   const img = document.createElement("img");
   img.alt = "";
   img.src = `ui/avatars/${found.id}.webp`;
