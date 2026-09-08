@@ -6,7 +6,7 @@
 
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
-import { BEATS, type Beat, beatAfter, SPEAKERS } from "./beats.js";
+import { BEATS, type Beat, beatAfter, INTRO, SPEAKERS } from "./beats.js";
 import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
@@ -635,10 +635,22 @@ function throughBeat(next: () => void): () => void {
   };
 }
 
+/** Spielt mehrere Beats hintereinander (für die Intro-Sequenz). */
+function playSequence(beats: Beat[], done: () => void): void {
+  const rest = beats.slice();
+  const next = (): void => {
+    const b = rest.shift();
+    if (!b) return done();
+    playCutscene(b, next);
+  };
+  next();
+}
+
 /** Spielt einen Beat als DOM-Cutscene, Zeile für Zeile, dann `done()`. */
 function playCutscene(beat: Beat, done: () => void): void {
   const sp = SPEAKERS[beat.speaker];
   const scene = $("cutscene");
+  scene.dataset.speaker = beat.speaker;
   const portrait = $("cs-portrait");
   if (sp.img) {
     const img = document.createElement("img");
@@ -1390,11 +1402,12 @@ function renderCollection(): void {
   const s = store.load();
   // nur Zahlen, die aufs eine Ziel zeigen, ein Rekord sind oder Story-Tatsache
   // (KONZEPT §F) — Ø-Lösezeit belohnt Hetze und fliegt raus
-  const memSeen = store.beatsSeen().filter((id) => BEATS.some((b) => b.id === id)).length;
+  const allBeats = [...INTRO, ...BEATS];
+  const memSeen = store.beatsSeen().filter((id) => allBeats.some((b) => b.id === id)).length;
   const stats: [string, string][] = [
     ["Fenster erhellt", nf(store.panes(s))],
     ["Licht gesammelt", nf(s.shards)],
-    ["Erinnerungen", `${memSeen} / ${BEATS.length}`],
+    ["Erinnerungen", `${memSeen} / ${allBeats.length}`],
     ["Tiefster Stollen", `Ebene ${s.descent.bestDepth}`],
     ["Scherbenregen", nf(s.cascade.bestScore)],
     ["Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
@@ -1412,7 +1425,7 @@ function renderCollection(): void {
   // Erinnerungen — die gespielten Story-Beats, nachlesbar
   const seen = new Set(store.beatsSeen());
   $("memories").replaceChildren(
-    ...BEATS.map((b) => {
+    ...allBeats.map((b) => {
       const has = seen.has(b.id);
       const d = document.createElement("div");
       d.className = `ach${has ? " done" : " locked"}`;
@@ -1512,12 +1525,13 @@ function openProfile(): void {
   $("pf-level").textContent = nf(store.playerLevel(s));
   $("pf-picker").hidden = true;
 
-  const memSeen = store.beatsSeen().filter((id) => BEATS.some((b) => b.id === id)).length;
+  const allB = [...INTRO, ...BEATS];
+  const memSeen = store.beatsSeen().filter((id) => allB.some((b) => b.id === id)).length;
   const rows: Array<[string, string, string]> = [
     ["ui/collection.webp", "Fenster erhellt", nf(store.panes(s))],
     ["ui/star.webp", "Sterne gesammelt", nf(store.totalStars(s))],
     ["ui/shard.webp", "Licht gesammelt", nf(s.shards)],
-    ["ui/hint.webp", "Erinnerungen", `${memSeen} / ${BEATS.length}`],
+    ["ui/hint.webp", "Erinnerungen", `${memSeen} / ${allB.length}`],
     ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
     ["ui/descent.webp", "Anselms Stollen — tiefste Ebene", String(s.descent.bestDepth)],
     ["ui/cascade.webp", "Scherbenregen — Rekord", nf(s.cascade.bestScore)],
@@ -1723,12 +1737,23 @@ if (talkarteEl) {
   });
 }
 
+/** Beim allerersten Start die drei Intro-Szenen spielen, dann wie gewohnt. */
+function maybePlayIntro(after: () => void): void {
+  const seen = new Set(store.beatsSeen());
+  const todo = INTRO.filter((b) => !seen.has(b.id));
+  if (todo.length === 0) return after();
+  playSequence(todo, after);
+}
+
 async function boot(): Promise<void> {
   try {
     manifest = (await (await fetch("levels/manifest.json")).json()) as Manifest;
     regions = buildRegions(manifest);
     refreshLight();
     renderHome();
+    maybePlayIntro(() => {
+      /* Home steht schon; die Cutscene lag nur davor */
+    });
   } catch (err) {
     $("home-status").textContent = `Levels konnten nicht geladen werden (${(err as Error).message}).`;
   }
