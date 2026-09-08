@@ -18,6 +18,7 @@ import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { miraLine, type StoryPlace } from "./story.js";
 import { mountTalkarteFx } from "./talkarte.js";
+import { windowName } from "./windows.js";
 import { GameView } from "./view.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -323,7 +324,7 @@ function renderHome(): void {
   const hero = $<HTMLButtonElement>("home-play");
   if (target) {
     hero.hidden = false;
-    hero.textContent = `Weiter · ${target.region.name} ${target.index + 1}`;
+    hero.textContent = `Weiter · ${windowName(target.region.id, target.index)}`;
     hero.onclick = () => void playCampaign(target.region, target.index);
   } else {
     hero.hidden = true;
@@ -422,8 +423,11 @@ function openRegion(index: number): void {
   host.replaceChildren();
   r.levels.forEach((entry, i) => {
     const stars = s.levels[entry.id]?.stars ?? 0;
+    const name = windowName(r.id, i);
     const el = document.createElement("button");
     el.className = `lvl${stars > 0 ? " done" : ""}`;
+    el.title = name;
+    el.setAttribute("aria-label", `${name} — ${stars} von 3 Sternen`);
     el.innerHTML =
       `<span class="n">${i + 1}</span>` +
       `<span class="s">${[0, 1, 2].map((k) => `<span class="${k < stars ? "on" : ""}">★</span>`).join("")}</span>`;
@@ -881,12 +885,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
   $("screen-play").dataset.region = region.id;
-  $("play-title-txt").textContent =
-    entry.id === "boss_01"
-      ? "Das letzte Fenster"
-      : entry.id === "boss_02"
-        ? "Anselms Prüfstück"
-        : `${region.name} · ${index + 1} / ${region.levels.length}`;
+  $("play-title-txt").textContent = windowName(region.id, index);
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -915,9 +914,9 @@ async function playCampaign(region: Region, index: number): Promise<void> {
         void (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region)));
       const goBack = (): void => openRegion(regions.indexOf(region));
       showOverlay({
-        title: stars === 3 ? "Makellos!" : "Gelöst!",
+        title: stars === 3 ? "Makellos!" : "Erhellt!",
         stars,
-        sub: `Zeit <b>${fmt(ms)}</b>`,
+        sub: `${windowName(region.id, index)} · <b>${fmt(ms)}</b>`,
         rewards,
         // wenn gleich ein Beat kommt, schweigt Mira hier — eine Szene reicht
         mira: pendingBeat
