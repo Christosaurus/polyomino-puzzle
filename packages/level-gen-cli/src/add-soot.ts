@@ -329,18 +329,19 @@ function chainFor(level: Level, nth: number): Array<[Cell, Cell]> {
 }
 
 /**
- * Wanderscherbe: ein kurzer, zusammenhängender Gang entlang einer Kante. Kurz,
- * weil sie nur die Eröffnung stören soll. Die eigentliche Lösbarkeits-Prüfung
- * macht `validateLevel` (es muss eine Reihenfolge geben, die sie schlägt).
+ * Wanderscherbe: ein zusammenhängender Gang entlang einer Kante. Möglichst
+ * **lang** — die Scherbe soll das ganze Fenster über eine Bedrohung sein, nicht
+ * nur die Eröffnung stören (sonst ist sie nach zwei Zügen weg und egal). Von
+ * lang nach kurz durchprobieren; die erste Länge, die `validateLevel` schlägt
+ * (es muss eine Zug-Reihenfolge geben, die die Scherbe nie deckt), gewinnt.
  */
 function wanderFor(shapeCells: Cell[], pieceCount: number, nth: number): Cell[] {
   const inShape = new Set(shapeCells.map(([r, c]) => `${r},${c}`));
   const rows = Math.max(...shapeCells.map((c) => c[0])) + 1;
   const cols = Math.max(...shapeCells.map((c) => c[1])) + 1;
-  // kurz halten: nach `len` Zügen ist die Scherbe weg, und die späten Teile
-  // müssen noch Platz haben. Von lang nach kurz durchprobieren — die erste
-  // Länge, die `validateLevel` schlägt, gewinnt.
-  const maxLen = Math.max(2, Math.min(5, pieceCount - 2));
+  // bis zu einem Zug pro Teil (die Kantenlänge deckelt es ohnehin); der letzte
+  // Zug bleibt frei, damit das Fenster garantiert lösbar ist.
+  const maxLen = Math.max(2, Math.min(Math.max(rows, cols), pieceCount - 1));
   const span = Math.max(1, maxLen - 1);
   const len = maxLen - (nth % span);
   const edge = Math.floor(nth / span) % 4;

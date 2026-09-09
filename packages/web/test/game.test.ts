@@ -13,6 +13,8 @@ const candleRaw = readFileSync(
   fileURLToPath(new URL("../public/levels/candle_01.json", import.meta.url)),
   "utf8",
 );
+const readLevel = (id: string) =>
+  readFileSync(fileURLToPath(new URL(`../public/levels/${id}.json`, import.meta.url)), "utf8");
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -107,4 +109,34 @@ describe("GameState — Kerze (Exploit 9)", () => {
     expect(g.candleOut).toBe(false);
     expect(g.isWon()).toBe(true);
   });
+});
+
+describe("GameState — Wanderscherbe (Exploit 9): Pfad deckt fast das ganze Fenster", () => {
+  for (const id of ["wander_01", "wander_02"]) {
+    it(`${id}: Scherbe ist bis kurz vor Schluss auf dem Brett, und es gibt eine Lösungsreihenfolge`, () => {
+      const raw = readLevel(id);
+      const probe = new GameState(parseLevel(raw));
+      const pieceCount = probe.pieces.length;
+      const pathLen = (JSON.parse(raw).mechanics.wander as unknown[]).length;
+      // Pfad läuft über fast das ganze Fenster — nicht mehr „nach 2 Zügen weg"
+      expect(pathLen).toBe(pieceCount - 1);
+
+      // irgendeine Reihenfolge der Lösungsteile schlägt die Scherbe
+      const ids: string[] = probe.level.solution.map((s: any) => s.pieceId);
+      const perms: string[][] = [];
+      const permute = (rest: string[], acc: string[]): void => {
+        if (!rest.length) return void perms.push(acc);
+        for (let i = 0; i < rest.length; i++) {
+          permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, rest[i]!]);
+        }
+      };
+      permute(ids, []);
+      const beats = perms.some((order) => {
+        const g = new GameState(parseLevel(raw));
+        g.markStarted();
+        return order.every((pid) => placeSolutionPiece(g, pid)) && g.isWon();
+      });
+      expect(beats).toBe(true);
+    });
+  }
 });

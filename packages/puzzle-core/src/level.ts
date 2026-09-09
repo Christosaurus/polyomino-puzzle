@@ -112,10 +112,11 @@ export interface LevelMechanics {
   /**
    * A wandering shard: an ordered walk of orthogonally-adjacent cells. The
    * shard sits on `wander[movesUsed]` and steps one cell forward with every
-   * placement; once it walks off the end of the list it is gone for good. While
-   * it sits on a pane that pane cannot be covered — **unless** the move would
-   * complete the whole board (then the shard is swept out). Keep the walk short:
-   * it is an opening nuisance you route around, not a timer. Validated so some
+   * placement; once it walks off the end of the list it is gone. While it sits
+   * on a pane that pane cannot be covered — **unless** the move would complete
+   * the whole board (then the shard is swept out). The walk should run for
+   * roughly the whole window (about one step per piece) so routing around it
+   * stays a live constraint, not just an opening nuisance. Validated so some
    * placement order of the solution always beats it.
    */
   wander?: Array<[number, number]>;

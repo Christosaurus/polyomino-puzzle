@@ -375,7 +375,7 @@
       "pieces": "TYLF",
       "rows": 4,
       "cols": 5,
-      "wander": 2,
+      "wander": 3,
       "moveBudget": 8
     },
     {
@@ -454,7 +454,7 @@
       "rows": 5,
       "cols": 8,
       "candle": 1,
-      "wander": 5,
+      "wander": 7,
       "double": 2,
       "moveBudget": 13
     },
@@ -464,7 +464,7 @@
       "pieces": "ULWVYNZT",
       "rows": 5,
       "cols": 8,
-      "wander": 5,
+      "wander": 7,
       "moveBudget": 11
     },
     {
