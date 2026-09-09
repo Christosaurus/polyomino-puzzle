@@ -204,26 +204,35 @@ export function recordLevel(
     d.pendingAttempt = null; // sauber abgeschlossen
 
     const isCampaign = !levelId.startsWith("daily:");
-    if (isCampaign) {
-      d.stats.winStreak += 1;
-      d.stats.bestWinStreak = Math.max(d.stats.bestWinStreak, d.stats.winStreak);
-    }
-    out.streak = d.stats.winStreak;
-    out.mult = isCampaign ? winMultiplier(d.stats.winStreak) : 1;
 
-    const base = stars + (firstClear ? 3 : 1);
-    out.shards = Math.round(base * out.mult);
-    d.shards += out.shards;
-    if (firstClear && isCampaign) d.panes += 1; // ein neues Fenster im Tal erhellt
+    if (firstClear) {
+      // Nur ein *neu* gelöstes Fenster zählt für Serie, Fortschritt und
+      // Statistik. Wiederholen eines Trivial-Fensters darf nichts davon farmen.
+      if (isCampaign) {
+        d.stats.winStreak += 1;
+        d.stats.bestWinStreak = Math.max(d.stats.bestWinStreak, d.stats.winStreak);
+        d.panes += 1; // ein neues Fenster im Tal erhellt
+      }
+      out.streak = d.stats.winStreak;
+      out.mult = isCampaign ? winMultiplier(d.stats.winStreak) : 1;
+      out.shards = Math.round((stars + 3) * out.mult);
 
-    d.stats.solved += 1;
-    d.stats.totalMs += ms;
-    if (usedUndo) {
-      d.stats.noUndoStreak = 0;
+      d.stats.solved += 1;
+      d.stats.totalMs += ms;
+      if (usedUndo) {
+        d.stats.noUndoStreak = 0;
+      } else {
+        d.stats.noUndoStreak += 1;
+        d.stats.bestNoUndoStreak = Math.max(d.stats.bestNoUndoStreak, d.stats.noUndoStreak);
+      }
     } else {
-      d.stats.noUndoStreak += 1;
-      d.stats.bestNoUndoStreak = Math.max(d.stats.bestNoUndoStreak, d.stats.noUndoStreak);
+      // Wiederholung: kein Fortschritt, kein Multiplikator — nur ein
+      // Token-Betrag, damit „ich hab die Sterne verbessert" sich lohnt.
+      out.streak = d.stats.winStreak;
+      out.mult = 1;
+      out.shards = Math.min(2, stars);
     }
+    d.shards += out.shards;
   });
   return out;
 }

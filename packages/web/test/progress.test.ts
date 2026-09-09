@@ -68,6 +68,47 @@ describe("recordLevel — Erstclear & Fenster erhellen", () => {
   });
 });
 
+describe("Re-Clear-Farm (Exploit 1)", () => {
+  it("ein Re-Clear erhöht die Serie nicht", () => {
+    recordLevel("level_001", 3, 40_000, false); // Serie 1
+    recordLevel("level_002", 3, 40_000, false); // Serie 2
+    expect(load().stats.winStreak).toBe(2);
+    for (let i = 0; i < 10; i++) recordLevel("level_001", 3, 8_000, false);
+    expect(load().stats.winStreak).toBe(2); // unverändert
+  });
+
+  it("ein Re-Clear zahlt höchstens 2 Splitter, ohne Multiplikator", () => {
+    // Serie auf ×3 bringen (7 Erstclears)
+    for (let i = 1; i <= 7; i++) recordLevel(`level_00${i}`, 3, 30_000, false);
+    const shardsBefore = load().shards;
+    const re = recordLevel("level_001", 3, 8_000, false);
+    expect(re.mult).toBe(1);
+    expect(re.shards).toBe(2); // min(2, stars) — nicht (3+1)*3 = 12
+    expect(load().shards).toBe(shardsBefore + 2);
+  });
+
+  it("ein Re-Clear zählt nicht als weiteres 'gelöst'", () => {
+    recordLevel("level_001", 3, 40_000, false);
+    const solvedAfterFirst = load().stats.solved;
+    recordLevel("level_001", 3, 8_000, false);
+    recordLevel("level_001", 3, 8_000, false);
+    expect(load().stats.solved).toBe(solvedAfterFirst);
+  });
+
+  it("ein Re-Clear mit mehr Sternen verbessert weiterhin die Bestwerte", () => {
+    recordLevel("level_001", 1, 58_000, false);
+    recordLevel("level_001", 3, 20_000, false);
+    expect(load().levels["level_001"]).toEqual({ stars: 3, bestMs: 20_000, fails: 0 });
+  });
+
+  it("die Serie steigt nur mit echten Erstclears — auch mit Re-Clears dazwischen", () => {
+    recordLevel("level_001", 3, 40_000, false); // 1
+    recordLevel("level_001", 3, 40_000, false); // Re-Clear, bleibt 1
+    recordLevel("level_002", 3, 40_000, false); // 2
+    expect(load().stats.winStreak).toBe(2);
+  });
+});
+
 describe("pendingAttempt — Reload-Schutz (Exploit 4)", () => {
   it("beginAttempt setzt den Marker, endAttempt räumt ihn weg", () => {
     beginAttempt("level_010");
