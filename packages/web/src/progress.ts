@@ -175,7 +175,12 @@ export function recordLevel(
   const out: LevelReward = { shards: 0, mult: 1, streak: 0, firstClear: false };
   update((d) => {
     const prev = d.levels[levelId];
-    const firstClear = !prev;
+    // „Erstmals erhellt" heißt: vorher nie *gewonnen*. Ein reiner Fehlschlag
+    // legt zwar schon einen Eintrag an (`recordFail`, mit `stars: 0`), macht
+    // das Fenster damit aber nicht zum Clear — sonst wäre ein einmal
+    // verlorenes Fenster für immer kein Erstclear und würde nie `panes`
+    // erhöhen (Sackgasse Richtung Farbhof/Finale).
+    const firstClear = !prev || prev.stars === 0;
     out.firstClear = firstClear;
     if (!prev || stars > prev.stars || (stars === prev.stars && ms < prev.bestMs)) {
       d.levels[levelId] = { stars, bestMs: ms };

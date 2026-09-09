@@ -7,13 +7,15 @@
     "dev": "npm run build -w @polyomino/puzzle-core && vite --host",
     "build": "npm run build -w @polyomino/puzzle-core && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@polyomino/puzzle-core": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }
