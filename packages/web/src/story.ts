@@ -90,9 +90,14 @@ const LINES = {
   ],
 } as const;
 
-/** Pro Kategorie durchrotieren statt würfeln — nie zweimal dasselbe hintereinander. */
-function pick(pool: readonly string[], n: number): string {
-  return pool[n % pool.length]!;
+/**
+ * Rotiert durch den Pool. `turn` ist ein Zähler, der pro *gezeigter* Zeile
+ * hochläuft — nicht `solved` selbst, sonst würde er mit der „jedes dritte
+ * Fenster"-Regel aliasen und pro Pool käme nur eine Zeile je vor (B4).
+ */
+function rot(pool: readonly string[], turn: number): string {
+  const i = ((Math.floor(turn) % pool.length) + pool.length) % pool.length;
+  return pool[i]!;
 }
 
 /**
@@ -105,16 +110,17 @@ export function miraLine(ctx: StoryContext): string | null {
 
   // verdiente Momente — die sprechen immer
   if (n === 1) return LINES.first[0]!;
-  if (ctx.struggled) return pick(LINES.struggled, n);
+  if (ctx.struggled) return rot(LINES.struggled, n);
 
   // sonst nur jedes dritte Fenster
   if (n % 3 !== 0) return null;
+  const r = n / 3; // 1, 2, 3, … — zählt die gezeigten Ergebnis-Zeilen
 
-  if (ctx.streak !== undefined && ctx.streak >= 3) return pick(LINES.streak, n);
-  if (ctx.stars === 3 && n % 6 === 0) return pick(LINES.perfect, n);
-  if (ctx.place === "descent" && (ctx.depth ?? 0) >= 5) return pick(LINES.descent, n);
+  if (ctx.streak !== undefined && ctx.streak >= 3) return rot(LINES.streak, ctx.streak);
+  if (ctx.stars === 3 && r % 3 === 0) return rot(LINES.perfect, r / 3);
+  if (ctx.place === "descent" && (ctx.depth ?? 0) >= 5) return rot(LINES.descent, ctx.depth ?? r);
 
   const byPlace = LINES[ctx.place];
   // jedes zweite Mal ortsbezogen, sonst allgemein — sonst wird der Ort schal
-  return n % 6 === 0 ? pick(byPlace, n) : pick(LINES.generic, n);
+  return r % 2 === 0 ? rot(byPlace, r / 2) : rot(LINES.generic, (r - 1) / 2);
 }
