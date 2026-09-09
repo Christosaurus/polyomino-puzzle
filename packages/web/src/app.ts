@@ -25,6 +25,7 @@ import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
 import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
+import { duckMusic, playMusic, setMusicEnabled } from "./music.js";
 import { miraLine, type StoryPlace } from "./story.js";
 import { mountTalkarteFx } from "./talkarte.js";
 import { pickChatter } from "./chatter.js";
@@ -178,6 +179,7 @@ function saveSettings(s: Settings): void {
   }
   sfx.setMuted(!s.sound);
   sfx.setHaptics(s.haptics);
+  setMusicEnabled(s.music);
 }
 let settings = loadSettings();
 saveSettings(settings);
@@ -265,6 +267,7 @@ function setTab(tab: Tab): void {
   if (tab === "descent") renderDescent();
   if (tab === "cascade") renderCascade();
   if (tab === "collection") renderCollection();
+  playMusic("menu"); // Browsing-Screens teilen sich das ruhige Thema
   showScreen(tab);
 }
 
@@ -763,6 +766,7 @@ function playCutscene(beat: Beat, done: () => void): void {
   $("cs-name").textContent = sp.name;
 
   hideOverlay();
+  duckMusic(true); // während der Szene ist die Musik im Hintergrund
   scene.hidden = false;
   scene.classList.add("show");
 
@@ -811,6 +815,7 @@ function playCutscene(beat: Beat, done: () => void): void {
     scene.hidden = true;
     scene.removeEventListener("click", onClick);
     $("cs-skip").removeEventListener("click", onSkip);
+    duckMusic(false);
     store.markBeatSeen(beat.id);
     done();
   };
@@ -1062,6 +1067,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const entry = region.levels[index];
   if (!entry) return;
   scenery.setTheme(REGION_THEME[region.id] ?? "menu");
+  playMusic("play");
   $("screen-play").dataset.region = region.id;
   const streak = store.winStreak();
   const mult = store.winMultiplier(streak);
@@ -1197,6 +1203,7 @@ function renderDaily(): void {
 }
 async function playDaily(): Promise<void> {
   mode = "daily";
+  playMusic("play");
   const day = store.todayKey();
   toast("Fenster wird gebaut …");
   await yieldPaint();
@@ -1262,6 +1269,7 @@ function renderDescent(): void {
 }
 function startDescent(): void {
   mode = "descent";
+  playMusic("play");
   descentState = {
     variant: store.beginDescentRun(),
     depth: 1,
@@ -1532,6 +1540,7 @@ let cascadeToken: string | null = null;
 function startCascade(): void {
   teardownGame();
   scenery.setTheme("garden");
+  playMusic("cascade");
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
@@ -2050,6 +2059,7 @@ async function boot(): Promise<void> {
 
     refreshLight();
     renderHome();
+    playMusic("menu");
     maybePlayIntro(() => {
       /* Home steht schon; die Cutscene lag nur davor */
     });
