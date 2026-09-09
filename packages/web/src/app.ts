@@ -920,11 +920,14 @@ function fireJokerButton(kind: JokerKind): void {
 
 function useJoker(kind: JokerKind): void {
   if (!activeGame || !gameView || activeGame.isWon() || activeGame.failed) return;
-  if (kind === "hint" && !gameView.showHint()) {
+  if (store.load().jokers[kind] <= 0) return; // nichts im Vorrat
+  // erst prüfen, ob es überhaupt was zu verraten gibt — *dann* abbuchen
+  if (kind === "hint" && !activeGame.firstUnsolved()) {
     toast("Nichts mehr zu verraten");
     return;
   }
   if (!store.spendJoker(kind)) return;
+  if (kind === "hint") gameView.showHint();
   fireJokerButton(kind);
   sfx.pickUp();
   if (kind === "time") {
