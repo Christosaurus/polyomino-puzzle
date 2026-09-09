@@ -41,6 +41,8 @@ export interface CascadeResult {
   covered: number;
   perfectClears: number;
   livesLeft: number;
+  /** Gespielte Zeit in ms — für die Plausibilitätsprüfung der Bestenliste. */
+  elapsedMs: number;
 }
 
 /**
@@ -164,6 +166,7 @@ export class CascadeState {
       covered: this.coveredCells(),
       perfectClears: this.perfectClears,
       livesLeft: this.lives,
+      elapsedMs: Math.round(this.elapsedMs()),
     };
   }
 

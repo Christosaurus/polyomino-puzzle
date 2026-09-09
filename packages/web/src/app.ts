@@ -12,7 +12,14 @@ import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
 import { countryName, detectCountry, flag } from "./countries.js";
-import { isoWeek, type LeaderRow, playerId, submitCascadeScore, topCascade } from "./leaderboard.js";
+import {
+  isoWeek,
+  type LeaderRow,
+  playerId,
+  startCascadeRun,
+  submitCascadeScore,
+  topCascade,
+} from "./leaderboard.js";
 import * as store from "./progress.js";
 import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
@@ -1521,6 +1528,7 @@ function openLeaderboard(): void {
   $("lb-overlay").classList.add("show");
   void renderLeaderboard();
 }
+let cascadeToken: string | null = null;
 function startCascade(): void {
   teardownGame();
   scenery.setTheme("garden");
@@ -1528,6 +1536,9 @@ function startCascade(): void {
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
   for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.remove("lost");
+  // Runden-Token für die Bestenliste holen (fire-and-forget, hat 2:30 Zeit)
+  cascadeToken = null;
+  void startCascadeRun().then((t) => (cascadeToken = t));
   const game = new CascadeState(`kaskade-${Date.now()}`);
   cascadeGame = game;
   const bestScore = store.load().cascade.bestScore;
@@ -1580,9 +1591,11 @@ function startCascade(): void {
       celebrate(freshAch);
       renderTopPills();
       // Score in die Wochenbestenliste — fire-and-forget, blockiert nichts
-      void submitCascadeScore(r.score, r.cleared, store.playerName()).then((ok) => {
-        if (ok && $("lb-overlay").classList.contains("show")) void renderLeaderboard();
-      });
+      void submitCascadeScore(r.score, r.cleared, store.playerName(), r.elapsedMs, cascadeToken).then(
+        (ok) => {
+          if (ok && $("lb-overlay").classList.contains("show")) void renderLeaderboard();
+        },
+      );
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
         `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +

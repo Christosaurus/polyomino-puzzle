@@ -60,30 +60,51 @@ export interface LeaderRow {
   country: string;
 }
 
-/** Score der laufenden Runde einreichen. Fehler werden verschluckt — die
- *  Bestenliste darf das Ergebnis-Overlay nie blockieren. */
-export async function submitCascadeScore(score: number, cleared: number, name: string): Promise<boolean> {
-  if (!(score > 0)) return false;
-  const body: Record<string, unknown> = {
-    p_player_id: playerId(),
-    p_name: name.slice(0, 24) || "Glaser",
-    p_score: Math.round(score),
-    p_cleared: Math.max(0, Math.round(cleared)),
-    p_country: detectCountry(),
-  };
-  const post = (b: Record<string, unknown>): Promise<Response> =>
-    fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_cascade_score`, {
+/**
+ * Vor der Runde ein Einmal-Token holen. Ohne gültiges Token nimmt der Server
+ * keinen Score an — man kann die Submit-RPC also nicht einfach direkt aufrufen,
+ * und `start_cascade_run` ist pro Spieler rate-limitiert. `null` bei Netzfehler.
+ */
+export async function startCascadeRun(): Promise<string | null> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/start_cascade_run`, {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify(b),
+      body: JSON.stringify({ p_player_id: playerId() }),
     });
+    if (!res.ok) return null;
+    const tok = (await res.json()) as unknown;
+    return typeof tok === "string" ? tok : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Score der laufenden Runde einreichen. Fehler werden verschluckt — die
+ *  Bestenliste darf das Ergebnis-Overlay nie blockieren. Der Server prüft
+ *  Token + Plausibilität (Zeit / Reihen / Punkte müssen zueinander passen). */
+export async function submitCascadeScore(
+  score: number,
+  cleared: number,
+  name: string,
+  runMs: number,
+  token: string | null,
+): Promise<boolean> {
+  if (!(score > 0) || !token) return false;
   try {
-    let res = await post(body);
-    if (!res.ok) {
-      // Fallback, solange die RPC noch keinen p_country-Parameter kennt
-      const { p_country: _drop, ...noCc } = body;
-      res = await post(noCc);
-    }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_cascade_score`, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({
+        p_player_id: playerId(),
+        p_name: name.slice(0, 24) || "Glaser",
+        p_score: Math.round(score),
+        p_cleared: Math.max(0, Math.round(cleared)),
+        p_country: detectCountry(),
+        p_token: token,
+        p_run_ms: Math.max(0, Math.round(runMs)),
+      }),
+    });
     return res.ok;
   } catch {
     return false;
