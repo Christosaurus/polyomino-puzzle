@@ -270,6 +270,7 @@ function teardownGame(): void {
   clockTimer = 0;
   if (graceTimer) window.clearTimeout(graceTimer);
   graceTimer = 0;
+  clearWinFx();
 }
 
 // ── Home / regions ─────────────────────────────────────────────────────────
@@ -302,12 +303,7 @@ function currentCampaignTarget(): { region: Region; index: number; regionIndex: 
     const next = regionCleared(r);
     if (next < r.levels.length) return { region: r, index: next, regionIndex: ri };
   }
-  // alles gelöst → letzte offene Region, letztes Fenster
-  for (let ri = regions.length - 1; ri >= 0; ri--) {
-    const r = regions[ri]!;
-    if (panes >= r.panesToUnlock) return { region: r, index: r.levels.length - 1, regionIndex: ri };
-  }
-  return null;
+  return null; // alle erreichbaren Fenster gelöst
 }
 
 /** Eine Station für einen Seitenmodus — im selben Pfad wie die Regionen. */
@@ -342,12 +338,15 @@ function renderHome(): void {
   const s = store.load();
   const panes = store.panes(s);
   const pct = Math.round(lightFrac() * 100);
-  $("home-status").innerHTML =
-    `<b>${panes}</b> Fenster erhellt · das Tal ist zu <b>${pct}%</b> im Licht.`;
+  const target = currentCampaignTarget();
+  const allDone = !target && regions.length > 0;
+  $("home-status").innerHTML = allDone
+    ? "Alle Fenster erhellt. Das Tal gehört wieder euch. ✨"
+    : `<b>${panes}</b> Fenster erhellt · das Tal ist zu <b>${pct}%</b> im Licht.`;
 
   // ── Der eine Knopf: weiter im Lichtpfad ──
-  const target = currentCampaignTarget();
   const hero = $<HTMLButtonElement>("home-play");
+  const dailyDoneToday = store.load().daily.lastDayDone === store.todayKey();
   if (target) {
     hero.hidden = false;
     hero.textContent = `Weiter · ${windowName(
@@ -356,6 +355,11 @@ function renderHome(): void {
       target.region.levels[target.index]?.id,
     )}`;
     hero.onclick = () => void playCampaign(target.region, target.index);
+  } else if (allDone && !dailyDoneToday) {
+    // Kampagne durch — der Knopf zeigt aufs Tagesfenster als laufenden Inhalt
+    hero.hidden = false;
+    hero.textContent = "🌅 Tagesfenster";
+    hero.onclick = () => void playDaily();
   } else {
     hero.hidden = true;
   }
@@ -523,6 +527,14 @@ function spawnBurst(host: HTMLElement, n: number): void {
 
 // ── Full-screen white star shower — fires the instant a board is solved ─────
 let winfxRaf = 0;
+/** Den Vollbild-Sternenregen sofort abräumen — sonst blitzt er über dem
+ *  nächsten Level auf, wenn man gleich „Weiter" tippt. */
+function clearWinFx(): void {
+  if (winfxRaf) cancelAnimationFrame(winfxRaf);
+  winfxRaf = 0;
+  const c = document.getElementById("winfx") as HTMLCanvasElement | null;
+  c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
+}
 function winStarBurst(): void {
   const canvas = $<HTMLCanvasElement>("winfx");
   const ctx = canvas.getContext("2d");
@@ -946,7 +958,9 @@ function mountGame(
   hideOverlay();
   cb.onSolved ??= winStarBurst; // every solve gets the full-screen star shower
   // Der Streifen zeigt entweder die Abstiegs-Stufe oder das Level-Ziel
-  $("play-stage").hidden = mode !== "descent" && game.goal === "cover";
+  const stage = $("play-stage");
+  stage.hidden = mode !== "descent" && game.goal === "cover";
+  if (stage.hidden) stage.replaceChildren(); // keinen alten Ruß-Zähler stehen lassen
   // Herzen kosten nur im Story-Modus — sonst zeigt das HUD die Splitter
   $("play-lives").hidden = mode !== "campaign";
   $("play-shards").hidden = mode === "campaign";
@@ -1145,7 +1159,7 @@ function renderDaily(): void {
   scenery.setTheme("garden");
   const s = store.load();
   $("daily-streak").textContent = `🔥 ${s.daily.streak}`;
-  $("daily-best").textContent = String(s.daily.bestStreak);
+  $("daily-best").textContent = nf(s.daily.bestStreak);
   const done = s.daily.lastDayDone === store.todayKey();
   const playBtn = $<HTMLButtonElement>("daily-play");
   playBtn.textContent = done ? "Heute erledigt ✓" : "Heute spielen";
@@ -1218,8 +1232,8 @@ async function playDaily(): Promise<void> {
 function renderDescent(): void {
   scenery.setTheme("workshop");
   const s = store.load();
-  $("descent-best").textContent = `Ebene ${s.descent.bestDepth}`;
-  $("descent-runs").textContent = String(s.descent.runs);
+  $("descent-best").textContent = `Ebene ${nf(s.descent.bestDepth)}`;
+  $("descent-runs").textContent = nf(s.descent.runs);
 }
 function startDescent(): void {
   mode = "descent";
@@ -1512,10 +1526,10 @@ function renderCollection(): void {
   const stats: [string, string][] = [
     ["Fenster erhellt", nf(store.panes(s))],
     ["Licht gesammelt", nf(s.shards)],
-    ["Erinnerungen", `${memSeen} / ${allBeats.length}`],
-    ["Tiefster Stollen", `Ebene ${s.descent.bestDepth}`],
+    ["Erinnerungen", `${nf(memSeen)} / ${nf(allBeats.length)}`],
+    ["Tiefster Stollen", `Ebene ${nf(s.descent.bestDepth)}`],
     ["Scherbenregen", nf(s.cascade.bestScore)],
-    ["Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
+    ["Erfolge", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
   $("stats").replaceChildren(
     ...stats.map(([label, val]) => {
@@ -1537,7 +1551,8 @@ function renderCollection(): void {
       const body = has
         ? `<div class="t">${b.title}</div><div class="h">${b.lines.join(" ")}</div>`
         : `<div class="t">???</div><div class="h">Spiele weiter, um diese Erinnerung zu wecken.</div>`;
-      d.innerHTML = `<div class="ic">${has ? "🕯" : "·"}</div><div>${body}</div>`;
+      const icon = has ? SPEAKERS[b.speaker]?.emoji || "🕯" : "·";
+      d.innerHTML = `<div class="ic">${icon}</div><div>${body}</div>`;
       return d;
     }),
   );
@@ -1636,12 +1651,12 @@ function openProfile(): void {
     ["ui/collection.webp", "Fenster erhellt", nf(store.panes(s))],
     ["ui/star.webp", "Sterne gesammelt", nf(store.totalStars(s))],
     ["ui/shard.webp", "Licht gesammelt", nf(s.shards)],
-    ["ui/hint.webp", "Erinnerungen", `${memSeen} / ${allB.length}`],
-    ["ui/solvent.webp", "Ohne Zurücknehmen", String(s.stats.bestNoUndoStreak)],
-    ["ui/descent.webp", "Anselms Stollen — tiefste Ebene", String(s.descent.bestDepth)],
+    ["ui/hint.webp", "Erinnerungen", `${nf(memSeen)} / ${nf(allB.length)}`],
+    ["ui/solvent.webp", "Ohne Zurücknehmen", nf(s.stats.bestNoUndoStreak)],
+    ["ui/descent.webp", "Anselms Stollen — tiefste Ebene", nf(s.descent.bestDepth)],
     ["ui/cascade.webp", "Scherbenregen — Rekord", nf(s.cascade.bestScore)],
-    ["ui/daily.webp", "Längster Tages-Streak", String(s.daily.bestStreak)],
-    ["ui/hint.webp", "Erfolge", `${unlockedCount(s)} / ${ACHIEVEMENTS.length}`],
+    ["ui/daily.webp", "Längster Tages-Streak", nf(s.daily.bestStreak)],
+    ["ui/hint.webp", "Erfolge", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
   $("pf-stats").replaceChildren(
     ...rows.map(([icon, label, value]) => {
