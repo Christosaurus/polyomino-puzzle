@@ -55,9 +55,11 @@ const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
 
 /** How lit the world is (0..1), from campaign stars. */
 function lightFrac(): number {
-  // an *jedem* erhellten Fenster wird das Tal heller — nicht nur an Kampagnen-
-  // sternen. „Voll" bei etwa allen Kampagnen-Fenstern plus ein bisschen mehr.
-  const full = Math.max(20, (manifest?.levels.length ?? 30) + 12);
+  // Das Tal ist voll im Licht, wenn alle Kampagnen-Fenster erhellt sind. `panes`
+  // steigt nur über Erstclears (Nebenmodi zahlen nicht ein), also ist die
+  // Fenster­zahl im Manifest die Obergrenze — kein „+12"-Puffer mehr, sonst
+  // bliebe das Tal auch nach 100 % Kampagne bei ~82 % stehen.
+  const full = Math.max(20, manifest?.levels.length ?? 30);
   return Math.min(1, store.panes(store.load()) / full);
 }
 function refreshLight(): void {
@@ -67,7 +69,8 @@ function refreshLight(): void {
 
 /**
  * „Noch N Fenster bis <Region>" — nur wenn eine gesperrte Region in Reichweite
- * ist. Macht in den Endlosmodi sichtbar, wofür man spielt (KONZEPT §A).
+ * ist. Wird nach einem Erstclear gezeigt, damit das nächste Regionstor sichtbar
+ * bleibt.
  */
 function nextRegionNudge(): string | null {
   const panes = store.panes();
@@ -201,7 +204,7 @@ function renderSettingsToggles(host: HTMLElement): void {
 let mode: "campaign" | "daily" | "descent" = "campaign";
 let campaignAt: { region: Region; index: number } | null = null;
 let descentState:
-  | { variant: number; depth: number; streak: number; sawRecord: boolean; recent: string[] }
+  | { variant: number; depth: number; streak: number; sawRecord: boolean; recent: string[]; shards: number }
   | null = null;
 let activeGame: GameState | null = null;
 
@@ -377,7 +380,7 @@ function renderHome(): void {
         </div>
         <div class="muted">${
           locked
-            ? `Die Laterne füllt sich — noch ${r.panesToUnlock - panes} Fenster (jeder Modus zählt).`
+            ? `Die Laterne füllt sich — noch ${nf(r.panesToUnlock - panes)} erhellte Fenster.`
             : r.subtitle
         }</div>
         <div class="progress"><i style="width:${locked ? lanternFill : max ? (got / max) * 100 : 0}%"></i></div>
@@ -1184,6 +1187,7 @@ function startDescent(): void {
     streak: 0,
     sawRecord: false,
     recent: [],
+    shards: 0,
   };
   void playDescentLevel();
 }
@@ -1298,6 +1302,7 @@ async function playDescentLevel(): Promise<void> {
       const st = descentState!;
       st.depth = depth + 1;
       st.streak += 1;
+      st.shards += depth;
       store.recordDescent(depth);
       store.addShards(depth);
       scenery.pulse(0.35 + 0.08 * stars);
@@ -1356,12 +1361,13 @@ async function playDescentLevel(): Promise<void> {
 }
 function endDescent(reachedDepth?: number): void {
   const depth = reachedDepth ?? descentState?.depth ?? 0;
+  const runShards = descentState?.shards ?? 0;
   const best = store.load().descent.bestDepth;
   descentState = null;
   showOverlay({
     title: depth > 0 ? "Züge alle" : "Abstieg beendet",
     sub: `Ebene <b>${nf(depth)}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
-    rewards: [`✦ +${nf(depth)} Lichtsplitter gesammelt`],
+    rewards: runShards > 0 ? [`✦ +${nf(runShards)} Lichtsplitter aus diesem Lauf`] : [],
     nextLabel: "Neuer Lauf",
     onNext: startDescent,
     onQuit: () => setTab("descent"),
