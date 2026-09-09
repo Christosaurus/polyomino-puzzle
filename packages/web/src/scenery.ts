@@ -13,6 +13,7 @@ export type SceneTheme = "menu" | "garden" | "workshop" | "courtyard" | "collect
 const PAINTED: Partial<Record<SceneTheme, { night: string; day: string }>> = {
   garden: { night: "bg/garten-nacht.webp", day: "bg/garten-tag.webp" },
   workshop: { night: "bg/werkstatt-nacht.webp", day: "bg/werkstatt-tag.webp" },
+  courtyard: { night: "bg/farbhof-nacht.webp", day: "bg/farbhof-tag.webp" },
 };
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
