@@ -673,16 +673,27 @@ function maybeShowPeek(): void {
   );
   if (!line) return;
   peekShownThisSession = true;
+  const scrim = $("peek-scrim");
   paintChar($("peek-face"), line.who);
   $("peek-say").textContent = line.text;
   peek.hidden = false;
-  window.setTimeout(() => peek.classList.add("show"), 60);
+  scrim.hidden = false;
+  window.setTimeout(() => {
+    peek.classList.add("show");
+    scrim.classList.add("show");
+  }, 60);
   const hide = (): void => {
     peek.classList.remove("show");
-    window.setTimeout(() => (peek.hidden = true), 450);
+    scrim.classList.remove("show");
+    window.setTimeout(() => {
+      peek.hidden = true;
+      scrim.hidden = true;
+    }, 450);
     peek.removeEventListener("click", hide);
+    scrim.removeEventListener("click", hide);
   };
   peek.addEventListener("click", hide);
+  scrim.addEventListener("click", hide);
   window.setTimeout(hide, 7000);
 }
 

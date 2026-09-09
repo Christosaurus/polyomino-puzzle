@@ -525,6 +525,19 @@
       /* ── Sprechblasen-Peek auf dem Startbildschirm ──
          Gleiche Bühne wie die Cutscene, nur kleiner: die Figur schiebt sich
          von unten links ins Bild, die Blase hängt rechts daneben. */
+      /* Wenn eine Figur spricht, wird der Rest abgedunkelt — noch erkennbar,
+         aber der Blick liegt auf der Figur. */
+      .peek-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 29;
+        background: rgba(4, 2, 12, 0.66);
+        opacity: 0;
+        transition: opacity 0.4s var(--tap);
+      }
+      .peek-scrim.show {
+        opacity: 1;
+      }
       .home-peek {
         /* eine Größe steuert Figur, Höhe und den Start der Blase — so bleibt
            der Zipfel immer neben der Figur, auch auf kurzen Displays */
@@ -2140,6 +2153,7 @@
         <div class="journey" id="regions"></div>
       </section>
 
+      <div class="peek-scrim" id="peek-scrim" hidden></div>
       <button class="home-peek" id="home-peek" hidden>
         <span class="peek-face" id="peek-face"></span>
         <span class="peek-say" id="peek-say"></span>
