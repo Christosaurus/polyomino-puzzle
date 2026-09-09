@@ -7,7 +7,7 @@
 import { Confetti } from "./confetti.js";
 import { PIECE_COLORS, cssVar, shade } from "./colors.js";
 import type { GameState, PieceState, Pos } from "./game.js";
-import { drawPieceBody, drawWell, strokeCellOutline } from "./render.js";
+import { boardGrid, drawPieceBody, strokeCellOutline } from "./render.js";
 import { sfx } from "./sfx.js";
 
 const TAP_MOVE_PX = 9;
@@ -662,18 +662,16 @@ export class GameView {
       ctx.moveTo(ax, ay);
       ctx.lineTo(bx, by);
       ctx.stroke();
-      // heller Kern
+      // heller Kern (das breitere dunkle Band darunter gibt schon Tiefe —
+      // kein shadowBlur, das ist auf Mobil teuer)
       const g = ctx.createLinearGradient(ax, ay, bx, by);
       g.addColorStop(0, "#ffd36b");
       g.addColorStop(0.5, "#ffb43b");
       g.addColorStop(1, "#ffd36b");
       ctx.strokeStyle = g;
       ctx.lineWidth = Math.max(2, b.cell * 0.07);
-      ctx.shadowColor = "#ffb43b";
-      ctx.shadowBlur = 8;
       ctx.stroke();
       // Ringe an den Enden
-      ctx.shadowBlur = 0;
       for (const [x, y] of [
         [ax, ay],
         [bx, by],
@@ -967,10 +965,9 @@ export class GameView {
     ctx.clearRect(0, 0, layout.cssWidth, layout.cssHeight);
 
     const b = layout.board;
-    const wellFill = cssVar("--cell");
-    for (const [r, c] of this.game.shape.cells) {
-      drawWell(ctx, b.x + c * b.cell, b.y + r * b.cell, b.cell, wellFill);
-    }
+    // die leeren Sockel ändern sich nie → einmal gebautes Raster nur blitten
+    const grid = boardGrid(this.game.shape.cells, b.cell, dpr, cssVar("--cell"));
+    ctx.drawImage(grid.canvas, b.x, b.y, grid.w, grid.h);
     this.drawSoot(b);
     if (this.game.hasFrozenZone && !this.game.isFrozenUnlocked) {
       ctx.save();

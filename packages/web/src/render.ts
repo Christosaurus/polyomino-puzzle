@@ -71,6 +71,45 @@ export function drawWell(
 }
 
 /**
+ * Ein Offscreen-Canvas mit den leeren Zellen-Sockeln des Bretts. Die Sockel
+ * ändern sich nie — statt ~15 Canvas-Ops pro Zelle und Frame wird das Raster
+ * einmal gebaut und danach nur noch als Bild geblittet. Gecacht nach Geometrie.
+ */
+const gridCache = new Map<string, { canvas: HTMLCanvasElement; w: number; h: number }>();
+export function boardGrid(
+  cells: ReadonlyArray<readonly [number, number]>,
+  cell: number,
+  dpr: number,
+  fill: string,
+): { canvas: HTMLCanvasElement; w: number; h: number } {
+  let maxR = 0;
+  let maxC = 0;
+  for (const [r, c] of cells) {
+    if (r > maxR) maxR = r;
+    if (c > maxC) maxC = c;
+  }
+  const key = `${cells.length}|${cell.toFixed(2)}|${dpr}|${maxR}|${maxC}|${fill}`;
+  let hit = gridCache.get(key);
+  if (!hit) {
+    const w = (maxC + 1) * cell;
+    const h = (maxR + 1) * cell;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    const c2 = canvas.getContext("2d")!;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (const [r, c] of cells) drawWell(c2, c * cell, r * cell, cell, fill);
+    hit = { canvas, w, h };
+    gridCache.set(key, hit);
+    if (gridCache.size > 6) {
+      const first = gridCache.keys().next().value;
+      if (first) gridCache.delete(first);
+    }
+  }
+  return hit;
+}
+
+/**
  * Draw a polyomino as connected spheres. `cells` are absolute `[row, col]`;
  * `ox,oy` is the pixel origin of cell (0,0); `cell` is the pixel size.
  */

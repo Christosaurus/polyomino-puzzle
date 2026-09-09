@@ -820,8 +820,19 @@
         border-color: #fff;
         box-shadow: 0 0 16px var(--node);
       }
-      .station.current::before {
-        animation: ping 1.3s ease-in-out infinite;
+      /* expandierender Ring als eigene Ebene — transform+opacity ist GPU-
+         composited, kein Repaint pro Frame (anders als animiertes box-shadow) */
+      .station.current::after {
+        content: "";
+        position: absolute;
+        left: -25px;
+        top: 24px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid var(--node);
+        pointer-events: none;
+        animation: ping 1.5s ease-out infinite;
       }
       /* Seitenmodi im Pfad — etwas schmaler, damit die Regionen die Hauptstationen bleiben */
       .station.side .st-card {
@@ -838,8 +849,13 @@
         margin-bottom: 4px;
       }
       @keyframes ping {
-        50% {
-          box-shadow: 0 0 0 9px color-mix(in srgb, var(--node) 30%, transparent);
+        from {
+          transform: scale(1);
+          opacity: 0.7;
+        }
+        to {
+          transform: scale(2.6);
+          opacity: 0;
         }
       }
       /* per-region colour identity */
@@ -1086,11 +1102,12 @@
         padding: 7px 12px;
         border-radius: 12px;
         background: linear-gradient(180deg, rgb(58, 43, 158), rgb(36, 26, 102));
-        border: 2px solid var(--gold);
+        border: 2px solid #d7a53a;
         font-size: 12px;
         font-weight: 800;
         line-height: 1.15;
-        animation: chal-in 0.3s var(--tap) both, chal-lamp 1.15s ease-in-out infinite;
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
+        animation: chal-in 0.3s var(--tap) both;
       }
       @keyframes chal-in {
         from {
@@ -1098,20 +1115,24 @@
           opacity: 0;
         }
       }
-      /* pulses like a warning lamp so it can't be missed */
+      /* Warnlampen-Glühen als eigene Ebene: statisches box-shadow, nur die
+         Deckkraft pulst (composited, kein Repaint pro Frame) */
+      .challenge::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 12px;
+        pointer-events: none;
+        box-shadow: 0 0 22px 2px rgba(255, 194, 59, 0.85);
+        animation: chal-lamp 1.15s ease-in-out infinite;
+      }
       @keyframes chal-lamp {
         0%,
         100% {
-          box-shadow:
-            inset 0 2px 0 rgba(255, 255, 255, 0.12),
-            0 0 6px rgba(255, 194, 59, 0.25);
-          border-color: #b9871a;
+          opacity: 0.3;
         }
         50% {
-          box-shadow:
-            inset 0 2px 0 rgba(255, 255, 255, 0.12),
-            0 0 22px 2px rgba(255, 194, 59, 0.85);
-          border-color: #ffd873;
+          opacity: 1;
         }
       }
       .challenge .cic {
@@ -1758,17 +1779,29 @@
         box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent);
         transition: width 0.25s ease-out;
       }
+      .play-stage {
+        position: relative;
+      }
       .play-stage.hot {
         border-color: var(--gold);
+      }
+      /* Glüh-Ebene statt animiertem box-shadow — nur opacity pulst */
+      .play-stage.hot::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 999px;
+        pointer-events: none;
+        box-shadow: 0 0 16px 1px color-mix(in srgb, var(--gold) 75%, transparent);
         animation: stage-hot 1s ease-in-out infinite;
       }
       @keyframes stage-hot {
         0%,
         100% {
-          box-shadow: 0 0 0 rgba(255, 194, 59, 0);
+          opacity: 0;
         }
         50% {
-          box-shadow: 0 0 16px 1px color-mix(in srgb, var(--gold) 70%, transparent);
+          opacity: 1;
         }
       }
       .rewards {
@@ -2266,7 +2299,7 @@
         font-size: 13px;
         text-shadow: 0 2px 0 var(--stroke);
         opacity: 0;
-        transition: all 0.3s var(--tap);
+        transition: opacity 0.3s var(--tap), transform 0.3s var(--tap);
         pointer-events: none;
         box-shadow: var(--shadow);
       }

@@ -5,7 +5,7 @@
 
 import { cssVar } from "./colors.js";
 import { CascadeState, type Pos, type Shard } from "./cascade.js";
-import { drawPieceBody, drawWell, roundRect } from "./render.js";
+import { boardGrid, drawPieceBody, roundRect } from "./render.js";
 import { sfx } from "./sfx.js";
 import { shardByColorIndex, shardDef } from "./shards.js";
 
@@ -75,6 +75,8 @@ export class CascadeView {
   private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
   private placePop: { r: number; c: number; t: number } | null = null;
   private ended = false;
+  /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
+  private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
   constructor(canvas: HTMLCanvasElement, wrap: HTMLElement, game: CascadeState, cb: CascadeCallbacks) {
     this.canvas = canvas;
@@ -82,6 +84,9 @@ export class CascadeView {
     this.wrap = wrap;
     this.game = game;
     this.cb = cb;
+    const cells: [number, number][] = [];
+    for (let r = 0; r < game.rows; r++) for (let c = 0; c < game.cols; c++) cells.push([r, c]);
+    this.gridCells = cells;
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointermove", this.onMove);
     canvas.addEventListener("pointerup", this.onUp);
@@ -296,13 +301,9 @@ export class CascadeView {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, L.cssW, L.cssH);
 
-    // board wells
-    const wellFill = cssVar("--cell");
-    for (let r = 0; r < this.game.rows; r++) {
-      for (let c = 0; c < this.game.cols; c++) {
-        drawWell(ctx, L.boardX + c * L.cell, L.boardY + r * L.cell, L.cell, wellFill);
-      }
-    }
+    // leeres Brett-Raster: einmal gebaut, danach nur noch als Bild geblittet
+    const grid = boardGrid(this.gridCells, L.cell, dpr, cssVar("--cell"));
+    ctx.drawImage(grid.canvas, L.boardX, L.boardY, grid.w, grid.h);
     ctx.strokeStyle = cssVar("--board-edge");
     ctx.lineWidth = 3;
     roundRect(
@@ -348,7 +349,7 @@ export class CascadeView {
       ctx.restore();
     }
 
-    // star sparks from row clears
+    // star sparks from row clears — „lighter" gibt schon Glühen, kein shadowBlur
     if (this.sparks.length) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
@@ -356,8 +357,6 @@ export class CascadeView {
         const k = 1 - s.t / s.max;
         ctx.globalAlpha = Math.max(0, k);
         ctx.fillStyle = s.color;
-        ctx.shadowColor = s.color;
-        ctx.shadowBlur = 8 * k;
         this.drawStar(s.x, s.y, s.size * (0.5 + k * 0.7), s.rot);
       }
       ctx.restore();
