@@ -534,6 +534,11 @@ export class GameState {
     return this.startedAt !== null;
   }
 
+  /** Wie viel Pausenzeit pro Fenster von der Uhr abgezogen wird. Kurze Pausen
+   *  (Anruf, Unterbrechung) sind gratis; darüber hinaus zählt die Pause als
+   *  verstrichene Zeit — sonst wäre die Pause unbegrenztes Gratis-Nachdenken. */
+  private static readonly PAUSE_BUDGET_MS = 40_000;
+
   pause(): void {
     if (this.pausedAt === null && this.startedAt !== null && this.endedAt === null) {
       this.pausedAt = performance.now();
@@ -541,7 +546,8 @@ export class GameState {
   }
   resume(): void {
     if (this.pausedAt !== null) {
-      this.pausedTotal += performance.now() - this.pausedAt;
+      const room = Math.max(0, GameState.PAUSE_BUDGET_MS - this.pausedTotal);
+      this.pausedTotal += Math.min(performance.now() - this.pausedAt, room);
       this.pausedAt = null;
     }
   }

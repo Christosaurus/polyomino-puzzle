@@ -51,6 +51,11 @@ let gameView: GameView | null = null;
 let cascadeView: CascadeView | null = null;
 let cascadeGame: CascadeState | null = null;
 let clockTimer = 0;
+/** Kurze Schonfrist nach dem Öffnen: wer nur reinschaut, kann ohne Kosten
+ *  wieder raus — danach läuft die Uhr, auch ohne ersten Zug. Sonst wäre
+ *  „Fenster öffnen, Lösung durchdenken, gratis raus, mit voller Zeit rein"
+ *  ein Exploit. */
+let graceTimer = 0;
 const scenery = new Scenery($<HTMLCanvasElement>("scenery"));
 
 /** How lit the world is (0..1), from campaign stars. */
@@ -263,6 +268,8 @@ function teardownGame(): void {
   activeGame = null;
   if (clockTimer) window.clearInterval(clockTimer);
   clockTimer = 0;
+  if (graceTimer) window.clearTimeout(graceTimer);
+  graceTimer = 0;
 }
 
 // ── Home / regions ─────────────────────────────────────────────────────────
@@ -950,6 +957,20 @@ function mountGame(
   startClock(game);
   showScreen("play");
   window.scrollTo(0, 0);
+
+  armGrace(game, cb.onStart);
+}
+
+/** Startet die Schonfrist neu: nach 3,5 s ohne Zug (und ohne Pause) läuft die
+ *  Uhr trotzdem an. */
+function armGrace(game: GameState, onStart?: () => void): void {
+  if (graceTimer) window.clearTimeout(graceTimer);
+  graceTimer = window.setTimeout(() => {
+    graceTimer = 0;
+    if (activeGame !== game || game.started) return;
+    if ($("pause-overlay").classList.contains("show")) return armGrace(game, onStart);
+    if (game.markStarted()) onStart?.();
+  }, 3500);
 }
 
 function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
