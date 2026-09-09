@@ -1126,9 +1126,11 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       renderTopPills();
       const l = store.lives();
       const streakNote = lostStreak >= 2 ? ` Serie ×${xf(store.winMultiplier(lostStreak))} weg.` : "";
+      const candleOut = game.candleOut;
       showOverlay({
-        title: "Das Licht flackert aus",
+        title: candleOut ? "Die Flamme ist aus" : "Das Licht flackert aus",
         sub:
+          (candleOut ? "Die Kerze muss ganz zum Schluss gedeckt werden. " : "") +
           (l.count > 0
             ? `Noch <b>${l.count}</b> ${l.count === 1 ? "Herz" : "Herzen"}.` +
               (fails >= 2 ? " Beim nächsten Versuch hilft dir Mira." : "")

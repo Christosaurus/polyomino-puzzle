@@ -408,6 +408,12 @@ export function validateLevel(level: unknown): string[] {
     if (!Array.isArray(candle)) {
       errors.push("mechanics.candle must be an array");
     } else {
+      // Die Kerze verlangt „zuletzt decken" = der letzte Zug macht das Brett
+      // voll. Bei einem Teilziel (Ruß / Motten) gewinnt man, bevor das Brett
+      // voll ist → die Kerze wäre nie deckbar. Nur mit „cover" erlaubt.
+      if (l.goal !== undefined && l.goal !== "cover") {
+        errors.push(`candle needs goal "cover", not "${l.goal}"`);
+      }
       for (const [r, c] of candle) {
         if (!shapeCells.has(`${r},${c}`)) errors.push(`candle cell ${r},${c} is outside the shape`);
       }

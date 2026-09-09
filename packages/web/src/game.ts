@@ -84,6 +84,8 @@ export class GameState {
   private readonly ice: Set<string>;
   /** Kerzen-Scheiben. Müssen zuletzt gedeckt werden. */
   private readonly candle: Set<string>;
+  /** Eine Kerze wurde zu früh gedeckt — die Flamme ist aus, das Fenster verloren. */
+  private snuffedCandle = false;
   /** Verkettete Scheibenpaare `[a, b]` — dasselbe Teil muss beide decken. */
   private readonly chains: Array<[string, string]>;
   /** Der Gang der Wanderscherbe (lokale Zellschlüssel), Schritt = movesUsed. */
@@ -257,16 +259,31 @@ export class GameState {
   }
   /**
    * Brennt die Kerze gerade „ruhig" — also wäre der nächste Zug auf sie der
-   * letzte? Nur dann darf man sie decken; sonst flackert sie (Warnung).
+   * letzte? Nur dann darf man sie decken; sonst flackert sie (Warnung) und ein
+   * Zug auf sie löscht die Flamme.
    */
   get candleReady(): boolean {
     if (this.candle.size === 0) return false;
+    // Zellen des Lösungsteils, das die Kerze deckt — die kommen ja erst zuletzt.
+    const owner = [...this.candle][0]!;
+    let candlePiece: Set<string> | null = null;
+    for (const cells of this.solutionCells.values()) {
+      const set = new Set(cells.map(([r, c]) => `${r},${c}`));
+      if (set.has(owner)) {
+        candlePiece = set;
+        break;
+      }
+    }
     const covered = this.occupied();
     for (const key of this.shapeCells) {
-      if (this.candle.has(key)) continue;
+      if (this.stuck.has(key) || candlePiece?.has(key)) continue;
       if (!covered.has(key)) return false;
     }
     return true;
+  }
+  /** Wurde eine Kerze zu früh gedeckt? Dann ist das Fenster verloren. */
+  get candleOut(): boolean {
+    return this.snuffedCandle;
   }
 
   // ── Eis ───────────────────────────────────────────────────────────────────
@@ -551,9 +568,10 @@ export class GameState {
   remainingMs(): number {
     return Math.max(0, this.limitMs - this.elapsedMs());
   }
-  /** Der Lauf ist gescheitert — Züge alle (mit Budget) oder Zeit um (ohne). */
+  /** Der Lauf ist gescheitert — Kerze aus, Züge alle (mit Budget) oder Zeit um. */
   get failed(): boolean {
     if (this.isWon() || !this.started) return false;
+    if (this.snuffedCandle) return true;
     return this.moveBudget === null ? this.remainingMs() <= 0 : this.outOfMoves;
   }
 
@@ -658,16 +676,9 @@ export class GameState {
         if (own.has(a) !== own.has(b)) return false;
       }
     }
-    // Kerze: nur decken, wenn dieser Zug das Brett vollmacht — jede andere
-    // Scheibe muss schon liegen. Zu früh = die Flamme geht aus.
-    if (this.candle.size > 0) {
-      const coversCandle = cells.some(([r, c]) => this.candle.has(`${r},${c}`));
-      if (coversCandle) {
-        const after = new Set(blocked);
-        for (const [r, c] of cells) after.add(`${r},${c}`);
-        if (after.size !== this.shapeCells.size - this.stuck.size) return false;
-      }
-    }
+    // Kerze: das Decken ist *erlaubt* — aber wenn dieser Zug das Brett nicht
+    // vollmacht, geht die Flamme aus (siehe `place`). Kein Soft-Block mehr,
+    // sonst hätte die Mechanik kein Risiko.
     return true;
   }
 
@@ -680,6 +691,14 @@ export class GameState {
     this.checkUnlock();
     if (!samePlace) {
       this.movesUsed += 1;
+      // Kerze zu früh gedeckt? Dann ist die Flamme aus (dieser Zug macht das
+      // Brett nicht voll → es lag noch eine andere Scheibe offen).
+      if (this.candle.size > 0) {
+        const coversCandle = this.cellsAt(piece, pos).some(([r, c]) => this.candle.has(`${r},${c}`));
+        if (coversCandle && this.occupied().size < this.shapeCells.size - this.stuck.size) {
+          this.snuffedCandle = true;
+        }
+      }
       // nach dem Zug: kriecht der Ruß? Nur wenn der Zug das Ziel nicht
       // ohnehin erreicht hat — der letzte, reinigende Zug wird nicht bestraft
       if (
@@ -732,6 +751,7 @@ export class GameState {
     this.usedUndo = false;
     this.justUnlocked = false;
     this.movesUsed = 0;
+    this.snuffedCandle = false;
     this.sootJustSpread = [];
     this.soot = new Set(
       (this.level.mechanics?.soot ?? this.level.mechanics?.moths ?? []).map(
