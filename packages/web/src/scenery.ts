@@ -24,6 +24,19 @@ const mix = (a: RGB, b: RGB, t: number): string =>
   )})`;
 const rnd = (seed: () => number, a: number, b: number): number => a + seed() * (b - a);
 
+/** Leuchtpunkt ohne `shadowBlur`: ein blasser großer Kreis + ein heller kleiner.
+ *  Die Füllfarbe setzt der Aufrufer. */
+function glowDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number): void {
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 2.8, 0, 6.283);
+  ctx.fill();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, 6.283);
+  ctx.fill();
+}
+
 /** small deterministic PRNG so the scene is stable across redraws */
 function mulberry(seedNum: number): () => number {
   let s = seedNum >>> 0;
@@ -94,24 +107,34 @@ export class Scenery {
     this.seed();
     this.resize();
     window.addEventListener("resize", () => this.resize());
+
+    // Der Hintergrund braucht keine 60 fps — auf ~30 gedrosselt spart das auf
+    // schwachen Geräten (Samsung Internet & Co.) spürbar Last, ohne dass man
+    // den Unterschied sieht.
+    const FRAME_MS = 33;
     let last = performance.now();
-    const step = (): void => {
-      const now = performance.now();
-      // frame-rate independent easing so a throttled tab still settles
-      const k = Math.min(3, (now - last) / 16.67);
+    let lastDrawAt = 0;
+    const step = (now: number): void => {
+      const k = Math.min(3, (now - last) / 16.67); // easing bleibt frame-unabhängig
       last = now;
       this.shown += (this.light - this.shown) * 0.04 * k;
       this.themeT += (this.themeIndex() - this.themeT) * 0.14 * k;
       if (this.flash > 0) this.flash -= 0.02 * k;
       this.draw();
+      lastDrawAt = now;
     };
-    const loop = (): void => {
-      step();
+    const loop = (now: number): void => {
       this.raf = requestAnimationFrame(loop);
+      if (document.hidden) return; // im Hintergrund gar nicht zeichnen
+      if (now - lastDrawAt >= FRAME_MS) step(now);
     };
     this.raf = requestAnimationFrame(loop);
-    // fallback: rAF is starved when the tab/pane isn't painting
-    window.setInterval(step, 200);
+    // Fallback, falls rAF gar nicht mehr feuert (Tab/Pane malt nicht) — aber
+    // nur dann, sonst würde hier doppelt gezeichnet.
+    window.setInterval(() => {
+      const now = performance.now();
+      if (!document.hidden && now - lastDrawAt > 400) step(now);
+    }, 250);
   }
 
   setLight(v: number): void {
@@ -241,22 +264,17 @@ export class Scenery {
     }
     ctx.globalAlpha = 1;
 
-    // drifting fireflies for a little life over the static art
+    // drifting fireflies for a little life over the static art — 2-Lagen-Punkt
+    // statt shadowBlur (auf Mobil deutlich billiger)
     const fcount = Math.round(10 + 8 * day);
     ctx.fillStyle = "#ffe9a0";
-    ctx.shadowColor = "#ffcf6b";
-    ctx.shadowBlur = 9;
     for (let i = 0; i < fcount; i++) {
       const f = this.fireflies[i % this.fireflies.length]!;
       const fx = ((f.x + now * 0.012 * f.sp + i * 0.13) % 1.05) * w;
       const fy = (((f.y + i * 0.05) % 0.9) + 0.06 + Math.sin(now * f.sp + f.ph) * 0.02) * h;
       const bl = 0.2 + 0.8 * Math.abs(Math.sin(now * 1.8 * f.sp + f.ph));
-      ctx.globalAlpha = alpha * bl * (0.4 + 0.35 * (1 - day));
-      ctx.beginPath();
-      ctx.arc(fx, fy, 2, 0, 6.28);
-      ctx.fill();
+      glowDot(ctx, fx, fy, 2, alpha * bl * (0.4 + 0.35 * (1 - day)));
     }
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
 
     // readability veil: darken the very top (HUD) and bottom (foot), leave the middle clear
@@ -340,13 +358,17 @@ export class Scenery {
       const lit = Math.floor(ho.windows * Math.min(1, t * 1.4));
       for (let wi = 0; wi < ho.windows; wi++) {
         const on = wi < lit;
-        ctx.fillStyle = on ? "#ffd98a" : "rgba(255,255,255,0.06)";
+        const wx = hx + hw * (0.2 + wi * 0.3);
+        const wy = hy + hh * 0.3;
+        const ww = hw * 0.16;
+        const wh = hh * 0.22;
         if (on) {
-          ctx.shadowColor = "#ffcf6b";
-          ctx.shadowBlur = 8;
+          // weicher Schein ohne shadowBlur: ein blasses größeres Rechteck darum
+          ctx.fillStyle = "rgba(255,207,107,0.28)";
+          ctx.fillRect(wx - ww * 0.6, wy - wh * 0.5, ww * 2.2, wh * 2);
         }
-        ctx.fillRect(hx + hw * (0.2 + wi * 0.3), hy + hh * 0.3, hw * 0.16, hh * 0.22);
-        ctx.shadowBlur = 0;
+        ctx.fillStyle = on ? "#ffd98a" : "rgba(255,255,255,0.06)";
+        ctx.fillRect(wx, wy, ww, wh);
       }
     }
 
@@ -507,19 +529,13 @@ export class Scenery {
 
     // fireflies — plentiful even in shadow, across the whole frame
     const fcount = Math.floor(20 + 12 * t);
+    ctx.fillStyle = "#ffe9a0";
     for (let i = 0; i < fcount; i++) {
       const f = this.fireflies[i % this.fireflies.length]!;
       const fx = ((f.x + now * 0.01 * f.sp + i * 0.11) % 1) * w;
       const fy = (((f.y + i * 0.03) % 0.98) + Math.sin(now * f.sp + f.ph) * 0.03) * h;
       const bl = 0.25 + 0.75 * Math.abs(Math.sin(now * 2 * f.sp + f.ph));
-      ctx.globalAlpha = alpha * bl * (0.55 + 0.45 * t);
-      ctx.fillStyle = "#ffe9a0";
-      ctx.shadowColor = "#ffcf6b";
-      ctx.shadowBlur = 9;
-      ctx.beginPath();
-      ctx.arc(fx, fy, 2.1, 0, 6.28);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      glowDot(ctx, fx, fy, 2.1, alpha * bl * (0.55 + 0.45 * t));
     }
     ctx.globalAlpha = alpha;
 
@@ -587,36 +603,24 @@ export class Scenery {
       ctx.fillStyle = mix([18, 10, 22], [54, 30, 16], t);
       ctx.fillRect(0, sy * h, w, h * 0.03);
     }
+    ctx.fillStyle = "#ffd36b";
     for (let i = 0; i < 14; i++) {
       const row = i % 2;
       const x = ((i * 0.71) % 1) * w;
       const y = shelfY[row]! * h - h * 0.02;
       const bob = Math.sin(now * 1.2 + i) * 2;
-      ctx.globalAlpha = alpha * (0.5 + 0.5 * t);
-      ctx.fillStyle = "#ffd36b";
-      ctx.shadowColor = "#ffc23b";
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(x, y + bob, 4, 0, 6.28);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      glowDot(ctx, x, y + bob, 4, alpha * (0.5 + 0.5 * t));
     }
     ctx.globalAlpha = alpha;
 
     // motes drifting slowly upward, like light shaken loose from the shelves
+    ctx.fillStyle = "#ffe9a0";
     for (const f of this.fireflies) {
       const fy = (1 - ((now * 0.03 * f.sp + f.y) % 1)) * h;
       const fx = (f.x + Math.sin(now * 0.4 + f.ph) * 0.02) * w;
       const bl = 0.3 + 0.7 * Math.abs(Math.sin(now * 1.6 * f.sp + f.ph));
-      ctx.globalAlpha = alpha * bl * (0.4 + 0.3 * t);
-      ctx.fillStyle = "#ffe9a0";
-      ctx.shadowColor = "#ffcf6b";
-      ctx.shadowBlur = 7;
-      ctx.beginPath();
-      ctx.arc(fx, fy, 1.8, 0, 6.28);
-      ctx.fill();
+      glowDot(ctx, fx, fy, 1.8, alpha * bl * (0.4 + 0.3 * t));
     }
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = alpha;
 
     this.veil(alpha * 0.45);
@@ -679,15 +683,9 @@ export class Scenery {
       const fx = ((f.x + now * 0.09 * f.sp + i * 0.09) % 1.05) * w;
       const fy = (f.y + Math.sin(now * f.sp * 2 + f.ph) * 0.03) * h;
       const bl = 0.3 + 0.7 * Math.abs(Math.sin(now * 3 * f.sp + f.ph));
-      ctx.globalAlpha = alpha * bl * (0.5 + 0.3 * t);
       ctx.fillStyle = i % 2 === 0 ? "#9fe8ff" : "#d9c2ff";
-      ctx.shadowColor = i % 2 === 0 ? "#45c1ff" : "#a875ff";
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(fx, fy, 1.6, 0, 6.28);
-      ctx.fill();
+      glowDot(ctx, fx, fy, 1.6, alpha * bl * (0.5 + 0.3 * t));
     }
-    ctx.shadowBlur = 0;
     ctx.globalAlpha = alpha;
 
     this.veil(alpha * 0.4);

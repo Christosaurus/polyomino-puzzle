@@ -286,7 +286,7 @@ export class CascadeView {
   private render(): void {
     const L = this.computeLayout();
     this.layout = L;
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = Math.round(L.cssW * dpr);
     const h = Math.round(L.cssH * dpr);
     if (this.canvas.width !== w) this.canvas.width = w;

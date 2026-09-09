@@ -955,7 +955,7 @@ export class GameView {
     const layout = this.computeLayout();
     this.layout = layout;
 
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = Math.round(layout.cssWidth * dpr);
     const h = Math.round(layout.cssHeight * dpr);
     if (this.canvas.width !== w) this.canvas.width = w;
