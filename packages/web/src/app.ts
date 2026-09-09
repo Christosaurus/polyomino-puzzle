@@ -1179,7 +1179,10 @@ async function playDaily(): Promise<void> {
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
       store.addShards(5);
-      const milestone = DAILY_MILESTONES.find((m) => m.days === after && after > before);
+      // Meilenstein nur beim *ersten* Erreichen — Serie brechen und wieder
+      // hochbauen zahlt nicht erneut aus.
+      const hit = after > before && DAILY_MILESTONES.find((m) => m.days === after);
+      const milestone = hit && store.claimDailyMilestone(hit.days) ? hit : null;
       if (milestone) store.addShards(milestone.shards);
       celebrate(syncAchievements());
       renderTopPills();

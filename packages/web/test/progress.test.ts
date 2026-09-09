@@ -1,16 +1,21 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginAttempt,
+  claimDailyMilestone,
   endAttempt,
+  lives,
   load,
   NO_BEST_MS,
   panes,
+  recordDaily,
   recordFail,
   recordLevel,
   takePendingAttempt,
+  trustedNow,
 } from "../src/progress.js";
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
 describe("recordLevel — Erstclear & Fenster erhellen", () => {
   it("ein sauberer Erstclear erhellt ein Fenster und gibt den Erstclear-Bonus", () => {
@@ -144,5 +149,49 @@ describe("pendingAttempt — Reload-Schutz (Exploit 4)", () => {
     expect(abandoned).toBe("level_003");
     recordFail(abandoned!);
     expect(load().stats.winStreak).toBe(0);
+  });
+});
+
+describe("Systemuhr-Manipulation (Exploit 6)", () => {
+  it("trustedNow klemmt einen Vorwärtssprung der Wanduhr auf die echte Zeit", () => {
+    const wall = Date.now();
+    const perf = performance.now();
+    vi.spyOn(Date, "now").mockReturnValue(wall + 3 * 3_600_000); // +3 h
+    vi.spyOn(performance, "now").mockReturnValue(perf + 200); // aber nur 200 ms monoton
+    // zurückgeklemmt auf ~Sitzungsstart + 200 ms, nicht +3 h
+    expect(trustedNow()).toBeLessThan(wall + 60_000);
+  });
+
+  it("Herzen regenerieren nicht durch Vorstellen der Uhr innerhalb der Sitzung", () => {
+    // 0 Herzen, nextAt in 20 min
+    const now = Date.now();
+    recordLevel("x", 1, 1, false); // egal, nur um einen Save anzulegen
+    // Herzen leeren
+    for (let i = 0; i < 5; i++) {
+      const d = load();
+      d.lives = { count: 0, nextAt: now + 20 * 60_000 };
+      localStorage.setItem("polyomino.save.v2", JSON.stringify(d));
+    }
+    const perf = performance.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 3 * 3_600_000);
+    vi.spyOn(performance, "now").mockReturnValue(perf + 500);
+    expect(lives().count).toBe(0); // kein Gratis-Herz durch Uhr-Sprung
+  });
+
+  it("claimDailyMilestone zahlt jede Schwelle nur einmal", () => {
+    expect(claimDailyMilestone(3)).toBe(true);
+    expect(claimDailyMilestone(3)).toBe(false); // Serie gebrochen + neu aufgebaut
+    expect(claimDailyMilestone(7)).toBe(true);
+  });
+
+  it("recordDaily nutzt die geklemmte Zeit (kein Tagessprung in der Sitzung)", () => {
+    const first = recordDaily().daily;
+    expect(first.streak).toBe(1);
+    const wall = Date.now();
+    const perf = performance.now();
+    vi.spyOn(Date, "now").mockReturnValue(wall + 26 * 3_600_000); // „morgen"
+    vi.spyOn(performance, "now").mockReturnValue(perf + 1_000);
+    const second = recordDaily().daily;
+    expect(second.streak).toBe(1); // derselbe Tag — kein Serien-Zuwachs
   });
 });

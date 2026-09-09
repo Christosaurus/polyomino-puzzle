@@ -24,7 +24,7 @@ export const LIFE_REGEN_MS = 20 * 60_000;
 export interface SaveData {
   levels: Record<string, LevelResult>;
   profile: { name: string; avatar: string };
-  daily: { lastDayDone: string; streak: number; bestStreak: number };
+  daily: { lastDayDone: string; streak: number; bestStreak: number; claimedMilestones: number[] };
   descent: { bestDepth: number; runs: number; seq: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
   achievements: string[];
@@ -67,7 +67,7 @@ export interface SaveData {
 const EMPTY: SaveData = {
   levels: {},
   profile: { name: "", avatar: "grin" },
-  daily: { lastDayDone: "", streak: 0, bestStreak: 0 },
+  daily: { lastDayDone: "", streak: 0, bestStreak: 0, claimedMilestones: [] },
   descent: { bestDepth: 0, runs: 0, seq: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
   achievements: [],
@@ -99,7 +99,7 @@ export function load(): SaveData {
       ...parsed,
       levels: parsed.levels ?? {},
       profile: { ...EMPTY.profile, ...parsed.profile },
-      daily: { ...EMPTY.daily, ...parsed.daily },
+      daily: { ...EMPTY.daily, ...parsed.daily, claimedMilestones: parsed.daily?.claimedMilestones ?? [] },
       descent: { ...EMPTY.descent, ...parsed.descent },
       cascade: { ...EMPTY.cascade, ...parsed.cascade },
       achievements: parsed.achievements ?? [],
@@ -137,13 +137,30 @@ export function update(fn: (data: SaveData) => void): SaveData {
 }
 
 /**
+ * Monotone Zeitbasis gegen Systemuhr-Manipulation (Herzen / Tagesserie farmen).
+ * Bei Sitzungsstart merken wir die Wanduhr **und** `performance.now()` (läuft
+ * monoton, unabhängig von der Systemuhr). Springt die Wanduhr während der
+ * Sitzung deutlich weiter als die monotone Zeit, wurde sie vorgestellt → wir
+ * klemmen auf die tatsächlich verstrichene Zeit zurück. Eine echte lange
+ * Abwesenheit passiert *zwischen* Sitzungen und wird beim ersten Aufruf voll
+ * angerechnet (dann ist `SESSION` frisch).
+ */
+const SESSION = { wall: Date.now(), mono: performance.now() };
+export function trustedNow(): number {
+  const wall = Date.now();
+  const drift = wall - SESSION.wall - (performance.now() - SESSION.mono);
+  // 2 min Slack für NTP-Korrekturen / Schlaf-Aufwach-Ungenauigkeit
+  return drift > 120_000 ? SESSION.wall + (performance.now() - SESSION.mono) : wall;
+}
+
+/**
  * Calendar-day key in the player's own local timezone. `toISOString()` would
  * use UTC, which quietly shifts the "day" for anyone not on UTC — e.g. for a
  * German player (UTC+1/+2), the local evening still reads as "tomorrow" in
  * UTC for an hour or two after local midnight has already passed, which is
  * exactly backwards from what a daily streak should feel like.
  */
-export function todayKey(now = new Date()): string {
+export function todayKey(now = new Date(trustedNow())): string {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");
@@ -290,7 +307,7 @@ export function clearPity(levelId: string): void {
   });
 }
 
-export function recordDaily(now = new Date()): SaveData {
+export function recordDaily(now = new Date(trustedNow())): SaveData {
   const key = todayKey(now);
   return update((d) => {
     if (d.daily.lastDayDone === key) return;
@@ -299,6 +316,19 @@ export function recordDaily(now = new Date()): SaveData {
     d.daily.lastDayDone = key;
     d.daily.bestStreak = Math.max(d.daily.bestStreak, d.daily.streak);
   });
+}
+
+/** Einen Tagesserien-Meilenstein einlösen — nur einmal, auch wenn die Serie
+ *  bricht und die Schwelle erneut erreicht wird. */
+export function claimDailyMilestone(days: number): boolean {
+  let fresh = false;
+  update((d) => {
+    if (!d.daily.claimedMilestones.includes(days)) {
+      d.daily.claimedMilestones.push(days);
+      fresh = true;
+    }
+  });
+  return fresh;
 }
 
 export function recordDescent(depth: number): SaveData {
@@ -380,7 +410,7 @@ export function playerLevel(d: SaveData = load()): number {
 
 // ── Lives ──────────────────────────────────────────────────────────────────
 /** Apply regen, return the live view. */
-export function lives(now = Date.now()): { count: number; msToNext: number } {
+export function lives(now = trustedNow()): { count: number; msToNext: number } {
   const d = load();
   const l = d.lives;
   if (l.count >= MAX_LIVES) return { count: MAX_LIVES, msToNext: 0 };
@@ -400,7 +430,7 @@ export function lives(now = Date.now()): { count: number; msToNext: number } {
 }
 
 /** Try to consume a life. Returns false if empty. */
-export function spendLife(now = Date.now()): boolean {
+export function spendLife(now = trustedNow()): boolean {
   const { count } = lives(now);
   if (count <= 0) return false;
   update((s) => {
