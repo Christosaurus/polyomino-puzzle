@@ -547,7 +547,7 @@ function clearWinFx(): void {
   const c = document.getElementById("winfx") as HTMLCanvasElement | null;
   c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
 }
-function winStarBurst(): void {
+function winStarBurst(intensity = 1): void {
   const canvas = $<HTMLCanvasElement>("winfx");
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -583,11 +583,12 @@ function winStarBurst(): void {
     [W * 0.78, H * 0.32],
     [W * 0.5, H * 0.62],
   ];
+  const n = Math.round(22 * Math.min(2.4, intensity));
+  const sizeK = 0.85 + 0.25 * Math.min(2.4, intensity);
   for (const [ox, oy] of origins) {
-    const n = 26;
     for (let i = 0; i < n; i++) {
       const ang = Math.random() * Math.PI * 2;
-      const sp = 130 + Math.random() * 560;
+      const sp = (130 + Math.random() * 560) * (0.9 + 0.25 * Math.min(2, intensity));
       ps.push({
         x: ox! + (Math.random() - 0.5) * 40,
         y: oy! + (Math.random() - 0.5) * 40,
@@ -595,7 +596,7 @@ function winStarBurst(): void {
         vy: Math.sin(ang) * sp,
         t: 0,
         max: 1.2 + Math.random() * 1.4,
-        size: 5 + Math.random() * 16,
+        size: (5 + Math.random() * 16) * sizeK,
         rot: Math.random() * Math.PI,
         spin: (Math.random() - 0.5) * 7,
       });
@@ -984,7 +985,8 @@ function mountGame(
 ): void {
   teardownGame();
   hideOverlay();
-  cb.onSolved ??= winStarBurst; // every solve gets the full-screen star shower
+  // jeder Sieg bekommt den Vollbild-Sternenregen — 3 Sterne etwas fetter
+  cb.onSolved ??= () => winStarBurst(0.9 + 0.25 * game.starRating());
   // Der Streifen zeigt entweder die Abstiegs-Stufe oder das Level-Ziel
   const stage = $("play-stage");
   stage.hidden = mode !== "descent" && game.goal === "cover";
@@ -1023,6 +1025,7 @@ function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
 function collectStoryRewards(levelId: string, stars: number, ms: number, usedUndo: boolean, region?: Region): string[] {
   const lines: string[] = [];
   const panesBefore = store.panes();
+  const multBefore = store.winMultiplier(store.winStreak());
   const r = store.recordLevel(levelId, stars, ms, usedUndo);
   if (store.panes() > panesBefore) lines.push("🏮 +1 Fenster erhellt");
   lines.push(
@@ -1030,10 +1033,14 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
       ? `✦ +${nf(r.shards)} Lichtsplitter · Serie ×${xf(r.mult)}`
       : `✦ +${nf(r.shards)} Lichtsplitter`,
   );
+  if (r.mult > multBefore) sfx.streak(Math.round(r.mult)); // Multiplikator gestiegen
   // schaltet dieses Fenster eine Region auf? dann sagen, sonst wie weit noch
   const nextLocked = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
-  if (nextLocked) lines.push(`✨ ${nextLocked.name} — die Laterne ist an!`);
-  else {
+  let big = false;
+  if (nextLocked) {
+    lines.push(`✨ ${nextLocked.name} — die Laterne ist an!`);
+    big = true;
+  } else {
     const nudge = nextRegionNudge();
     if (nudge && r.firstClear) lines.push(nudge);
   }
@@ -1043,13 +1050,19 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   for (const m of store.claimMilestones()) {
     lines.push(`🏆 Meilenstein ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}`);
     scenery.pulse();
+    big = true;
   }
   if (region) {
     const { got, max } = regionStars(region);
     if (got >= max && store.grantRegionReward(region.id)) {
-      lines.push(`✨ ${region.name} erwacht! Joker-Vorrat aufgefüllt, ✦ +25`);
+      lines.push(`✨ ${region.name} erwacht! ✦ +60, Herzen voll`);
       scenery.pulse();
+      big = true;
     }
+  }
+  if (big) {
+    sfx.milestone();
+    winStarBurst(2.2);
   }
   renderTopPills();
   return lines;
@@ -1109,7 +1122,12 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       queueBeat(panesBefore, store.panes());
       // das Boss-Fenster ist das Finale — die Szene kommt hier, egal wie viele
       // Fenster schon hell sind
-      if (entry.id === "boss_01") forceBeat("finale");
+      if (entry.id === "boss_01") {
+        forceBeat("finale");
+        sfx.milestone();
+        winStarBurst(2.4);
+        scenery.pulse(1);
+      }
       const hasNext = index + 1 < region.levels.length;
       const goNext = (): void =>
         void (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region)));

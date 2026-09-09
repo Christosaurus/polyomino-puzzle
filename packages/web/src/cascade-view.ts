@@ -158,6 +158,7 @@ export class CascadeView {
         this.flash.push({ row: r, t: 0 });
         this.spawnRowBurst(r, L);
       }
+      if (clear.rows.length > 0) sfx.rowClear(clear.rows.length);
       if (clear.gain >= 12 && clear.rows.length > 0) {
         this.pops.push({
           x: L.boardX + (this.game.cols * L.cell) / 2,
@@ -172,8 +173,8 @@ export class CascadeView {
     if (this.game.isOver && !this.ended) {
       this.ended = true;
       this.game.finish();
-      if (this.game.lives <= 0) sfx.invalid();
-      else sfx.win();
+      if (this.game.lives <= 0) sfx.fail();
+      else sfx.win(2);
       this.cb.onEnd(this.game.result());
     }
     this.cb.onHud({

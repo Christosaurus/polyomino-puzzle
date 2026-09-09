@@ -274,7 +274,7 @@ export class GameView {
     else if (this.game.failed && !this.timeoutFired) {
       this.timeoutFired = true;
       this.game.finish();
-      sfx.invalid();
+      sfx.fail();
       this.cb.onTimeout();
     }
   }
@@ -288,7 +288,7 @@ export class GameView {
     const l = this.layout ?? this.computeLayout();
     this.confetti.burst(l.cssWidth / 2, l.board.y + (l.board.cell * this.game.shape.rows) / 2);
     this.spawnWinStars(l, 18 + this.winStars * 6);
-    sfx.win();
+    sfx.win(this.winStars); // 1–3 Sterne → größerer Jubel
     sfx.vibrate(30);
     this.cb.onSolved?.(); // kick the full-screen star shower right away
     // the overlay (cb.onWin) is fired from fireWin() after the board has had
