@@ -44,8 +44,7 @@ export const INTRO: Beat[] = [
     speaker: "welt",
     lines: [
       "Früher hielt jedes Fenster im Tal ein Stück Licht.",
-      "In einer Nacht zersprangen sie. Alle, im selben Atemzug.",
-      "Das Licht zerfiel in Splitter und sank in den Boden.",
+      "In einer Nacht zersprangen sie alle. Das Licht sank in den Boden.",
     ],
   },
   {
@@ -54,9 +53,7 @@ export const INTRO: Beat[] = [
     title: "Die Gestalt",
     speaker: "gestalt",
     lines: [
-      "…",
-      "Eine Gestalt geht durch die Dunkelheit und sammelt die Splitter ein,",
-      "einen nach dem anderen, bevor sie zurück ins Glas können.",
+      "Eine Gestalt sammelt die Splitter ein, bevor sie zurück ins Glas können.",
       "Wer sie ist, sieht niemand. Nur ihre Arbeit.",
     ],
   },
@@ -66,10 +63,8 @@ export const INTRO: Beat[] = [
     title: "Der Auftrag",
     speaker: "mira",
     lines: [
-      "Da bist du ja. Ich dachte schon, du machst gar nicht mehr auf.",
-      "Weißt du noch, wer du bist? … Nein? Auch egal.",
-      "Du bist Glaser. Das Tal ist dunkel, und irgendjemand ist schneller als wir.",
-      "Wir holen uns das Licht zurück. Fenster für Fenster. Komm.",
+      "Da bist du ja. Weißt du noch, wer du bist? … Auch egal.",
+      "Du bist Glaser. Wir holen uns das Licht zurück — Fenster für Fenster. Komm.",
     ],
   },
 ];

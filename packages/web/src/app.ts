@@ -1010,6 +1010,17 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     return;
   }
   const game = new GameState(level);
+
+  // Weicher Einstieg: die ersten Fenster geben spürbar mehr Zeit, das erste
+  // praktisch unbegrenzt — sonst kann man den Erstkontakt verlieren, bevor man
+  // die Regeln kennt. Zieht sich über die ersten ~6 Fenster auf normal zurück.
+  if (!game.hasMoveBudget) {
+    const p = store.panes();
+    const scale = p === 0 ? 8 : p <= 2 ? 1.6 : p <= 5 ? 1.25 : 1;
+    if (scale > 1) game.extendLimit(Math.round(game.limitMs * (scale - 1)));
+    if (p === 0) toast("Nimm dir Zeit — beim ersten Fenster drängt nichts.");
+  }
+
   const assisted = store.pity(entry.id);
   // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
