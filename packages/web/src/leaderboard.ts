@@ -11,6 +11,8 @@
  * Schaden bis dahin.
  */
 
+import { detectCountry } from "./countries.js";
+
 const SUPABASE_URL = "https://bhgkwdrwvckutnachtyb.supabase.co";
 const SUPABASE_KEY = "sb_publishable_oCeLYRvrFVsHJolaZ_J0cA_kdAYAoOQ";
 
@@ -55,41 +57,67 @@ export interface LeaderRow {
   name: string;
   score: number;
   cleared: number;
+  country: string;
 }
 
 /** Score der laufenden Runde einreichen. Fehler werden verschluckt — die
  *  Bestenliste darf das Ergebnis-Overlay nie blockieren. */
 export async function submitCascadeScore(score: number, cleared: number, name: string): Promise<boolean> {
   if (!(score > 0)) return false;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_cascade_score`, {
+  const body: Record<string, unknown> = {
+    p_player_id: playerId(),
+    p_name: name.slice(0, 24) || "Glaser",
+    p_score: Math.round(score),
+    p_cleared: Math.max(0, Math.round(cleared)),
+    p_country: detectCountry(),
+  };
+  const post = (b: Record<string, unknown>): Promise<Response> =>
+    fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_cascade_score`, {
       method: "POST",
       headers: HEADERS,
-      body: JSON.stringify({
-        p_player_id: playerId(),
-        p_name: name.slice(0, 24) || "Glaser",
-        p_score: Math.round(score),
-        p_cleared: Math.max(0, Math.round(cleared)),
-      }),
+      body: JSON.stringify(b),
     });
+  try {
+    let res = await post(body);
+    if (!res.ok) {
+      // Fallback, solange die RPC noch keinen p_country-Parameter kennt
+      const { p_country: _drop, ...noCc } = body;
+      res = await post(noCc);
+    }
     return res.ok;
   } catch {
     return false;
   }
 }
 
-/** Top-Liste der aktuellen Woche. `[]` bei Netzfehler. */
-export async function topCascade(limit = 50): Promise<LeaderRow[]> {
-  try {
+/** Top-Liste der aktuellen Woche — global oder auf ein Land gefiltert.
+ *  `[]` bei Netzfehler. */
+export async function topCascade(
+  opts: { scope?: "global" | "country"; country?: string; limit?: number } = {},
+): Promise<LeaderRow[]> {
+  const { scope = "global", country = detectCountry(), limit = 100 } = opts;
+  const base = { week: `eq.${isoWeek()}`, order: "score.desc,updated_at.asc", limit: String(limit) };
+  const run = async (withCountry: boolean): Promise<Response> => {
     const q = new URLSearchParams({
-      week: `eq.${isoWeek()}`,
-      select: "player_id,name,score,cleared",
-      order: "score.desc,updated_at.asc",
-      limit: String(limit),
+      ...base,
+      select: withCountry ? "player_id,name,score,cleared,country" : "player_id,name,score,cleared",
     });
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/cascade_scores?${q}`, { headers: HEADERS });
+    if (withCountry && scope === "country") q.set("country", `eq.${country}`);
+    return fetch(`${SUPABASE_URL}/rest/v1/cascade_scores?${q}`, { headers: HEADERS });
+  };
+  try {
+    let res = await run(true);
+    // Fallback, solange die `country`-Spalte noch nicht migriert ist
+    if (!res.ok) res = await run(false);
     if (!res.ok) return [];
-    return (await res.json()) as LeaderRow[];
+    const rows = (await res.json()) as Partial<LeaderRow>[];
+    return rows.map((r) => ({
+      player_id: r.player_id ?? "",
+      name: r.name ?? "",
+      score: r.score ?? 0,
+      cleared: r.cleared ?? 0,
+      country: r.country ?? "XX",
+    }));
   } catch {
     return [];
   }

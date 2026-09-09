@@ -435,63 +435,158 @@
       .mode-card .row .big {
         color: var(--accent);
       }
-      /* ── Bestenliste ── */
-      .lb-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .lb-head h2 {
-        margin: 0;
-      }
-      .lb-list {
-        list-style: none;
-        margin: 10px 0 0;
+      /* Eck-Knopf oben links auf einem Modus-Screen (wie der Avatar auf Start) */
+      .corner-btn {
+        position: absolute;
+        top: calc(env(safe-area-inset-top) + 14px);
+        left: 14px;
+        width: 52px;
+        height: 52px;
         padding: 0;
+        border-radius: 15px;
+        font-size: 26px;
+        line-height: 1;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        border: 3px solid var(--gold);
+        box-shadow: var(--shadow);
+        z-index: 5;
+        transition: transform 0.08s var(--tap);
+      }
+      .corner-btn:active {
+        transform: scale(0.92);
+      }
+
+      /* ── Bestenliste (Clash-of-Clans-Aufbau, Lumen-Look) ── */
+      .lb-sheet {
+        max-width: 460px;
+        gap: 12px;
+        padding: 14px 14px 18px;
+      }
+      .lb-title {
+        align-self: flex-start;
+        font-weight: 800;
+        font-size: 20px;
+        margin: 0 0 2px;
+      }
+      .lb-sheet .close {
+        top: 10px;
+        right: 10px;
+        z-index: 3;
+      }
+      .lb-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        width: 100%;
+        background: var(--panel-inset);
+        border: 2px solid var(--border);
+        border-radius: 14px;
+        padding: 4px;
+      }
+      .lb-tab {
+        padding: 9px 6px;
+        border: 0;
+        border-radius: 10px;
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--ink-dim);
+        background: transparent;
+        box-shadow: none;
+        text-shadow: none;
+      }
+      .lb-tab.on {
+        color: #fff;
+        background: linear-gradient(180deg, #7d68ea, #4a38b8);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.22), 0 3px 0 -1px var(--border-lo);
+      }
+      .lb-sub {
+        align-self: center;
+        font-size: 12.5px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--ink-dim);
+      }
+      .lb-rows {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        width: 100%;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 4px;
+        min-height: 120px;
+        max-height: 52dvh;
+        overflow-y: auto;
       }
-      .lb-list li {
+      .lb-row {
         display: grid;
-        grid-template-columns: 1.8em 1fr auto;
+        grid-template-columns: 2.2em 1fr auto;
         align-items: center;
-        gap: 8px;
-        padding: 7px 10px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        font-weight: 700;
+        gap: 10px;
+        padding: 8px 10px 8px 6px;
+        border-radius: 13px;
+        background: var(--panel-inset);
+        border: 2px solid var(--border);
+        font-weight: 800;
       }
-      .lb-list li .lb-rank {
-        color: var(--ink-dim);
+      .lb-row .lb-rank {
+        text-align: center;
         font-variant-numeric: tabular-nums;
-        text-align: right;
+        color: var(--ink-dim);
+        font-size: 15px;
       }
-      .lb-list li .lb-name {
+      .lb-row .lb-who {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+      }
+      .lb-row .lb-flag {
+        font-size: 17px;
+        flex: none;
+      }
+      .lb-row .lb-name {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .lb-list li .lb-score {
+      .lb-row .lb-score {
+        display: flex;
+        align-items: center;
+        gap: 5px;
         font-variant-numeric: tabular-nums;
-        color: var(--accent);
+        color: var(--gold);
       }
-      .lb-list li.me {
-        background: color-mix(in srgb, var(--accent) 22%, transparent);
-        outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      .lb-row.top1 {
+        border-color: color-mix(in srgb, var(--gold) 70%, var(--border));
+        background: color-mix(in srgb, var(--gold) 12%, var(--panel-inset));
       }
-      .lb-list li.me .lb-rank {
-        color: var(--accent);
+      .lb-row.me {
+        border-color: color-mix(in srgb, var(--aqua) 65%, var(--border));
+        background: color-mix(in srgb, var(--aqua) 16%, var(--panel-inset));
       }
-      .lb-you {
-        margin: 8px 0 0;
-        text-align: center;
+      .lb-row.me .lb-rank {
+        color: var(--aqua);
       }
-      .lb-list:empty::after {
-        content: "Noch keine Einträge diese Woche — sei die Erste.";
+      .lb-rows:empty::after {
+        content: "Noch keine Einträge diese Woche.";
+        align-self: center;
+        margin-top: 40px;
         color: var(--ink-dim);
-        font-weight: 600;
+        font-weight: 700;
+      }
+      .lb-self {
+        width: 100%;
+        border-top: 2px dashed var(--border);
+        padding-top: 8px;
+        margin-top: 2px;
+      }
+      .lb-offline {
+        align-self: center;
+        color: var(--ink-dim);
+        font-weight: 700;
+        padding: 30px 0;
+        text-align: center;
       }
       .banner {
         align-self: center;
@@ -2256,6 +2351,7 @@
       </section>
 
       <section class="screen mode-screen" id="screen-cascade" hidden>
+        <button class="corner-btn" id="lb-open" aria-label="Bestenliste">🏆</button>
         <div class="mode-icon"><img class="icon-img" src="ui/cascade.webp" alt="" /></div>
         <h1>Kaskade</h1>
         <div class="card mode-card">
@@ -2266,14 +2362,6 @@
           <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
           <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
           <button class="go big" id="cascade-play">Kaskade starten</button>
-        </div>
-        <div class="card mode-card lb-card" id="lb-card" hidden>
-          <div class="lb-head">
-            <h2>Bestenliste</h2>
-            <span class="muted" id="lb-week"></span>
-          </div>
-          <ol class="lb-list" id="lb-list"></ol>
-          <p class="muted lb-you" id="lb-you" hidden></p>
         </div>
       </section>
 
@@ -2388,6 +2476,20 @@
           <div class="pf-picker" id="pf-picker" hidden></div>
           <h2 class="pf-h2">Allgemeine Statistiken</h2>
           <div class="pf-grid" id="pf-stats"></div>
+        </div>
+      </div>
+
+      <div class="overlay" id="lb-overlay">
+        <div class="ocard sheet lb-sheet">
+          <button class="close" id="lb-x">✕</button>
+          <div class="lb-title">🏆 Bestenliste</div>
+          <div class="lb-tabs">
+            <button class="lb-tab on" id="lb-tab-country" data-scope="country">Mein Land</button>
+            <button class="lb-tab" id="lb-tab-global" data-scope="global">Global</button>
+          </div>
+          <div class="lb-sub" id="lb-sub"></div>
+          <ol class="lb-rows" id="lb-rows"></ol>
+          <div class="lb-self" id="lb-self" hidden></div>
         </div>
       </div>
 

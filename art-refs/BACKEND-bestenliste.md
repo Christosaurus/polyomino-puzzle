@@ -71,6 +71,52 @@ $$;
 grant execute on function public.submit_cascade_score to anon;
 ```
 
+### 2b. Nachtrag — Land-Spalte (für „Mein Land" / „Global")
+
+Wenn Schritt 2 schon lief, im **SQL Editor** zusätzlich das hier ausführen:
+
+```sql
+alter table public.cascade_scores
+  add column if not exists country text not null default 'XX';
+
+drop function if exists public.submit_cascade_score(text, text, integer, integer);
+
+create or replace function public.submit_cascade_score(
+  p_player_id text, p_name text, p_score integer, p_cleared integer,
+  p_country text default 'XX'
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  wk text := to_char(now() at time zone 'UTC', 'IYYY')
+             || '-W' || lpad(to_char(now() at time zone 'UTC', 'IW'), 2, '0');
+  nm text := left(trim(coalesce(p_name, '')), 24);
+  cc text := upper(left(coalesce(p_country, 'XX'), 2));
+begin
+  if p_player_id is null or length(p_player_id) not between 8 and 64 then
+    raise exception 'bad player id';
+  end if;
+  if p_score < 0 or p_score > 200000 then
+    raise exception 'bad score';
+  end if;
+  if cc !~ '^[A-Z]{2}$' then cc := 'XX'; end if;
+  insert into public.cascade_scores (player_id, name, score, cleared, week, country)
+  values (p_player_id,
+          coalesce(nullif(nm, ''), 'Glaser'),
+          p_score,
+          greatest(0, least(coalesce(p_cleared, 0), 100000)),
+          wk, cc)
+  on conflict (player_id, week) do update
+    set score      = greatest(cascade_scores.score, excluded.score),
+        cleared    = greatest(cascade_scores.cleared, excluded.cleared),
+        name       = excluded.name,
+        country    = excluded.country,
+        updated_at = now();
+end;
+$$;
+
+grant execute on function public.submit_cascade_score to anon;
+```
+
 ### 3. Die zwei Werte für mich holen
 
 Linke Leiste → **Project Settings** → **API**:
