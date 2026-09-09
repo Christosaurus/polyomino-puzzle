@@ -496,29 +496,20 @@ export class GameState {
     return null;
   }
 
-  /** Solvent joker: pull every incorrectly placed piece back to the tray. Returns how many. */
-  clearIncorrect(): number {
+  /**
+   * „Neu ordnen"-Joker: alle gelegten Teile zurück ins Fach. Bewusst *ohne*
+   * Lösungsabgleich — die alte Variante (nur die falschen zurückholen) war ein
+   * exaktes Korrektheits-Orakel und hat das Rätsel gelöst. Züge werden nicht
+   * erstattet. Gibt zurück, wie viele Teile zurückgelegt wurden.
+   */
+  returnAllToTray(): number {
     let n = 0;
     for (const piece of this.pieces) {
       if (!piece.pos) continue;
-      const here = this.cellsAt(piece, piece.pos)
-        .map(([r, c]): [number, number] => [r, c])
-        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      // Bei einem Ruß-Ziel gibt es keine eine richtige Lösung — ein Teil ist
-      // richtig, sobald es Ruß deckt. Nach der gespeicherten Lösung zu gehen
-      // würde gültige Spielzüge bestrafen.
-      const ok =
-        this.isPartialGoal
-          ? here.some(([r, c]) => this.isSooty(r, c))
-          : (() => {
-              const target = this.solutionCells.get(piece.name);
-              return !!target && here.every(([r, c], i) => r === target[i]![0] && c === target[i]![1]);
-            })();
-      if (!ok) {
-        piece.pos = null;
-        n += 1;
-      }
+      piece.pos = null;
+      n += 1;
     }
+    if (n > 0) this.usedUndo = true; // zählt wie ein Zurücknehmen
     return n;
   }
 

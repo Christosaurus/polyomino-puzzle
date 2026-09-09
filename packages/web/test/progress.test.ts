@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginAttempt,
   claimDailyMilestone,
+  claimMilestones,
   endAttempt,
+  grantRegionReward,
   lives,
   load,
   NO_BEST_MS,
@@ -193,5 +195,29 @@ describe("Systemuhr-Manipulation (Exploit 6)", () => {
     vi.spyOn(performance, "now").mockReturnValue(perf + 1_000);
     const second = recordDaily().daily;
     expect(second.streak).toBe(1); // derselbe Tag — kein Serien-Zuwachs
+  });
+});
+
+describe("Joker-Verknappung", () => {
+  it("Startvorrat ist 5 pro Joker", () => {
+    expect(load().jokers).toEqual({ hint: 5, time: 5, solvent: 5 });
+  });
+
+  it("Meilensteine geben nur noch Splitter, keine Joker", () => {
+    // 12 Fenster mit 3 Sternen → 36 Sterne → Meilensteine bei 6/12/18/24/30/36
+    for (let i = 1; i <= 12; i++) recordLevel(`m${i}`, 3, 30_000, false);
+    const before = load().jokers;
+    const fresh = claimMilestones();
+    expect(fresh.length).toBeGreaterThan(0);
+    expect(load().jokers).toEqual(before); // unverändert
+    expect(load().shards).toBeGreaterThan(0);
+  });
+
+  it("Regionsbelohnung gibt nur Splitter + volle Herzen, keine Joker", () => {
+    const before = load().jokers;
+    expect(grantRegionReward("garden")).toBe(true);
+    expect(load().jokers).toEqual(before);
+    expect(load().lives.count).toBe(5);
+    expect(grantRegionReward("garden")).toBe(false); // nur einmal
   });
 });

@@ -913,9 +913,9 @@ function startClock(game: GameState): void {
 
 function renderJokers(): void {
   const j = store.load().jokers;
-  ($("jk-hint-c").textContent = String(j.hint));
-  ($("jk-time-c").textContent = String(j.time));
-  ($("jk-solvent-c").textContent = String(j.solvent));
+  ($("jk-hint-c").textContent = nf(j.hint));
+  ($("jk-time-c").textContent = nf(j.time));
+  ($("jk-solvent-c").textContent = nf(j.solvent));
   $("jk-time-l").textContent = activeGame?.hasMoveBudget ? "+3 Züge" : "+20s";
   $<HTMLButtonElement>("jk-hint").disabled = j.hint <= 0;
   $<HTMLButtonElement>("jk-time").disabled = j.time <= 0;
@@ -952,8 +952,8 @@ function useJoker(kind: JokerKind): void {
     }
   }
   if (kind === "solvent") {
-    const n = activeGame.clearIncorrect();
-    toast(n > 0 ? `${n} Teil${n > 1 ? "e" : ""} gelöst` : "Alles sitzt schon richtig");
+    const n = activeGame.returnAllToTray();
+    toast(n > 0 ? "Brett geleert — neu anordnen" : "Das Brett ist schon leer");
   }
   renderJokers();
 }
@@ -1027,7 +1027,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
   for (const m of store.claimMilestones()) {
-    lines.push(`🏆 Meilenstein ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}, Joker +2`);
+    lines.push(`🏆 Meilenstein ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}`);
     scenery.pulse();
   }
   if (region) {
@@ -1582,10 +1582,13 @@ function renderCollection(): void {
   );
 }
 
-const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void }> = [
-  { icon: "ui/hint.webp", label: "Tipp ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
-  { icon: "ui/time.webp", label: "+20 Sek. ×1", cost: 10, buy: () => store.update((d) => void (d.jokers.time += 1)) },
-  { icon: "ui/solvent.webp", label: "Lösen ×1", cost: 12, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void; soon?: boolean }> = [
+  // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
+  // (kommt später). Preise fallen mit der Stärke: Tipp > Zeit > Neu ordnen.
+  { icon: "ui/hint.webp", label: "Tipp ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
+  { icon: "ui/hint.webp", label: "📺 Video ansehen → Tipp", cost: 0, soon: true, buy: () => {} },
+  { icon: "ui/time.webp", label: "Mehr Zeit ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
+  { icon: "ui/solvent.webp", label: "Neu ordnen ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
   { icon: "ui/life.webp", label: "Herzen auffüllen", cost: 30, buy: () => store.refillLives() },
 ];
 
@@ -1598,11 +1601,13 @@ function renderShop(): void {
       row.className = "item";
       const btn = document.createElement("button");
       btn.className = "gold";
-      btn.textContent = `${item.cost} ✦`;
+      btn.textContent = item.soon ? "bald" : `${item.cost} ✦`;
       btn.disabled =
+        item.soon ||
         s.shards < item.cost ||
         (item.icon === "ui/life.webp" && s.lives.count >= store.MAX_LIVES);
       btn.addEventListener("click", () => {
+        if (item.soon) return;
         if (store.spendShards(item.cost)) {
           item.buy();
           toast("Gekauft");

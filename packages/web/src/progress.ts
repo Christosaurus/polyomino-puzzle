@@ -72,7 +72,7 @@ const EMPTY: SaveData = {
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
   achievements: [],
   beatsSeen: [],
-  jokers: { hint: 3, time: 2, solvent: 2 },
+  jokers: { hint: 5, time: 5, solvent: 5 },
   regionRewards: [],
   milestone: 0,
   shards: 0,
@@ -480,10 +480,9 @@ export function grantRegionReward(regionId: string): boolean {
   update((d) => {
     if (d.regionRewards.includes(regionId)) return;
     d.regionRewards.push(regionId);
-    d.jokers.hint += 3;
-    d.jokers.time += 2;
-    d.jokers.solvent += 2;
-    d.shards += 25;
+    // Joker gibt es nicht mehr geschenkt — nur Splitter, damit der Spieler
+    // selbst entscheidet, worauf er sie ausgibt (Joker sind bewusst knapp).
+    d.shards += 60;
     d.lives.count = MAX_LIVES;
     d.lives.nextAt = 0;
     granted = true;
@@ -494,7 +493,6 @@ export function grantRegionReward(regionId: string): boolean {
 export interface Milestone {
   threshold: number;
   shards: number;
-  joker: JokerKind;
   label: string;
 }
 
@@ -505,14 +503,9 @@ export function claimMilestones(): Milestone[] {
     const stars = totalStars(d);
     let t = d.milestone + 6;
     while (t <= stars) {
-      const m: Milestone = {
-        threshold: t,
-        shards: 15 + (t / 6) * 5,
-        joker: (["hint", "time", "solvent"] as const)[(t / 6) % 3]!,
-        label: `${t} Sterne`,
-      };
+      // Joker nicht mehr geschenkt — dafür ein bisschen mehr Splitter.
+      const m: Milestone = { threshold: t, shards: 25 + (t / 6) * 5, label: `${t} Sterne` };
       d.shards += m.shards;
-      d.jokers[m.joker] += 2;
       d.milestone = t;
       fresh.push(m);
       t += 6;
