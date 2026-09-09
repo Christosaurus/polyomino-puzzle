@@ -715,8 +715,11 @@ function playCutscene(beat: Beat, done: () => void): void {
     img.src = sp.img;
     img.addEventListener("error", () => (portrait.textContent = sp.emoji));
     portrait.replaceChildren(img);
-  } else {
+  } else if (sp.name) {
     portrait.textContent = sp.emoji;
+  } else {
+    // namenloser Erzähler ("welt") — kein Gesicht, das CSS blendet die Figur aus
+    portrait.replaceChildren();
   }
   $("cs-name").textContent = sp.name;
 
@@ -726,10 +729,12 @@ function playCutscene(beat: Beat, done: () => void): void {
 
   let line = 0;
   let typing = false;
+  let typeT = 0;
   const linesEl = $("cs-lines");
   const tapEl = $("cs-tap");
 
   const type = (text: string): void => {
+    window.clearTimeout(typeT);
     typing = true;
     tapEl.classList.add("busy");
     linesEl.textContent = "";
@@ -737,7 +742,7 @@ function playCutscene(beat: Beat, done: () => void): void {
     const step = (): void => {
       linesEl.textContent = text.slice(0, (i += 2));
       if (i < text.length) {
-        window.setTimeout(step, 14);
+        typeT = window.setTimeout(step, 14);
       } else {
         linesEl.textContent = text;
         typing = false;
@@ -750,6 +755,7 @@ function playCutscene(beat: Beat, done: () => void): void {
   const advance = (): void => {
     if (typing) {
       // erst mal fertig tippen
+      window.clearTimeout(typeT);
       linesEl.textContent = beat.lines[line] ?? "";
       typing = false;
       tapEl.classList.remove("busy");
@@ -761,6 +767,7 @@ function playCutscene(beat: Beat, done: () => void): void {
   };
 
   const finish = (): void => {
+    window.clearTimeout(typeT); // sonst tippt die letzte Zeile in die nächste Szene
     scene.classList.remove("show");
     scene.hidden = true;
     scene.removeEventListener("click", onClick);

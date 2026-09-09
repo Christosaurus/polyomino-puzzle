@@ -1839,6 +1839,25 @@
           bottom: 38%;
         }
       }
+      /* Der Erzähler („welt") hat kein Gesicht — nur die Stimme. Keine Figur,
+         Blase mittig, kein Zipfel. */
+      #cutscene[data-speaker="welt"] .cs-portrait {
+        display: none;
+      }
+      #cutscene[data-speaker="welt"] .cs-bubble {
+        left: 8%;
+        right: 8%;
+        bottom: 48%;
+        text-align: center;
+        background: rgba(251, 244, 228, 0.96);
+      }
+      #cutscene[data-speaker="welt"] .cs-bubble::before,
+      #cutscene[data-speaker="welt"] .cs-bubble::after {
+        display: none;
+      }
+      #cutscene[data-speaker="welt"] .cs-tap {
+        text-align: center;
+      }
       .cs-tap.busy {
         visibility: hidden;
       }
