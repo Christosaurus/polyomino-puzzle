@@ -435,6 +435,64 @@
       .mode-card .row .big {
         color: var(--accent);
       }
+      /* ── Bestenliste ── */
+      .lb-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .lb-head h2 {
+        margin: 0;
+      }
+      .lb-list {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .lb-list li {
+        display: grid;
+        grid-template-columns: 1.8em 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        font-weight: 700;
+      }
+      .lb-list li .lb-rank {
+        color: var(--ink-dim);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .lb-list li .lb-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .lb-list li .lb-score {
+        font-variant-numeric: tabular-nums;
+        color: var(--accent);
+      }
+      .lb-list li.me {
+        background: color-mix(in srgb, var(--accent) 22%, transparent);
+        outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+      .lb-list li.me .lb-rank {
+        color: var(--accent);
+      }
+      .lb-you {
+        margin: 8px 0 0;
+        text-align: center;
+      }
+      .lb-list:empty::after {
+        content: "Noch keine Einträge diese Woche — sei die Erste.";
+        color: var(--ink-dim);
+        font-weight: 600;
+      }
       .banner {
         align-self: center;
         margin-bottom: -6px;
@@ -2208,6 +2266,14 @@
           <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
           <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
           <button class="go big" id="cascade-play">Kaskade starten</button>
+        </div>
+        <div class="card mode-card lb-card" id="lb-card" hidden>
+          <div class="lb-head">
+            <h2>Bestenliste</h2>
+            <span class="muted" id="lb-week"></span>
+          </div>
+          <ol class="lb-list" id="lb-list"></ol>
+          <p class="muted lb-you" id="lb-you" hidden></p>
         </div>
       </section>
 

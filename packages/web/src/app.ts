@@ -11,6 +11,7 @@ import { CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
+import { isoWeek, playerId, submitCascadeScore, topCascade } from "./leaderboard.js";
 import * as store from "./progress.js";
 import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
@@ -1452,6 +1453,52 @@ function renderCascade(): void {
   const s = store.load();
   $("cascade-best").textContent = nf(s.cascade.bestScore);
   $("cascade-cleared").textContent = nf(s.cascade.bestCleared);
+  void refreshLeaderboard();
+}
+
+let lbBusy = false;
+/** Die Wochenbestenliste holen und rendern. Still bei Netzfehler. */
+async function refreshLeaderboard(): Promise<void> {
+  if (lbBusy) return;
+  lbBusy = true;
+  try {
+    const rows = await topCascade(50);
+    const card = $("lb-card");
+    if (rows.length === 0 && !navigator.onLine) {
+      card.hidden = true;
+      return;
+    }
+    card.hidden = false;
+    $("lb-week").textContent = `Woche ${isoWeek().replace("-W", " · KW ")}`;
+    const me = playerId();
+    const myName = store.playerName();
+    const list = $("lb-list");
+    list.replaceChildren(
+      ...rows.slice(0, 10).map((r, i) => {
+        const li = document.createElement("li");
+        li.classList.toggle("me", r.player_id === me);
+        li.innerHTML =
+          `<span class="lb-rank">${nf(i + 1)}</span>` +
+          `<span class="lb-name"></span>` +
+          `<span class="lb-score">${nf(r.score)}</span>`;
+        li.querySelector(".lb-name")!.textContent = r.player_id === me ? myName || r.name : r.name;
+        return li;
+      }),
+    );
+    const myRank = rows.findIndex((r) => r.player_id === me);
+    const you = $("lb-you");
+    if (myRank >= 10) {
+      you.hidden = false;
+      you.textContent = `Dein Platz: ${nf(myRank + 1)} · ${nf(rows[myRank]!.score)} Punkte`;
+    } else if (myRank === -1) {
+      you.hidden = false;
+      you.textContent = "Spiel eine Runde, um in die Liste zu kommen.";
+    } else {
+      you.hidden = true;
+    }
+  } finally {
+    lbBusy = false;
+  }
 }
 function startCascade(): void {
   teardownGame();
@@ -1511,6 +1558,10 @@ function startCascade(): void {
       const freshAch = syncAchievements();
       celebrate(freshAch);
       renderTopPills();
+      // Score in die Wochenbestenliste — fire-and-forget, blockiert nichts
+      void submitCascadeScore(r.score, r.cleared, store.playerName()).then((ok) => {
+        if (ok) void refreshLeaderboard();
+      });
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
         `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
