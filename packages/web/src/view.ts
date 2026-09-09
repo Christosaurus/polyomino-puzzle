@@ -56,6 +56,8 @@ export interface GameViewCallbacks {
   onUnlock?: () => void;
   /** Fired the instant the board is solved — before the ~2.4s hold. */
   onSolved?: () => void;
+  /** Fired on the very first move of the level (the clock starts here). */
+  onStart?: () => void;
 }
 
 export class GameView {
@@ -1248,7 +1250,7 @@ export class GameView {
     const hit = this.hitTest(x, y, this.layout);
     if (!hit) return;
     this.canvas.setPointerCapture(e.pointerId);
-    this.game.markStarted();
+    if (this.game.markStarted()) this.cb.onStart?.();
 
     const local = this.game.localCells(hit.piece);
     let grabRow: number;

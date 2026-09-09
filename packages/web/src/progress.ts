@@ -12,6 +12,9 @@ export interface LevelResult {
   fails?: number;
 }
 
+/** „Noch keine Bestzeit" — JSON-fest (anders als `Infinity`, das zu `null` wird). */
+export const NO_BEST_MS = Number.MAX_SAFE_INTEGER;
+
 export type JokerKind = "hint" | "time" | "solvent";
 export type Jokers = Record<JokerKind, number>;
 
@@ -41,6 +44,14 @@ export interface SaveData {
    * Laterne (Regionstor) und die Welt-Helligkeit.
    */
   panes: number;
+  /**
+   * Ein Kampagnen-Fenster, das gerade begonnen, aber nicht abgeschlossen wurde.
+   * Wird beim ersten Zug gesetzt und bei Sieg / Timeout / Verlassen wieder
+   * geleert. Steht beim nächsten Start noch etwas drin, war es ein Reload oder
+   * App-Kill mitten im Level → zählt nachträglich als Fehlschlag (ein Herz weg),
+   * sonst wäre „App wegwischen" ein Gratis-Neustart.
+   */
+  pendingAttempt: string | null;
   lives: { count: number; nextAt: number };
   stats: {
     solved: number;
@@ -66,6 +77,7 @@ const EMPTY: SaveData = {
   milestone: 0,
   shards: 0,
   panes: 0,
+  pendingAttempt: null,
   lives: { count: MAX_LIVES, nextAt: 0 },
   stats: {
     solved: 0,
@@ -99,6 +111,7 @@ export function load(): SaveData {
       // Altstände ohne `panes`: aus der Zahl gelöster Fenster ableiten, damit
       // ein bestehender Spieler nicht bei null anfängt.
       panes: parsed.panes ?? parsed.stats?.solved ?? 0,
+      pendingAttempt: parsed.pendingAttempt ?? null,
       lives: { ...EMPTY.lives, ...parsed.lives },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
@@ -188,6 +201,7 @@ export function recordLevel(
       d.levels[levelId] = { ...prev };
     }
     d.levels[levelId]!.fails = 0; // a win always clears the pity streak
+    d.pendingAttempt = null; // sauber abgeschlossen
 
     const isCampaign = !levelId.startsWith("daily:");
     if (isCampaign) {
@@ -222,10 +236,36 @@ export function recordFail(levelId: string): number {
   update((d) => {
     const prev = d.levels[levelId];
     fails = (prev?.fails ?? 0) + 1;
-    d.levels[levelId] = { stars: prev?.stars ?? 0, bestMs: prev?.bestMs ?? Infinity, fails };
+    d.levels[levelId] = { stars: prev?.stars ?? 0, bestMs: prev?.bestMs ?? NO_BEST_MS, fails };
     d.stats.winStreak = 0;
+    d.pendingAttempt = null;
   });
   return fails;
+}
+
+/** Ein Kampagnen-Fenster wurde betreten und der erste Zug gemacht. */
+export function beginAttempt(levelId: string): void {
+  update((d) => {
+    d.pendingAttempt = levelId;
+  });
+}
+
+/** Sauberer Abschluss (Sieg / bewusstes Verlassen) — kein offener Versuch mehr. */
+export function endAttempt(): void {
+  update((d) => {
+    d.pendingAttempt = null;
+  });
+}
+
+/**
+ * Beim Start: stand noch ein offener Versuch in den Save-Daten (Reload / Kill
+ * mitten im Level)? Gibt die Level-id zurück und räumt den Marker weg — der
+ * Aufrufer verbucht das als Fehlschlag.
+ */
+export function takePendingAttempt(): string | null {
+  const id = load().pendingAttempt;
+  if (id) endAttempt();
+  return id;
 }
 
 /** True once a level has failed enough in a row to earn a free hint + more time. */

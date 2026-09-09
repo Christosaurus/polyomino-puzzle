@@ -922,6 +922,7 @@ function mountGame(
     onTimeout: () => void;
     onUnlock?: () => void;
     onSolved?: () => void;
+    onStart?: () => void;
   },
 ): void {
   teardownGame();
@@ -1015,7 +1016,9 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     toast("❖✦🕯 Doppelscheibe, Wanderscherbe und die Kerze — alles auf einmal. Plan die Reihenfolge.");
   else introduceMechanic(game);
   mountGame(game, {
+    onStart: () => store.beginAttempt(entry.id),
     onWin: (stars, ms) => {
+      store.endAttempt();
       const panesBefore = store.panes();
       const rewards = collectStoryRewards(entry.id, stars, ms, game.usedUndo, region);
       queueBeat(panesBefore, store.panes());
@@ -1668,6 +1671,25 @@ function doLeave(): void {
   else if (descentState) endDescent(descentState.depth);
   else setTab("descent");
 }
+/** Fenster-id des gerade laufenden Kampagnen-Levels — für die Fehlschlag-Buchung. */
+function currentCampaignLevelId(): string | null {
+  if (mode !== "campaign" || !campaignAt) return null;
+  return campaignAt.region.levels[campaignAt.index]?.id ?? null;
+}
+
+/**
+ * Ein laufendes Kampagnen-Fenster aufgeben (Verlassen oder Neustart): kostet
+ * genau so viel wie ein Timeout — ein Herz und die Serie. Sonst wäre „Pause →
+ * Neustart" ein Gratis-Weg, jeden drohenden Fehlschlag zu annullieren.
+ */
+function abandonCampaignLevel(): void {
+  store.spendLife();
+  const id = currentCampaignLevelId();
+  if (id) store.recordFail(id);
+  else store.endAttempt();
+  renderTopPills();
+}
+
 function leavePlay(): void {
   const g = activeGame;
   const inProgress = !!g && g.started && !g.isWon() && !g.failed;
@@ -1677,13 +1699,16 @@ function leavePlay(): void {
   };
   if (inProgress && mode === "campaign") {
     activeGame?.pause();
+    const lostStreak = store.winStreak();
     showOverlay({
-      title: "Level verlassen?",
-      sub: "Du verlierst <b>1 Herz</b> und den Fortschritt in diesem Fenster.",
+      title: "Fenster verlassen?",
+      sub:
+        "Zählt wie ein Fehlversuch: <b>1 Herz</b> weg" +
+        (lostStreak >= 2 ? `, Serie ×${xf(store.winMultiplier(lostStreak))} weg` : "") +
+        ".",
       nextLabel: "Trotzdem raus",
       onNext: () => {
-        store.spendLife();
-        renderTopPills();
+        abandonCampaignLevel();
         doLeave();
       },
       quitLabel: "Weiterspielen",
@@ -1706,8 +1731,36 @@ function leavePlay(): void {
   doLeave();
 }
 function restartLevel(): void {
-  if (mode === "campaign" && campaignAt) void playCampaign(campaignAt.region, campaignAt.index);
-  else if (mode === "daily") void playDaily();
+  if (mode === "campaign" && campaignAt) {
+    const at = campaignAt;
+    const g = activeGame;
+    const inProgress = !!g && g.started && !g.isWon() && !g.failed;
+    if (inProgress) {
+      g.pause();
+      const lostStreak = store.winStreak();
+      showOverlay({
+        title: "Neu starten?",
+        sub:
+          "Zählt wie ein Fehlversuch: <b>1 Herz</b> weg" +
+          (lostStreak >= 2 ? `, Serie ×${xf(store.winMultiplier(lostStreak))} weg` : "") +
+          ".",
+        nextLabel: "Neu starten",
+        onNext: () => {
+          abandonCampaignLevel();
+          void playCampaign(at.region, at.index);
+        },
+        quitLabel: "Weiterspielen",
+        onQuit: () => {
+          hideOverlay();
+          activeGame?.resume();
+        },
+      });
+      return;
+    }
+    void playCampaign(at.region, at.index);
+    return;
+  }
+  if (mode === "daily") void playDaily();
   else void playDescentLevel();
 }
 function restorePauseButtons(): void {
@@ -1803,6 +1856,16 @@ async function boot(): Promise<void> {
   try {
     manifest = (await (await fetch("levels/manifest.json")).json()) as Manifest;
     regions = buildRegions(manifest);
+
+    // Reload / App-Kill mitten in einem Kampagnen-Fenster: nachträglich als
+    // Fehlschlag verbuchen, sonst wäre „App wegwischen" ein Gratis-Neustart.
+    const abandoned = store.takePendingAttempt();
+    if (abandoned) {
+      store.recordFail(abandoned);
+      store.spendLife();
+      window.setTimeout(() => toast("Ein Fenster blieb offen — 1 Herz und die Serie weg."), 800);
+    }
+
     refreshLight();
     renderHome();
     maybePlayIntro(() => {

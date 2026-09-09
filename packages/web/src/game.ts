@@ -522,8 +522,13 @@ export class GameState {
     return n;
   }
 
-  markStarted(): void {
-    if (this.startedAt === null) this.startedAt = performance.now();
+  /** Erster echter Zug — startet die Uhr. Gibt `true` zurück, wenn das der
+   *  Übergang von „noch nicht angefangen" war (für das Anlegen des
+   *  Reload-Schutz-Markers). */
+  markStarted(): boolean {
+    if (this.startedAt !== null) return false;
+    this.startedAt = performance.now();
+    return true;
   }
   get started(): boolean {
     return this.startedAt !== null;
