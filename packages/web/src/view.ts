@@ -69,6 +69,11 @@ export class GameView {
 
   private drag: DragState | null = null;
   private layout: Layout | null = null;
+  /** `computeLayout` liest zweimal `getBoundingClientRect` + ein `querySelector`
+   *  — ein erzwungener Reflow. Pro Frame ist das auf schwachen Handys (Samsung
+   *  Internet) der größte Ruckler. Das Layout hängt nur an Viewport-Größe und
+   *  Tray-Bestand, also neu rechnen wir nur, wenn eins davon sich ändert. */
+  private layoutDirty = true;
   private running = false;
   private raf = 0;
   private lastTs = 0;
@@ -199,7 +204,10 @@ export class GameView {
     window.setTimeout(fb, 200);
   }
 
-  private kick = (): void => this.render();
+  private kick = (): void => {
+    this.layoutDirty = true;
+    this.render();
+  };
 
   private tick(dt: number): void {
     this.nowMs = performance.now();
@@ -358,6 +366,9 @@ export class GameView {
     // the tray off the bottom.
     const rawTop = this.canvas.getBoundingClientRect().top;
     const canvasTop = rawTop > 40 ? rawTop : 160;
+    // Canvas noch nicht platziert (Boot, Screen-Wechsel) → nächsten Frame erneut
+    // rechnen, bis die echte Position steht.
+    if (rawTop <= 40) this.layoutDirty = true;
     const footH =
       document.querySelector<HTMLElement>(".play-foot .jokers")?.getBoundingClientRect().height ?? 76;
     const budget = Math.max(240, viewportH - canvasTop - footH - 44);
@@ -950,8 +961,11 @@ export class GameView {
 
   // ── Render ────────────────────────────────────────────────────────────────
   private render(): void {
-    const layout = this.computeLayout();
-    this.layout = layout;
+    if (this.layoutDirty || !this.layout) {
+      this.layoutDirty = false;
+      this.layout = this.computeLayout(); // darf layoutDirty erneut setzen (s. u.)
+    }
+    const layout = this.layout;
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = Math.round(layout.cssWidth * dpr);
@@ -1281,6 +1295,7 @@ export class GameView {
       moved: false,
     };
     if (!hit.fromTray) this.game.removeToTray(hit.piece);
+    this.layoutDirty = true; // Tray-Bestand hat sich geändert
     sfx.pickUp();
     sfx.vibrate(8); // a tiny tick when a shape is picked up
   };
@@ -1297,6 +1312,7 @@ export class GameView {
     const drag = this.drag;
     if (!drag || !this.layout) return;
     this.drag = null;
+    this.layoutDirty = true; // Teil ist gesetzt oder zurück im Tray
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
 
     const isTap = !drag.moved && performance.now() - drag.startTime < TAP_TIME_MS;

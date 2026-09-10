@@ -65,6 +65,9 @@ export class CascadeView {
   private cb: CascadeCallbacks;
 
   private layout: Layout | null = null;
+  /** `computeLayout` erzwingt einen Reflow (DOM-Reads). Nur neu rechnen, wenn
+   *  sich Viewport oder Challenge-Band ändern — nicht pro Frame. */
+  private layoutDirty = true;
   private drag: Drag | null = null;
   private running = false;
   private raf = 0;
@@ -133,7 +136,10 @@ export class CascadeView {
     window.setTimeout(fb, 140);
   }
 
-  private kick = (): void => this.render();
+  private kick = (): void => {
+    this.layoutDirty = true;
+    this.render();
+  };
 
   private step(dt: number): void {
     this.game.tick(dt);
@@ -189,6 +195,8 @@ export class CascadeView {
   // ── Layout — the board is as big as the width allows ────────────────────
   private computeLayout(): Layout {
     const cssW = this.wrap.clientWidth || 340;
+    // Wrap noch nicht vermessen → nächsten Frame erneut rechnen
+    if (!this.wrap.clientWidth) this.layoutDirty = true;
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const pad = 10;
 
@@ -290,8 +298,11 @@ export class CascadeView {
 
   // ── Render ───────────────────────────────────────────────────────────────
   private render(): void {
-    const L = this.computeLayout();
-    this.layout = L;
+    if (this.layoutDirty || !this.layout) {
+      this.layoutDirty = false;
+      this.layout = this.computeLayout();
+    }
+    const L = this.layout;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = Math.round(L.cssW * dpr);
     const h = Math.round(L.cssH * dpr);
