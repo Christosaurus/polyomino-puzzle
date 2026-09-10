@@ -59,6 +59,8 @@ let padChordAt = -1; // bei welchem Takt zuletzt ein Pad-Akkord gelegt wurde
 function build(): AudioContext | null {
   if (!enabled) return null;
   if (ac) {
+    // Auf Mobil (iOS/Android) startet der Context „suspended" und darf nur in
+    // einer Nutzergeste weiter — jeder Aufruf versucht darum erneut zu resümen.
     if (ac.state === "suspended") void ac.resume();
     return ac;
   }
@@ -68,6 +70,8 @@ function build(): AudioContext | null {
   } catch {
     return null;
   }
+  // frisch erzeugt ist er auf dem Handy ebenfalls „suspended" — sofort resümen
+  if (ac.state === "suspended") void ac.resume();
   master = ac.createGain();
   master.gain.value = MASTER;
   duckGain = ac.createGain();
@@ -200,6 +204,16 @@ function scheduleBeat(b: number, t: number): void {
 function tick(): void {
   const a = ac;
   if (!a || !enabled || !wanted) return;
+  // Context noch nicht (wieder) am Laufen — erneut anstoßen und warten, den
+  // Zeiger dabei ans Jetzt heften, damit es nachher nicht gebündelt losballert.
+  if (a.state !== "running") {
+    void a.resume();
+    nextNoteTime = a.currentTime + 0.1;
+    return;
+  }
+  // nach Tab-Rückkehr / spätem Resume den Zeiger nachziehen
+  if (nextNoteTime < a.currentTime) nextNoteTime = a.currentTime + 0.05;
+
   // sanft zur Ziel-Energie des aktuellen Tracks gleiten
   const target = current ? ENERGY[current] : ENERGY.menu;
   energyNow += (target - energyNow) * 0.06;
