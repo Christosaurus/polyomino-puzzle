@@ -15,25 +15,25 @@ function collect(fn: (n: number) => string | null, upTo = 900): Set<string> {
 describe("miraLine — B4: alle geschriebenen Zeilen sind erreichbar", () => {
   const PLACE_LINES: Record<string, string[]> = {
     garden: [
-      "Der Garten atmet wieder. Riechst du das?",
-      "Da hinten wächst was, wo seit Jahren nichts war.",
-      "Hier hat das Licht angefangen. Hier fängt es wieder an.",
+      "Der Garten wird wieder wach. Riechst du das?",
+      "Da hinten wächst was, wo jahrelang nichts war.",
+      "Hier hat das Licht zuerst gehalten. Hier kommt es zuerst zurück.",
     ],
     workshop: [
-      "Das ist Anselms Handschrift. Ich erkenne seine Schnitte.",
-      "Hier hat er gearbeitet. Vor der Nacht.",
-      "Die Werkstatt erinnert sich an ihn. Ich auch.",
-      "Diese Scheibe wurde geschnitten, nicht zerschlagen. Merk dir das.",
+      "Anselms Werkstatt. Jeder Schnitt hier trägt seine Hand.",
+      "Hier hat er gearbeitet, bevor er ging.",
+      "Diese Scheiben wurden gelöst, nicht zerschlagen. Das ändert alles.",
+      "Das Blei ist frisch nachgezogen. Er war nicht vor Jahren hier — er ist es dauernd.",
     ],
     courtyard: [
-      "Der Farbhof. Die schwersten Fenster im Tal.",
-      "Hier war das Licht am buntesten. Es kommt zurück.",
-      "Noch drei Höfe. Dann wissen wir es.",
+      "Der Farbhof. Die größten Fenster im Tal, und die schwersten.",
+      "Hier war das Licht am buntesten. Stück für Stück kommt es zurück.",
+      "Jede Scheibe, die du hier setzt, fehlt ihm in seinem großen Bogen.",
     ],
     daily: [
-      "Ein Fenster am Tag. So hat man das früher gemacht.",
+      "Ein Fenster am Tag. So hat es das Tal früher gehalten.",
       "Das Tal hat gefragt. Du hast geantwortet.",
-      "Komm morgen wieder. Es wartet eins auf dich.",
+      "Komm morgen wieder — es wartet schon das nächste.",
     ],
   };
 
@@ -48,21 +48,21 @@ describe("miraLine — B4: alle geschriebenen Zeilen sind erreichbar", () => {
     // aus jedem Ort fällt „jedes zweite Mal" eine generische Zeile
     const seen = collect((n) => miraLine({ solved: n, place: "garden" }));
     const generic = [
-      "Wieder eins. Das Tal wird heller.",
-      "Noch ein Fenster, das ihm nicht gehört.",
-      "Sammel sie ein, bevor er es tut.",
-      "Ich seh das Licht bis hierher.",
-      "Ein Splitter mehr auf unserer Seite.",
-      "Gut. Weiter.",
+      "Wieder eins. Das Tal wird ein Stück heller.",
+      "Noch ein Fenster zurück auf unserer Seite.",
+      "Ein Speicher mehr, der wieder Licht hält.",
+      "Von hier oben seh ich es leuchten.",
+      "Das Tal merkt sich so etwas.",
+      "Gut. Nächstes.",
     ];
     for (const line of generic) expect(seen.has(line)).toBe(true);
   });
 
   it("der Makellos-Pool (3 Zeilen) kommt vollständig dran", () => {
     const perfect = [
-      "Kein Splitter zu viel. Anselm hätte genickt.",
-      "Sauber. Ich hab Meister gesehen, die das schlechter können.",
-      "Makellos. Sag nicht, dass ich das gesagt hab.",
+      "Keine Scheibe zu viel, keine schief. Anselm hätte genickt.",
+      "Sauber gesetzt. Ich hab Meister gesehen, die das schlechter hinkriegen.",
+      "Makellos. Und nein, das hab ich nicht gesagt.",
     ];
     const seen = collect((n) => miraLine({ solved: n, place: "garden", stars: 3 }));
     for (const line of perfect) expect(seen.has(line)).toBe(true);

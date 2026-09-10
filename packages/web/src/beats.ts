@@ -5,16 +5,24 @@
  * gelöste Kampagnen-Fenster steigt — die Nebenmodi zählen nicht mehr rein. Eine
  * Szene ist 2–4 Zeilen, überspringbar, danach in der Sammlung nachlesbar.
  *
- *   Intro (beim ersten Start):  die Nacht, in der alle Fenster zersprangen; eine
- *                          Gestalt sammelt das fallende Licht ein; Mira findet
- *                          dich; du bist Glaser, hol das Licht zurück.
- *   Akt I  — Der Garten:   die ersten Fenster, erste Spur.
- *   Akt II — Die Werkstatt: (Freischalt-Szene) Anselms Werkstatt. Geschnitten,
- *                          nicht zerschlagen. Sein Zettel. Wendung: die Gestalt
- *                          ist Anselm.
- *   Akt III — Der Farbhof:  (Freischalt-Szene) das riesige halbfertige Fenster.
- *                          Lys. Das Warum. Er trauert.
- *   Finale — Das letzte Fenster: ihr baut es zusammen zu Ende. Anselm lässt los.
+ *   Intro (beim ersten Start):  das Tal machte sein Licht selbst und fasste es in
+ *                          Glas; in einer Nacht zersprang jedes Fenster; ein
+ *                          „Sammler" greift das Licht ab, bevor es zurück ins
+ *                          Glas kann; Mira findet dich — du bist Glaser, setz
+ *                          die Scheiben, hol das Tal zurück.
+ *   Akt I  — Der Garten:   das erste erhellte Fenster; die Scherben werden
+ *                          weniger, und nicht durch euch — der Sammler hat eine
+ *                          Richtung.
+ *   Akt II — Die Werkstatt: (Freischalt-Szene) Anselms Werkstatt. Die Fenster
+ *                          wurden von Hand zerlegt, nicht zerschlagen. Sein
+ *                          Zettel. Wendung: der Sammler ist Anselm.
+ *   Akt III — Der Farbhof:  (Freischalt-Szene) der riesige halbfertige Bogen.
+ *                          Lys ging als Durchgang hinein und kam nie heraus.
+ *                          Das Warum: Anselm hat die Nacht selbst gemacht, um
+ *                          genug Licht für diesen einen Bogen zu haben.
+ *   Finale — Das letzte Fenster: ihr setzt die letzte Scheibe zusammen. Statt
+ *                          den Durchgang zu öffnen, lässt Anselm das Licht zurück
+ *                          ins Tal — und lässt los.
  */
 
 export interface Beat {
@@ -43,18 +51,21 @@ export const INTRO: Beat[] = [
     title: "Die Nacht",
     speaker: "welt",
     lines: [
-      "Früher hielt jedes Fenster im Tal ein Stück Licht.",
-      "In einer Nacht zersprangen sie alle. Das Licht sank in den Boden.",
+      "Im Tal hat man das Licht nicht gefunden. Man hat es gemacht — und in Glas gefasst.",
+      "Jedes Fenster ein kleiner Speicher. Jedes Haus eine Laterne, von innen heraus hell.",
+      "Dann zersprang in einer einzigen Nacht jedes Fenster im Tal. Das Licht lief aus und sickerte in den Boden.",
+      "Seither ist es dunkel.",
     ],
   },
   {
     id: "intro-gestalt",
     atPanes: 0,
-    title: "Die Gestalt",
+    title: "Der Sammler",
     speaker: "gestalt",
     lines: [
-      "Eine Gestalt sammelt die Splitter ein, bevor sie zurück ins Glas können.",
-      "Wer sie ist, sieht niemand. Nur ihre Arbeit.",
+      "Das Licht im Boden ist nicht verloren. Man kann es zurück ins Glas holen — Scherbe für Scherbe, Fenster für Fenster.",
+      "Aber einer ist schneller. Er greift das Licht ab, bevor es jemand fassen kann.",
+      "Gesehen hat ihn niemand. Man kennt ihn nur an dem, was er zurücklässt: Ruß, Eis, Risse im Glas.",
     ],
   },
   {
@@ -63,8 +74,9 @@ export const INTRO: Beat[] = [
     title: "Der Auftrag",
     speaker: "mira",
     lines: [
-      "Da bist du ja. Weißt du noch, wer du bist? … Auch egal.",
-      "Du bist Glaser. Wir holen uns das Licht zurück — Fenster für Fenster. Komm.",
+      "Da bist du. An einem kaputten Fenster, wo sonst — du bist Glaser. Die Hände wissen's noch, auch wenn der Kopf gerade streikt.",
+      "So läuft's: Scheiben zuschneiden, sauber in den Rahmen setzen, bis er voll ist. Dann fängt das Fenster das Licht wieder ein.",
+      "Ein Fenster nach dem anderen. Wir holen das Tal zurück, bevor der Sammler es leerräumt. Fang mit dem hier an.",
     ],
   },
 ];
@@ -77,9 +89,9 @@ export const BEATS: Beat[] = [
     title: "Das erste Licht",
     speaker: "mira",
     lines: [
-      "Siehst du das? Ein Fenster brennt wieder.",
-      "So war das Tal mal überall — von innen heraus hell.",
-      "Ein Fenster. Von hunderten. Aber es ist ein Anfang.",
+      "Da — das Fenster brennt wieder. Das erste seit der Nacht.",
+      "So sah früher das ganze Tal aus. Jedes Haus von innen heraus hell.",
+      "Eins von hunderten. Aber es zählt.",
     ],
   },
   {
@@ -88,9 +100,9 @@ export const BEATS: Beat[] = [
     title: "Die Spur",
     speaker: "mira",
     lines: [
-      "Ich hab die Splitter gezählt, die noch im Boden stecken.",
-      "Gestern waren es mehr. Deutlich mehr.",
-      "Die Gestalt sammelt sie ein. Und sie weiß, wohin sie geht.",
+      "Ich zähl jeden Morgen die Scherben, die noch im Boden stecken. Es werden weniger.",
+      "Nicht durch uns — wir sind viel zu langsam dafür.",
+      "Der Sammler ist hier durchgezogen. Und er läuft nicht kreuz und quer, er hat eine Richtung.",
     ],
   },
 
@@ -101,10 +113,10 @@ export const BEATS: Beat[] = [
     title: "Die Werkstatt",
     speaker: "mira",
     lines: [
-      "Der Weg über den Hang führt zu einer alten Werkstatt.",
-      "Die vom Meister. Anselm. Bester Glaser, den das Tal je hatte.",
-      "Seit der Nacht ist er weg. Das Werkzeug liegt noch, wie er's hinlegte.",
-      "Wenn irgendwo Antworten liegen, dann hier.",
+      "Der Pfad überm Hang endet an einer Werkstatt. Die vom alten Meister — Anselm.",
+      "Bester Glaser, den das Tal je hatte. Seit der Nacht verschwunden.",
+      "Sein Werkzeug liegt noch genau so da, wie er's hingelegt hat.",
+      "Wenn irgendwo eine Antwort liegt, dann hier.",
     ],
   },
   {
@@ -113,9 +125,9 @@ export const BEATS: Beat[] = [
     title: "Kein Sturm",
     speaker: "mira",
     lines: [
-      "Diese Fenster sind nicht zersprungen. Sie sind zerlegt.",
-      "Jede Scheibe an der Bleifuge getrennt, sauber, mit Absicht.",
-      "Das war kein Unglück in der Nacht. Das hat sich jemand vorgenommen.",
+      "Schau dir die Fenster hier an. Die sind nicht zersprungen.",
+      "Jede Scheibe ist an der Bleifuge gelöst — sauber, von Hand, eine nach der anderen.",
+      "Das war kein Unglück in der Nacht. Da hat sich jemand Zeit genommen.",
     ],
   },
   {
@@ -124,9 +136,9 @@ export const BEATS: Beat[] = [
     title: "Der Zettel",
     speaker: "mira",
     lines: [
-      "Auf der Bank liegt ein Zettel. Seine Schrift, keine Frage.",
-      "„Ich hole sie zurück. Ein Fenster, groß genug. Verzeiht mir das Dunkel.“",
-      "Kein Datum. Aber die Tinte ist Jahre alt.",
+      "Auf der Werkbank liegt ein Zettel. Anselms Schrift, eindeutig.",
+      "„Ich hole es zurück — alles, in ein Fenster, groß genug. Verzeiht mir die Nacht.“",
+      "Kein Datum. Aber die Tinte ist Jahre alt. Er ist da schon lange dran.",
     ],
   },
   {
@@ -136,9 +148,9 @@ export const BEATS: Beat[] = [
     speaker: "anselm",
     lines: [
       "Du sammelst das Licht ein, Kind. Fenster für Fenster.",
-      "Das tue ich auch. Seit langem, und gründlicher.",
-      "Die Gestalt, der ihr nachjagt — das bin ich.",
-      "Der Unterschied ist: ich baue damit etwas Bestimmtes zu Ende.",
+      "Ich auch. Länger als du, und gründlicher.",
+      "Der Sammler, dem ihr nachlauft, bin ich. Anselm.",
+      "Ich zerlege die Fenster nicht aus Bosheit. Ich brauche jede Scheibe für eine bestimmte Arbeit.",
     ],
   },
 
@@ -149,9 +161,9 @@ export const BEATS: Beat[] = [
     title: "Der Farbhof",
     speaker: "welt",
     lines: [
-      "Der Farbhof: hohe, leere Fensterbögen, einer neben dem anderen.",
-      "In der Mitte steht eines, das größer ist als alle Kirchen des Tals.",
-      "Halb fertig. Seit Jahren wächst es Scheibe um Scheibe.",
+      "Der Farbhof: ein Hof voller hoher, leerer Fensterbögen, einer neben dem anderen.",
+      "In der Mitte steht einer, größer als jede Kirche im Tal. Halb fertig.",
+      "Seit Jahren wächst er, Scheibe um Scheibe. Hierhin bringt Anselm das Licht.",
     ],
   },
   {
@@ -160,9 +172,9 @@ export const BEATS: Beat[] = [
     title: "Lys",
     speaker: "anselm",
     lines: [
-      "Meine Tochter Lys ging durch ein Fenster, das ich gebaut hatte.",
-      "Sie kam nicht auf der anderen Seite heraus. Sie kam gar nicht heraus.",
-      "Ein Fehler in der Teilung. Mein Fehler.",
+      "Dieser große Bogen sollte ein Durchgang werden. Aus Licht. Meine Tochter Lys sollte die Erste sein, die hindurchgeht.",
+      "Sie ging hinein und kam nirgends wieder heraus. Ein Fehler darin, wie ich die Scheiben geteilt hatte, hat sie festgehalten.",
+      "Mein Schnitt. Meine Hand.",
     ],
   },
   {
@@ -171,9 +183,9 @@ export const BEATS: Beat[] = [
     title: "Das Warum",
     speaker: "anselm",
     lines: [
-      "Jeder Splitter des Tals sollte in dieses eine Fenster. Groß genug für sie.",
-      "Ich bin nicht dein Feind. Ich bin nur nicht fertig geworden.",
-      "Und ich werde es allein auch nicht.",
+      "Verstreut hätte das Licht nie gereicht, um sie herauszuholen.",
+      "Also habe ich es in einer Nacht eingesammelt — jedes Fenster im Tal auf einmal. Ja. Das war ich.",
+      "Alles davon geht in diesen einen Bogen. Ich bin nicht dein Feind — ich bin nur nicht fertig geworden. Und allein schaffe ich es nicht.",
     ],
   },
 
@@ -184,9 +196,9 @@ export const BEATS: Beat[] = [
     title: "Das letzte Fenster",
     speaker: "anselm",
     lines: [
-      "Setz die letzte Scheibe. Ich halte den Rahmen.",
-      "Es bringt sie nicht zurück. Das weiß ich, seit du hier bist.",
-      "Aber das Tal soll nicht in meinem Dunkel bleiben. Danke, Kind.",
+      "Die letzte Scheibe. Setz sie — ich halte den Rahmen.",
+      "Ich hab diesen Bogen als Durchgang gebaut. Für Lys.",
+      "Jetzt öffnen wir ihn nicht nach drüben. Wir lassen das Licht zurück ins Tal. … Danke, Kind.",
     ],
   },
 ];

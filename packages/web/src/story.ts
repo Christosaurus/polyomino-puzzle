@@ -27,66 +27,66 @@ export interface StoryContext {
 }
 
 const LINES = {
-  first: ["Ein Fenster. Nach all den Jahren. Und du machst es einfach an."],
+  first: ["Ein ganzes Fenster, das wieder Licht hält. Das erste seit der Nacht. Sieh es dir an."],
 
   struggled: [
-    "Beim wievielten Mal? Zählt trotzdem.",
-    "Ich hätte aufgegeben. Du nicht.",
-    "Das war stur. Stur ist hier gut.",
-    "Er hat auf dieses Fenster aufgepasst. Jetzt nicht mehr.",
+    "Beim wievielten Versuch? Egal — es zählt genauso.",
+    "Ich hätt dieses Fenster längst aufgegeben. Du nicht.",
+    "Das war stur. Stur ist hier genau richtig.",
+    "Schwer war's. Umso heller ist es jetzt.",
   ],
 
   perfect: [
-    "Kein Splitter zu viel. Anselm hätte genickt.",
-    "Sauber. Ich hab Meister gesehen, die das schlechter können.",
-    "Makellos. Sag nicht, dass ich das gesagt hab.",
+    "Keine Scheibe zu viel, keine schief. Anselm hätte genickt.",
+    "Sauber gesetzt. Ich hab Meister gesehen, die das schlechter hinkriegen.",
+    "Makellos. Und nein, das hab ich nicht gesagt.",
   ],
 
   garden: [
-    "Der Garten atmet wieder. Riechst du das?",
-    "Da hinten wächst was, wo seit Jahren nichts war.",
-    "Hier hat das Licht angefangen. Hier fängt es wieder an.",
+    "Der Garten wird wieder wach. Riechst du das?",
+    "Da hinten wächst was, wo jahrelang nichts war.",
+    "Hier hat das Licht zuerst gehalten. Hier kommt es zuerst zurück.",
   ],
 
   workshop: [
-    "Das ist Anselms Handschrift. Ich erkenne seine Schnitte.",
-    "Hier hat er gearbeitet. Vor der Nacht.",
-    "Die Werkstatt erinnert sich an ihn. Ich auch.",
-    "Diese Scheibe wurde geschnitten, nicht zerschlagen. Merk dir das.",
+    "Anselms Werkstatt. Jeder Schnitt hier trägt seine Hand.",
+    "Hier hat er gearbeitet, bevor er ging.",
+    "Diese Scheiben wurden gelöst, nicht zerschlagen. Das ändert alles.",
+    "Das Blei ist frisch nachgezogen. Er war nicht vor Jahren hier — er ist es dauernd.",
   ],
 
   courtyard: [
-    "Der Farbhof. Die schwersten Fenster im Tal.",
-    "Hier war das Licht am buntesten. Es kommt zurück.",
-    "Noch drei Höfe. Dann wissen wir es.",
+    "Der Farbhof. Die größten Fenster im Tal, und die schwersten.",
+    "Hier war das Licht am buntesten. Stück für Stück kommt es zurück.",
+    "Jede Scheibe, die du hier setzt, fehlt ihm in seinem großen Bogen.",
   ],
 
   daily: [
-    "Ein Fenster am Tag. So hat man das früher gemacht.",
+    "Ein Fenster am Tag. So hat es das Tal früher gehalten.",
     "Das Tal hat gefragt. Du hast geantwortet.",
-    "Komm morgen wieder. Es wartet eins auf dich.",
+    "Komm morgen wieder — es wartet schon das nächste.",
   ],
 
   descent: [
-    "So tief? Hier unten hortet er sie.",
-    "Jeder Splitter hier ist einer, den er nicht kriegt.",
-    "Weiter runter. Ich halte die Laterne.",
-    "Riecht nach Ruß. Er war vor kurzem hier.",
+    "So tief unten? Hier hortet er, was er sammelt.",
+    "Jede Scherbe, die du hier rausholst, kriegt er nicht.",
+    "Weiter runter. Ich halt die Laterne.",
+    "Riecht nach kaltem Ruß. Er war vor Kurzem hier.",
   ],
 
   streak: [
-    "Drei am Stück. Mach ruhig weiter.",
-    "Du bist im Fluss. Nicht stehenbleiben.",
-    "In dem Tempo holen wir das ganze Tal.",
+    "Drei am Stück. Bleib dran.",
+    "Du bist drin. Jetzt nicht rausfallen.",
+    "In dem Tempo holen wir das ganze Tal zurück.",
   ],
 
   generic: [
-    "Wieder eins. Das Tal wird heller.",
-    "Noch ein Fenster, das ihm nicht gehört.",
-    "Sammel sie ein, bevor er es tut.",
-    "Ich seh das Licht bis hierher.",
-    "Ein Splitter mehr auf unserer Seite.",
-    "Gut. Weiter.",
+    "Wieder eins. Das Tal wird ein Stück heller.",
+    "Noch ein Fenster zurück auf unserer Seite.",
+    "Ein Speicher mehr, der wieder Licht hält.",
+    "Von hier oben seh ich es leuchten.",
+    "Das Tal merkt sich so etwas.",
+    "Gut. Nächstes.",
   ],
 } as const;
 
