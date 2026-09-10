@@ -32,27 +32,32 @@ candy-like, high quality mobile-game look.
 
 ---
 
-## Szene 1 — Das Glimmertal, lebendig *(Erzähler: „…leuchtete von innen heraus")*
+## Szene 1 — Das Glimmertal bei Tag *(Erzähler: „…leuchtete von innen heraus")*
+
+**Tag, sonnig, schön** — das Paradies vor dem Fall.
 
 ```
 A polished hand-painted illustration for a cozy mobile puzzle game — warm,
 storybook style like Township or Gardenscapes: soft painterly brushwork, rich
-colour, gentle rim light, slightly stylised, no photorealism, no black outlines.
+colour, gentle light, slightly stylised, no photorealism, no black outlines.
 
-Scene: a wide view of a small mountain valley at blue hour — the "Glimmertal".
-Dozens of small cottages and workshops packed along a curving hillside, steep
-roofs, a stream winding through the bottom, pine-dark mountains ringing it in.
-EVERY window glows warm gold from within, so the whole valley reads as a
-scattering of little lights in the dusk — each house its own lantern. A few
-warm-lit lanterns strung between roofs. Smoke curling softly from chimneys.
-It looks almost magical, safe, alive.
+Scene: a wide view of a small mountain valley on a bright clear day — the
+"Glimmertal". Clear blue sky, warm sunlight, lush green hillside. Dozens of
+small cottages, glass workshops and market stalls packed along a curving
+hillside, steep colourful roofs, a sparkling stream winding through the bottom,
+gentle green mountains ringing it in. Flower gardens in bloom, washing lines,
+striped market awnings, doves. Every window is filled with beautiful coloured
+glass that shimmers with its own warm inner glow even in daylight — like stained
+glass catching the sun, jewel-bright, so you can tell the glass itself holds
+light. A prosperous, happy, thriving little world.
 
-Mood: nostalgic warmth, "the way it used to be". Deep violet-blue evening sky,
-the valley itself glowing gold and amber, one cool aqua accent in the stream.
+Mood: idyllic, warm, golden — a perfect summer day, paradise. Sunlit greens and
+warm gold dominate, sky blue above, the palette's violet kept only for the
+distant mountain shadow. The glowing windows are the hero accent.
 
 Composition: the valley fills the frame, horizon in the upper third. Keep the
-vertical middle a touch calmer and slightly darker (soft haze / shadow) so a
-centred caption card stays readable. Soft dark vignette on all edges.
+vertical middle a touch calmer / softly hazed so a centred caption card stays
+readable. Soft vignette on all edges.
 
 [palette block]
 
