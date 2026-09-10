@@ -194,28 +194,29 @@ function renderSettingsToggles(host: HTMLElement): void {
     ...rows.map(([key, icon, label]) => {
       const row = document.createElement("div");
       row.className = "toggle-row";
-      row.innerHTML = `<span>${icon} ${label}</span>`;
-      const seg = document.createElement("div");
-      seg.className = "seg";
-      for (const on of [false, true]) {
-        const b = document.createElement("button");
-        b.textContent = on ? "An" : "Aus";
-        if (settings[key] === on) {
-          b.classList.add("on");
-          if (!on) b.classList.add("off-on");
-        }
-        b.addEventListener("click", () => {
-          if (settings[key] === on) return;
-          settings = { ...settings, [key]: on };
-          saveSettings(settings);
-          renderSettingsToggles(host);
-          // hörbare/fühlbare Bestätigung genau dann, wenn etwas *angeht*
-          if (on && key === "sound") sfx.toggleOn();
-          if (on && key === "haptics") sfx.vibrate(20);
-        });
-        seg.append(b);
-      }
-      row.append(seg);
+      const span = document.createElement("span");
+      span.textContent = `${icon} ${label}`;
+
+      // Ein Schiebeschalter, der *im Platz* umschaltet — nicht neu gebaut wird.
+      // Sonst startet das neue Element schon im Endzustand und die CSS-Transition
+      // (Knopf gleitet, Farbe wechselt rot↔grün) läuft nie.
+      const sw = document.createElement("button");
+      sw.className = "switch";
+      sw.type = "button";
+      sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-label", label);
+      sw.setAttribute("aria-checked", String(settings[key]));
+      sw.addEventListener("click", () => {
+        const next = !settings[key];
+        settings = { ...settings, [key]: next };
+        sw.setAttribute("aria-checked", String(next));
+        saveSettings(settings);
+        // hörbare/fühlbare Bestätigung genau dann, wenn etwas *angeht*
+        if (next && key === "sound") sfx.toggleOn();
+        if (next && key === "haptics") sfx.vibrate(20);
+      });
+
+      row.append(span, sw);
       return row;
     }),
   );
