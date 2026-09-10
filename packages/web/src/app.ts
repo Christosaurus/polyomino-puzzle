@@ -197,26 +197,32 @@ function renderSettingsToggles(host: HTMLElement): void {
       const span = document.createElement("span");
       span.textContent = `${icon} ${label}`;
 
-      // Ein Schiebeschalter, der *im Platz* umschaltet — nicht neu gebaut wird.
-      // Sonst startet das neue Element schon im Endzustand und die CSS-Transition
-      // (Knopf gleitet, Farbe wechselt rot↔grün) läuft nie.
-      const sw = document.createElement("button");
-      sw.className = "switch";
-      sw.type = "button";
-      sw.setAttribute("role", "switch");
-      sw.setAttribute("aria-label", label);
-      sw.setAttribute("aria-checked", String(settings[key]));
-      sw.addEventListener("click", () => {
-        const next = !settings[key];
-        settings = { ...settings, [key]: next };
-        sw.setAttribute("aria-checked", String(next));
-        saveSettings(settings);
-        // hörbare/fühlbare Bestätigung genau dann, wenn etwas *angeht*
-        if (next && key === "sound") sfx.toggleOn();
-        if (next && key === "haptics") sfx.vibrate(20);
-      });
+      // „Aus | An" wie früher — aber der Schalter wird *im Platz* umgestellt
+      // (data-on + .active), nicht neu gebaut. Sonst startet das Element schon
+      // im Endzustand und die CSS-Transition (Knopf gleitet) läuft nie.
+      const seg = document.createElement("div");
+      seg.className = "seg";
+      seg.dataset.on = String(settings[key]);
+      const mk = (on: boolean, txt: string): HTMLButtonElement => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = txt;
+        b.classList.toggle("active", settings[key] === on);
+        b.addEventListener("click", () => {
+          if (settings[key] === on) return;
+          settings = { ...settings, [key]: on };
+          seg.dataset.on = String(on);
+          for (const btn of Array.from(seg.children)) btn.classList.toggle("active", btn === b);
+          saveSettings(settings);
+          // hörbare/fühlbare Bestätigung genau dann, wenn etwas *angeht*
+          if (on && key === "sound") sfx.toggleOn();
+          if (on && key === "haptics") sfx.vibrate(20);
+        });
+        return b;
+      };
+      seg.append(mk(false, "Aus"), mk(true, "An"));
 
-      row.append(span, sw);
+      row.append(span, seg);
       return row;
     }),
   );
