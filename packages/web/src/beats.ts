@@ -5,24 +5,18 @@
  * gelöste Kampagnen-Fenster steigt — die Nebenmodi zählen nicht mehr rein. Eine
  * Szene ist 2–4 Zeilen, überspringbar, danach in der Sammlung nachlesbar.
  *
- *   Intro (beim ersten Start):  das Tal machte sein Licht selbst und fasste es in
- *                          Glas; in einer Nacht zersprang jedes Fenster; ein
- *                          „Sammler" greift das Licht ab, bevor es zurück ins
- *                          Glas kann; Mira findet dich — du bist Glaser, setz
- *                          die Scheiben, hol das Tal zurück.
- *   Akt I  — Der Garten:   das erste erhellte Fenster; die Scherben werden
- *                          weniger, und nicht durch euch — der Sammler hat eine
- *                          Richtung.
- *   Akt II — Die Werkstatt: (Freischalt-Szene) Anselms Werkstatt. Die Fenster
- *                          wurden von Hand zerlegt, nicht zerschlagen. Sein
- *                          Zettel. Wendung: der Sammler ist Anselm.
- *   Akt III — Der Farbhof:  (Freischalt-Szene) der riesige halbfertige Bogen.
- *                          Lys ging als Durchgang hinein und kam nie heraus.
- *                          Das Warum: Anselm hat die Nacht selbst gemacht, um
- *                          genug Licht für diesen einen Bogen zu haben.
- *   Finale — Das letzte Fenster: ihr setzt die letzte Scheibe zusammen. Statt
- *                          den Durchgang zu öffnen, lässt Anselm das Licht zurück
- *                          ins Tal — und lässt los.
+ *   Intro (beim ersten Start, 5 Szenen mit gemaltem Hintergrund):
+ *                          das Glimmertal machte sein Licht selbst und fasste es
+ *                          in Glas; eine Nacht, ein Zauber, jedes Fenster
+ *                          zersprang; Monate Dunkelheit, die Leute verbittert;
+ *                          Mira holt dich (Glaser); Umbra benennt sich selbst
+ *                          und droht.
+ *
+ *   Akt I–III + Finale: NOCH AUF DEM ALTEN STAND („der Sammler ist Anselm",
+ *                          Lys). Nach der Umbra-Kehre (Entscheidung A) müssen
+ *                          diese Beats neu geschrieben werden: Umbra ist der
+ *                          Gegner von Anfang an, Anselm wird der verschwundene
+ *                          gute Meister, den Umbra „heraufgezogen" hat.
  */
 
 export interface Beat {
@@ -31,41 +25,56 @@ export interface Beat {
   atPanes: number;
   /** Kurztitel für die „Erinnerungen"-Liste. */
   title: string;
-  speaker: "mira" | "anselm" | "welt" | "gestalt";
+  speaker: "mira" | "anselm" | "welt" | "umbra";
   lines: string[];
+  /** Gemaltes Hintergrundbild unter der Sprechblase (Datei in `public/bg/`). */
+  bg?: string;
 }
 
 /** Sprecher → Portrait-Datei + Notfall-Emoji, wenn das Bild noch fehlt. */
 export const SPEAKERS: Record<Beat["speaker"], { name: string; img: string; emoji: string }> = {
   mira: { name: "Mira", img: "ui/chars/mira.webp", emoji: "🏮" },
   anselm: { name: "Meister Anselm", img: "ui/chars/anselm.webp", emoji: "🕯" },
-  gestalt: { name: "", img: "ui/chars/gestalt.webp", emoji: "◆" },
+  umbra: { name: "Umbra", img: "ui/chars/umbra.webp", emoji: "◆" },
   welt: { name: "", img: "", emoji: "✦" },
 };
 
-/** Die drei Intro-Szenen — laufen einmal beim allerersten Start, vor Fenster 1. */
+/** Die Intro-Sequenz — läuft einmal beim allerersten Start, vor Fenster 1. */
 export const INTRO: Beat[] = [
+  {
+    id: "intro-tal",
+    atPanes: 0,
+    title: "Das Glimmertal",
+    speaker: "welt",
+    bg: "bg/intro-1-tal.webp",
+    lines: [
+      "Im Glimmertal hat man das Licht nie gesucht — man hat es gemacht.",
+      "Die Glaser fingen es in ihren Scheiben ein und setzten es in die Fenster.",
+      "So trug jedes Haus seine eigene kleine Sonne, und abends leuchtete das ganze Tal von innen heraus.",
+    ],
+  },
   {
     id: "intro-nacht",
     atPanes: 0,
     title: "Die Nacht",
     speaker: "welt",
+    bg: "bg/intro-2-sturm.webp",
     lines: [
-      "Im Tal hat man das Licht nicht gefunden. Man hat es gemacht — und in Glas gefasst.",
-      "Jedes Fenster ein kleiner Speicher. Jedes Haus eine Laterne, von innen heraus hell.",
-      "Dann zersprang in einer einzigen Nacht jedes Fenster im Tal. Das Licht lief aus und sickerte in den Boden.",
-      "Seither ist es dunkel.",
+      "Dann kam die eine Nacht.",
+      "Zur selben Stunde zersprang in jedem Haus das Glas. Das Licht lief heraus und versickerte im Boden.",
+      "Bis zum Morgen war das Tal schwarz — und wer diese Nacht heraufbeschworen hatte, war längst in den Bergen verschwunden.",
     ],
   },
   {
-    id: "intro-gestalt",
+    id: "intro-schatten",
     atPanes: 0,
-    title: "Der Sammler",
-    speaker: "gestalt",
+    title: "Im Schatten",
+    speaker: "welt",
+    bg: "bg/intro-3-schatten.webp",
     lines: [
-      "Das Licht im Boden ist nicht verloren. Man kann es zurück ins Glas holen — Scherbe für Scherbe, Fenster für Fenster.",
-      "Aber einer ist schneller. Er greift das Licht ab, bevor es jemand fassen kann.",
-      "Gesehen hat ihn niemand. Man kennt ihn nur an dem, was er zurücklässt: Ruß, Eis, Risse im Glas.",
+      "Das ist Monate her. Das Glimmertal liegt immer noch im Schatten.",
+      "Die Menschen haben gelernt, im Dunkeln zu leben. Sie sind still geworden dabei, und bitter.",
+      "Keiner spricht mehr davon, dass es einmal anders war — keiner bis auf eine. Und heute Nacht klopft sie an deine Tür.",
     ],
   },
   {
@@ -73,10 +82,23 @@ export const INTRO: Beat[] = [
     atPanes: 0,
     title: "Der Auftrag",
     speaker: "mira",
+    bg: "bg/intro-4-garten.webp",
     lines: [
-      "Da bist du. An einem kaputten Fenster, wo sonst — du bist Glaser. Die Hände wissen's noch, auch wenn der Kopf gerade streikt.",
-      "So läuft's: Scheiben zuschneiden, sauber in den Rahmen setzen, bis er voll ist. Dann fängt das Fenster das Licht wieder ein.",
-      "Ein Fenster nach dem anderen. Wir holen das Tal zurück, bevor der Sammler es leerräumt. Fang mit dem hier an.",
+      "Du bist also der Glaser, von dem sie reden. Der, der die ganze Nacht verschlafen hat. … Ja. Sieht man.",
+      "Ich bin Mira. Ich trage das Licht durch die Gegend, ich kenne jedes kaputte Fenster im Tal, und ich habe keine Geduld. Von den dreien helfen dir zwei.",
+      "Die Scherben liegen noch da, wo sie runtergefallen sind. Wir setzen sie wieder zusammen — ein Fenster nach dem anderen — bis das Tal wieder leuchtet. Fangen wir mit dem hier an.",
+    ],
+  },
+  {
+    id: "intro-umbra",
+    atPanes: 0,
+    title: "Umbra",
+    speaker: "umbra",
+    bg: "bg/intro-5-umbra.webp",
+    lines: [
+      "Da unten wird ein Fenster wieder hell. … Wie rührend.",
+      "Sie nennen mich Umbra. Den Namen solltest du dir merken.",
+      "Ich habe diesem Tal das Licht genommen, und ich nehme es jedes Mal aufs Neue. Setz ruhig deine Scheiben, Glaser — jede bringt dich ein Stück näher zu mir herauf.",
     ],
   },
 ];

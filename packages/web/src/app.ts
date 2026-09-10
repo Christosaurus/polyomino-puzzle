@@ -648,7 +648,7 @@ function winStarBurst(intensity = 1): void {
   winfxRaf = requestAnimationFrame(step);
 }
 
-const CHAR_EMOJI: Record<string, string> = { mira: "🏮", anselm: "🕯", gestalt: "◆" };
+const CHAR_EMOJI: Record<string, string> = { mira: "🏮", anselm: "🕯", umbra: "◆" };
 
 /** Charakter-Portrait — das gemalte Bild, solange es da ist, sonst ein Emoji. */
 function paintChar(host: HTMLElement, speaker: string): void {
@@ -761,6 +761,13 @@ function playCutscene(beat: Beat, done: () => void): void {
   const sp = SPEAKERS[beat.speaker];
   const scene = $("cutscene");
   scene.dataset.speaker = beat.speaker;
+  // gemalter Hintergrund pro Beat (Intro); sonst der CSS-Verlauf
+  const sceneEl = $("cs-scene");
+  sceneEl.style.backgroundImage = beat.bg ? `url("${beat.bg}")` : "";
+  sceneEl.classList.toggle("has-bg", !!beat.bg);
+  sceneEl.classList.remove("fade");
+  void sceneEl.offsetWidth; // Reflow → Fade-Animation neu starten
+  sceneEl.classList.add("fade");
   const portrait = $("cs-portrait");
   if (sp.img) {
     const img = document.createElement("img");
