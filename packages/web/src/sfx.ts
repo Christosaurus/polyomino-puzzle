@@ -1,29 +1,27 @@
 /**
- * Kleine synthetisierte Soundeffekte — keine Dateien. Der AudioContext wird
- * erst bei der ersten Nutzung erzeugt (Autoplay braucht eine Geste) und macht
- * still nichts, wenn WebAudio fehlt oder der Ton aus ist.
+ * Kleine synthetisierte Soundeffekte — keine Dateien. Läuft über den geteilten
+ * AudioContext aus `audio-core.ts` (der das Freischalten auf Mobilgeräten
+ * erledigt) und macht still nichts, wenn WebAudio fehlt oder der Ton aus ist.
  */
 
-let ctx: AudioContext | null = null;
+import { audioCtx } from "./audio-core.js";
+
 let muted = false;
 let haptics = true;
 let bus: GainNode | null = null;
+let busCtx: AudioContext | null = null;
 
 function audio(): AudioContext | null {
   if (muted) return null;
-  if (!ctx) {
-    try {
-      ctx = new (window.AudioContext ??
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      bus = ctx.createGain();
-      bus.gain.value = 0.9;
-      bus.connect(ctx.destination);
-    } catch {
-      return null;
-    }
+  const ac = audioCtx();
+  if (!ac) return null;
+  if (busCtx !== ac) {
+    busCtx = ac;
+    bus = ac.createGain();
+    bus.gain.value = 0.9;
+    bus.connect(ac.destination);
   }
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
+  return ac;
 }
 
 /** Ein Ton mit weicher Attack + exponentiellem Ausklang. */

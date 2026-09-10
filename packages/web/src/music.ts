@@ -12,10 +12,12 @@
  *   play    — fließender, ein Puls dazu. Konzentration.
  *   cascade — treibend, Kick + Hi-Hat. Arcade.
  *
- * Autoplay: ein AudioContext darf erst nach einer Nutzergeste laufen. Ein
- * `playMusic()` davor merkt sich nur den Wunsch; die erste Geste löst ihn ein.
- * Der „Musik"-Schalter blendet sanft aus/ein statt hart zu schneiden.
+ * Autoplay: ein AudioContext darf erst nach einer Nutzergeste laufen. Das
+ * Freischalten macht `audio-core.ts`; hier wird nur der gemerkte Wunsch
+ * gespielt, sobald es so weit ist. Der „Musik"-Schalter blendet sanft aus/ein.
  */
+
+import { audioCtx, audioUnlocked, onAudioUnlock } from "./audio-core.js";
 
 export type TrackId = "menu" | "play" | "cascade";
 
@@ -58,20 +60,10 @@ let padChordAt = -1; // bei welchem Takt zuletzt ein Pad-Akkord gelegt wurde
 
 function build(): AudioContext | null {
   if (!enabled) return null;
-  if (ac) {
-    // Auf Mobil (iOS/Android) startet der Context „suspended" und darf nur in
-    // einer Nutzergeste weiter — jeder Aufruf versucht darum erneut zu resümen.
-    if (ac.state === "suspended") void ac.resume();
-    return ac;
-  }
-  try {
-    ac = new (window.AudioContext ??
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-  } catch {
-    return null;
-  }
-  // frisch erzeugt ist er auf dem Handy ebenfalls „suspended" — sofort resümen
-  if (ac.state === "suspended") void ac.resume();
+  const c = audioCtx();
+  if (!c) return null;
+  if (c === ac && master) return ac;
+  ac = c;
   master = ac.createGain();
   master.gain.value = MASTER;
   duckGain = ac.createGain();
@@ -241,9 +233,9 @@ function stopClock(): void {
 export function playMusic(id: TrackId): void {
   wanted = id;
   current = id;
-  if (!enabled) return;
+  if (!enabled || !audioUnlocked()) return; // Wunsch gemerkt — onAudioUnlock spielt ihn
   const a = build();
-  if (!a) return; // noch keine Geste — der Wunsch ist gemerkt
+  if (!a) return;
   if (master) {
     master.gain.cancelScheduledValues(a.currentTime);
     master.gain.setValueAtTime(master.gain.value, a.currentTime);
@@ -294,16 +286,10 @@ export function setMusicEnabled(value: boolean): void {
   }
 }
 
-// Erste Nutzergeste: AudioContext freischalten und den gemerkten Wunsch spielen.
-function unlock(): void {
-  window.removeEventListener("pointerdown", unlock);
-  window.removeEventListener("keydown", unlock);
-  window.removeEventListener("touchstart", unlock);
+// Sobald Audio freigeschaltet ist (erste Geste): den gemerkten Wunsch spielen.
+onAudioUnlock(() => {
   if (enabled && wanted) playMusic(wanted);
-}
-window.addEventListener("pointerdown", unlock, { once: true });
-window.addEventListener("keydown", unlock, { once: true });
-window.addEventListener("touchstart", unlock, { once: true });
+});
 
 // Im Hintergrund pausieren, beim Zurückkommen weiter.
 document.addEventListener("visibilitychange", () => {
