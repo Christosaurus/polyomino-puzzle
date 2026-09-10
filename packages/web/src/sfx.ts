@@ -125,6 +125,11 @@ export const sfx = {
   tap(): void {
     tone(560, 28, "sine", 0.03);
   },
+  /** Bestätigung beim Einschalten des Tons — kurzes aufsteigendes Blip. */
+  toggleOn(): void {
+    tone(523.25, 90, "sine", 0.05);
+    tone(783.99, 140, "sine", 0.045, 70);
+  },
 
   setMuted(value: boolean): void {
     muted = value;

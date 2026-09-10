@@ -1,57 +1,50 @@
-# Audio — Stand & was noch fehlt
+# Audio — Stand
 
-## Soundeffekte — **sind drin**
+## Soundeffekte — **synthetisiert, drin**
 
-`packages/web/src/sfx.ts` synthetisiert die SFX über WebAudio (keine Dateien):
-`pickUp` (Teil greifen), `place` (Teil legen), `invalid` (geht nicht),
-`win` (gelöst). Verdrahtet in `view.ts` / `cascade-view.ts`. Der „Ton"-Schalter
-schaltet sie stumm.
+`packages/web/src/sfx.ts` erzeugt alle SFX über WebAudio (keine Dateien):
+`pickUp`, `place`, `invalid`, `rowClear(n)`, `streak`, `win(tier)`, `milestone`,
+`fail`, `tap`, `toggleOn`. Verdrahtet in `view.ts` / `cascade-view.ts` / `app.ts`.
+Der „Ton"-Schalter in den Einstellungen schaltet sie stumm; beim Einschalten
+bestätigt ein kurzes `toggleOn`-Blip, dass der Ton wieder an ist.
 
-Die Synth-Bleeps sind funktional, aber schlicht. Wenn's saftiger werden soll:
-kurze Samples (je < 30 KB) in `public/audio/` legen und `sfx.ts` so umbauen,
-dass es die Datei nimmt, sonst den Synth als Fallback. Nicht dringend.
+Wenn's mal saftiger werden soll: kurze Samples (je < 30 KB) in `public/audio/`
+legen und `sfx.ts` so umbauen, dass es die Datei nimmt, sonst den Synth als
+Fallback. Nicht dringend.
 
-## Musik — **System ist da, Tracks fehlen**
+## Musik — **generativ, drin, keine Dateien**
 
-`packages/web/src/music.ts` ist gebaut: ein Loop pro Kontext mit Crossfade,
-„Ducking" (leiser während Cutscenes), pausiert im Hintergrund, startet erst nach
-der ersten Nutzergeste (Autoplay-Politik). Verdrahtet:
+`packages/web/src/music.ts` ist ein kleiner generativer Loop, komplett
+synthetisiert — also von Haus aus lizenzfrei, kein Asset-Bedarf:
 
-| Kontext | Track | wann |
+- **Harmonik:** endlose Am–F–C–G-Folge (die „poppige", zieht-immer-Progression),
+  warmes Saw+Sine-Pad, leicht tiefpassgefiltert.
+- **Melodie:** Glöckchen-Arp aus der A-Moll-Pentatonik, Oktave und Timing streuen
+  leicht → nichts wiederholt sich hörbar exakt. Feedback-Delay für Tiefe.
+- **Bass:** weicher Grundton, Dichte steigt mit der Energie.
+- **Rhythmus:** ab `play` ein weicher Puls, ab `cascade` Kick + Offbeat-Hi-Hat.
+
+Die drei „Tracks" sind nur drei Energie-Stufen derselben Musik; `music.ts`
+gleitet sanft zwischen ihnen:
+
+| Kontext | Energie | wann |
 |---|---|---|
-| `menu` | `public/music/menu.mp3` | Start, Täglich, Abstieg-Screen, Kaskade-Screen, Sammlung |
-| `play` | `public/music/play.mp3` | Kampagnen-Fenster, Tagesfenster, Abstieg |
-| `cascade` | `public/music/cascade.mp3` | Kaskade-Runde |
+| `menu` | ruhig, sparsam | Start, Täglich, Abstieg-/Kaskade-Screen, Sammlung |
+| `play` | fließend, Puls | Kampagnen-Fenster, Tagesfenster, Abstieg |
+| `cascade` | treibend, Beat | Kaskade-Runde |
 
-**Fehlt nur:** die drei MP3s. Solange sie nicht da sind, passiert nichts
-(kein 404-Krach, `music.ts` verschluckt das).
+- Startet erst nach der ersten Nutzergeste (Autoplay-Politik).
+- „Ducking" (leiser) während Cutscenes/Dialogszenen.
+- Pausiert im Hintergrund (`visibilitychange`), läuft beim Zurückkommen weiter.
+- Der „Musik"-Schalter blendet **sanft** aus/ein (kein harter Schnitt) und
+  suspendiert den AudioContext, wenn aus.
+- Master-Lautstärke 0,22 (unter den SFX).
 
-### Was die Tracks brauchen
+### Falls doch mal echte Tracks gewünscht sind
 
-- **Format:** MP3, ~128 kbps, Mono oder Stereo. (MP3 läuft überall inkl.
-  iOS-Safari; ~1–1,5 MB pro 90-s-Loop, wird gecacht.)
-- **Nahtloser Loop** — Anfang und Ende müssen sauber ineinander übergehen
-  (im Editor auf Null-Durchgang schneiden, kein Reverb-Tail am Ende).
-- **Länge:** 60–120 s reicht, es loopt ja.
-- **Lautstärke:** eher leise abmischen — die Master-Lautstärke steht auf 0,32,
-  aber der Track selbst sollte nicht schon heiß sein.
-
-### Stimmung (passend zu `KONZEPT-lumen.md` / der Talkarte)
-
-- **menu** — ruhig, warm, ein bisschen wehmütig. Musikuhr / Spieldose,
-  weiche Pads, sparsam. „Ein Tal, das auf sein Licht wartet." Kein Beat.
-- **play** — konzentriert, unaufdringlich. Leichter Puls, damit man im Fluss
-  bleibt, aber nichts, was vom Nachdenken ablenkt. Marimba/Harfe/Glas.
-- **cascade** — treibend, 2½ Minuten Energie. Deutlicher Beat, steigt subtil an.
-  Das ist der einzige Track, der „zieht".
-
-### Quellen
-
-CC0 / lizenzfrei: [freesound.org](https://freesound.org) (Filter „Creative
-Commons 0"), [Pixabay Music](https://pixabay.com/music/), [incompetech.com]
-(Kevin MacLeod, CC-BY — Namensnennung nötig). Oder ein kleiner Loop-Pack aus
-einem Asset-Store. Beim Namensnennungs-Zwang: Credits-Zeile in die Sammlung /
-ein „Über"-Screen.
-
-Schick die drei MP3s, dann lege ich sie in `public/music/` — der Rest läuft
-von selbst.
+MP3 (~128 kbps), nahtloser Loop (auf Null-Durchgang geschnitten, kein
+Reverb-Tail), 60–120 s. Dann `music.ts` wieder auf `fetch`+`decodeAudioData`
+umstellen (die alte dateibasierte Fassung steht in der Git-Historie) und die
+Dateien in `public/music/` legen. Quellen für CC0: pixabay.com/music,
+freesound.org (Filter „Creative Commons 0"). Aktuell **nicht nötig** — der
+Generator trägt.

@@ -205,9 +205,13 @@ function renderSettingsToggles(host: HTMLElement): void {
           if (!on) b.classList.add("off-on");
         }
         b.addEventListener("click", () => {
+          if (settings[key] === on) return;
           settings = { ...settings, [key]: on };
           saveSettings(settings);
           renderSettingsToggles(host);
+          // hörbare/fühlbare Bestätigung genau dann, wenn etwas *angeht*
+          if (on && key === "sound") sfx.toggleOn();
+          if (on && key === "haptics") sfx.vibrate(20);
         });
         seg.append(b);
       }
