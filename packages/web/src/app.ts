@@ -679,7 +679,7 @@ function maybeShowPeek(): void {
   if (peekShownThisSession || pendingBeat || !$("cutscene").hidden) return;
   const s = store.load();
   const seen = new Set(store.beatsSeen());
-  if (!seen.has("intro-mira")) return; // Intro läuft/lief noch nicht durch
+  if (!INTRO.every((b) => seen.has(b.id))) return; // Intro läuft/lief noch nicht komplett durch
   if (homeReturns < 2) return; // nicht gleich beim ersten Aufschlagen
   const solvedAll = regions.every((r) => regionCleared(r) >= r.levels.length);
   // die am weitesten freigeschaltete Region — daran hängt die Story-Stimmung

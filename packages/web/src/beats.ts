@@ -39,10 +39,19 @@ export const SPEAKERS: Record<Beat["speaker"], { name: string; img: string; emoj
   welt: { name: "", img: "", emoji: "✦" },
 };
 
-/** Die Intro-Sequenz — läuft einmal beim allerersten Start, vor Fenster 1. */
+/**
+ * Die Intro-Sequenz — läuft einmal beim allerersten Start, vor Fenster 1.
+ *
+ * IDs bewusst frisch (`intro2-…`) und nicht die alten `intro-nacht` /
+ * `intro-mira` wiederverwendet: Spielstände von vor diesem Rewrite hatten die
+ * alten IDs schon als „gesehen" markiert, wodurch die gleichnamigen neuen
+ * Beats (Sturm, Mira) beim Laden still übersprungen wurden, obwohl Text und
+ * Bild ganz anders sind. Neue IDs garantieren, dass jeder die neue Sequenz
+ * einmal vollständig sieht.
+ */
 export const INTRO: Beat[] = [
   {
-    id: "intro-tal",
+    id: "intro2-tal",
     atPanes: 0,
     title: "Das Glimmertal",
     speaker: "welt",
@@ -54,7 +63,7 @@ export const INTRO: Beat[] = [
     ],
   },
   {
-    id: "intro-nacht",
+    id: "intro2-sturm",
     atPanes: 0,
     title: "Die Nacht",
     speaker: "welt",
@@ -66,7 +75,7 @@ export const INTRO: Beat[] = [
     ],
   },
   {
-    id: "intro-schatten",
+    id: "intro2-schatten",
     atPanes: 0,
     title: "Im Schatten",
     speaker: "welt",
@@ -78,7 +87,7 @@ export const INTRO: Beat[] = [
     ],
   },
   {
-    id: "intro-mira",
+    id: "intro2-mira",
     atPanes: 0,
     title: "Der Auftrag",
     speaker: "mira",
@@ -90,7 +99,7 @@ export const INTRO: Beat[] = [
     ],
   },
   {
-    id: "intro-umbra",
+    id: "intro2-umbra",
     atPanes: 0,
     title: "Umbra",
     speaker: "umbra",
