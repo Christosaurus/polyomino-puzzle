@@ -745,19 +745,38 @@ function throughBeat(next: () => void): () => void {
   };
 }
 
-/** Spielt mehrere Beats hintereinander (für die Intro-Sequenz). */
+/**
+ * Spielt mehrere Beats hintereinander (für die Intro-Sequenz). Die Bühne
+ * (`#cutscene`, das dunkle Overlay) bleibt zwischen den Beats durchgehend
+ * offen — nur das Bild/Portrait/der Text wechseln. Würde sie zwischen jedem
+ * Beat kurz geschlossen und neu geöffnet, spielt ihre Öffnen-Animation
+ * (`opacity 0 → 1`) jedes Mal neu ab, und für diese ~0,2 s blitzt der Screen
+ * dahinter (Startbildschirm) sichtbar durch.
+ */
 function playSequence(beats: Beat[], done: () => void): void {
   const rest = beats.slice();
+  let opened = false;
   const next = (): void => {
     const b = rest.shift();
     if (!b) return done();
-    playCutscene(b, next);
+    playCutscene(b, next, { alreadyOpen: opened, keepOpenAfter: rest.length > 0 });
+    opened = true;
   };
   next();
 }
 
-/** Spielt einen Beat als DOM-Cutscene, Zeile für Zeile, dann `done()`. */
-function playCutscene(beat: Beat, done: () => void): void {
+/**
+ * Spielt einen Beat als DOM-Cutscene, Zeile für Zeile, dann `done()`.
+ * `alreadyOpen`: die Bühne steht schon (Kette aus `playSequence`) — nicht
+ * nochmal ein-/ausblenden. `keepOpenAfter`: nach diesem Beat folgt sofort der
+ * nächste — beim Fertigwerden nicht schließen.
+ */
+function playCutscene(
+  beat: Beat,
+  done: () => void,
+  opts: { alreadyOpen?: boolean; keepOpenAfter?: boolean } = {},
+): void {
+  const { alreadyOpen = false, keepOpenAfter = false } = opts;
   const sp = SPEAKERS[beat.speaker];
   const scene = $("cutscene");
   scene.dataset.speaker = beat.speaker;
@@ -783,10 +802,12 @@ function playCutscene(beat: Beat, done: () => void): void {
   }
   $("cs-name").textContent = sp.name;
 
-  hideOverlay();
-  duckMusic(true); // während der Szene ist die Musik im Hintergrund
-  scene.hidden = false;
-  scene.classList.add("show");
+  if (!alreadyOpen) {
+    hideOverlay();
+    duckMusic(true); // während der Szene ist die Musik im Hintergrund
+    scene.hidden = false;
+    scene.classList.add("show");
+  }
 
   let line = 0;
   let typing = false;
@@ -829,11 +850,13 @@ function playCutscene(beat: Beat, done: () => void): void {
 
   const finish = (): void => {
     window.clearTimeout(typeT); // sonst tippt die letzte Zeile in die nächste Szene
-    scene.classList.remove("show");
-    scene.hidden = true;
+    if (!keepOpenAfter) {
+      scene.classList.remove("show");
+      scene.hidden = true;
+      duckMusic(false);
+    }
     scene.removeEventListener("click", onClick);
     $("cs-skip").removeEventListener("click", onSkip);
-    duckMusic(false);
     store.markBeatSeen(beat.id);
     done();
   };
