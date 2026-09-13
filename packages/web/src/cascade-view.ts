@@ -364,21 +364,45 @@ export class CascadeView {
     }
   }
 
-  /** Kleines, billiges Staubwölkchen beim Platzieren — ein paar weiche Kreise. */
-  private spawnDust(cx: number, cy: number, cell: number): void {
-    const n = 5;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
-      const sp = 16 + Math.random() * 24;
-      this.dust.push({
-        x: cx,
-        y: cy,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 8,
-        t: 0,
-        max: 0.3 + Math.random() * 0.16,
-        r: cell * (0.13 + Math.random() * 0.09),
-      });
+  /**
+   * Staub beim Platzieren — nicht ein Wölkchen an einem Punkt, sondern ein
+   * dünner Splash rings um die ganze Form, der von hinten hervorkommt: wird
+   * *vor* dem Teil gezeichnet, sodass das Teil selbst die Mitte der Wolke
+   * verdeckt und nur der nach außen gespritzte Rand darunter hervorschaut —
+   * wie eine staubige Figur, die hinfällt. Sehr dezent (klein, kurzlebig,
+   * niedrige Deckkraft), nur für den kleinen 3D-Eindruck.
+   */
+  private spawnDust(cellsAbs: ReadonlyArray<readonly [number, number]>, L: Layout): void {
+    let cr = 0;
+    let cc = 0;
+    for (const [r, c] of cellsAbs) {
+      cr += r;
+      cc += c;
+    }
+    cr /= cellsAbs.length;
+    cc /= cellsAbs.length;
+    const cx = L.boardX + (cc + 0.5) * L.cell;
+    const cy = L.boardY + (cr + 0.5) * L.cell;
+    for (const [r, c] of cellsAbs) {
+      const x = L.boardX + (c + 0.5) * L.cell;
+      const y = L.boardY + (r + 0.5) * L.cell;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const baseAng = Math.atan2(dy, dx);
+      for (let i = 0; i < 2; i++) {
+        const a = baseAng + (Math.random() - 0.5) * 1.1;
+        const sp = 12 + Math.random() * 16 + Math.min(20, dist * 0.15);
+        this.dust.push({
+          x: x + (Math.random() - 0.5) * L.cell * 0.35,
+          y: y + (Math.random() - 0.5) * L.cell * 0.35,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp * 0.5 + 10, // sackt eher ab, statt hochzupuffen — "fällt"
+          t: 0,
+          max: 0.24 + Math.random() * 0.14,
+          r: L.cell * (0.09 + Math.random() * 0.05),
+        });
+      }
     }
   }
 
@@ -479,6 +503,22 @@ export class CascadeView {
       ctx.restore();
     }
 
+    // Staub *zuerst* — das Teil wird direkt danach obendrauf gezeichnet und
+    // verdeckt die Mitte der Wolke, nur der nach außen gespritzte Rand schaut
+    // unter der Form hervor. Billig: einfache Alpha-Kreise, kein Glow.
+    if (this.dust.length) {
+      ctx.save();
+      ctx.fillStyle = "#e9e4ff";
+      for (const d of this.dust) {
+        const k = 1 - d.t / d.max;
+        ctx.globalAlpha = Math.max(0, k) * 0.32;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r * (1 + (1 - k) * 0.7), 0, 6.28);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // filled cells — the just-placed piece gets a quick pop
     for (let r = 0; r < this.game.rows; r++) {
       for (let c = 0; c < this.game.cols; c++) {
@@ -492,21 +532,6 @@ export class CascadeView {
           drawPieceBody(ctx, [[r, c]], L.boardX, L.boardY, L.cell, shardByColorIndex(v).color, opts);
         }
       }
-    }
-
-    // winziges Staubwölkchen beim Platzieren — billig: einfache Alpha-Kreise,
-    // kein Glow, keine "lighter"-Kompositierung
-    if (this.dust.length) {
-      ctx.save();
-      ctx.fillStyle = "#e9e4ff";
-      for (const d of this.dust) {
-        const k = 1 - d.t / d.max;
-        ctx.globalAlpha = Math.max(0, k) * 0.35;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.r * (1 + (1 - k) * 0.7), 0, 6.28);
-        ctx.fill();
-      }
-      ctx.restore();
     }
 
     // a cleared row: a bright bar sweeping outward, then it's gone
@@ -804,19 +829,11 @@ export class CascadeView {
         sfx.place();
         sfx.vibrate(8);
         this.placePop = { r: snap.row, c: snap.col, t: 0 };
-        // winziges Staubwölkchen am Landepunkt — billig, aber es "satisfied"
-        const cells = this.game.cells(d.shard);
-        let sr = 0;
-        let sc = 0;
-        for (const [dr, dc] of cells) {
-          sr += snap.row + dr;
-          sc += snap.col + dc;
-        }
-        this.spawnDust(
-          L.boardX + (sc / cells.length + 0.5) * L.cell,
-          L.boardY + (sr / cells.length + 0.5) * L.cell,
-          L.cell,
-        );
+        // Staub rings um die ganze Form, nicht nur an einem Punkt
+        const cellsAbs = this.game
+          .cells(d.shard)
+          .map(([dr, dc]) => [snap.row + dr, snap.col + dc] as [number, number]);
+        this.spawnDust(cellsAbs, L);
         // the burst / flash / "+N" pop are spawned in step() via consumeFreshClear
         return;
       }
