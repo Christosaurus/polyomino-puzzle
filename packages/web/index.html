@@ -1103,7 +1103,7 @@
       /* sits in a reserved band ABOVE the board (see #k-wrap.has-challenge) so
          it never covers a playable row */
       #k-wrap.has-challenge {
-        padding-top: 46px;
+        padding-top: 58px;
       }
       .challenge {
         position: absolute;
@@ -1112,8 +1112,8 @@
         right: 6px;
         z-index: 3;
         display: flex;
-        align-items: center;
-        gap: 8px;
+        flex-direction: column;
+        gap: 6px;
         padding: 7px 12px;
         border-radius: 12px;
         background: linear-gradient(180deg, rgb(58, 43, 158), rgb(36, 26, 102));
@@ -1123,6 +1123,46 @@
         line-height: 1.15;
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
         animation: chal-in 0.3s var(--tap) both;
+      }
+      .chal-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      /* Countdown-Leiste: läuft normal ab, die laufende Spitze glüht hell —
+         mehr Druckgefühl als die reine Zahl */
+      .chal-bar {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.35);
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      .chal-fill {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--gold-lo), var(--gold));
+        transition: width 0.2s linear;
+      }
+      .chal-fill::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #fff8e0;
+        transform: translateY(-50%);
+        box-shadow: 0 0 10px 4px rgba(255, 224, 130, 0.95), 0 0 3px 1px #fff;
+      }
+      .chal-fill.low {
+        background: linear-gradient(90deg, var(--stop-lo), var(--stop));
+      }
+      .chal-fill.low::after {
+        background: #ffe9e9;
+        box-shadow: 0 0 10px 4px rgba(255, 91, 106, 0.9), 0 0 3px 1px #fff;
       }
       @keyframes chal-in {
         from {
@@ -1170,6 +1210,48 @@
       }
       .challenge.won .cclock {
         color: var(--go);
+      }
+      .challenge.won .chal-fill {
+        background: linear-gradient(90deg, var(--go-lo), var(--go));
+      }
+      .challenge.won .chal-fill::after {
+        background: #eafff0;
+        box-shadow: 0 0 10px 4px rgba(102, 224, 95, 0.9), 0 0 3px 1px #fff;
+      }
+      /* Serie: solange sie läuft, ein flackerndes, wackelndes Abzeichen —
+         "gehyped bleiben", nicht nur der kurze Einblend-Moment auf dem Brett */
+      .k-streak {
+        width: fit-content;
+        margin: 0 auto 4px;
+        padding: 4px 16px;
+        border-radius: 999px;
+        font-weight: 900;
+        font-size: 15px;
+        color: #fff;
+        background: linear-gradient(180deg, var(--mango), var(--stop));
+        box-shadow: 0 0 16px rgba(255, 91, 106, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+        animation: k-streak-in 0.2s var(--tap) both, k-streak-wobble 0.5s ease-in-out infinite;
+      }
+      @keyframes k-streak-in {
+        from {
+          transform: scale(0.5);
+          opacity: 0;
+        }
+      }
+      @keyframes k-streak-wobble {
+        0%,
+        100% {
+          transform: rotate(-3deg) scale(1);
+        }
+        50% {
+          transform: rotate(3deg) scale(1.07);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .k-streak {
+          animation: k-streak-in 0.2s var(--tap) both;
+        }
       }
       .metric small {
         display: block;
@@ -2488,11 +2570,15 @@
           <span class="metric"><small>Reihen</small><span id="k-cleared">0</span></span>
           <span class="metric right"><small>Rekord</small><span id="k-best">0</span></span>
         </div>
+        <div class="k-streak" id="k-streak" hidden></div>
         <div class="board-wrap" id="k-wrap">
           <div class="challenge" id="k-challenge" hidden>
-            <span class="cic">🎯</span>
-            <span class="ctxt" id="k-challenge-txt"></span>
-            <span class="cclock" id="k-challenge-clock"></span>
+            <div class="chal-top">
+              <span class="cic" id="k-challenge-icon">🎯</span>
+              <span class="ctxt" id="k-challenge-txt"></span>
+              <span class="cclock" id="k-challenge-clock"></span>
+            </div>
+            <div class="chal-bar"><div class="chal-fill" id="k-challenge-bar"></div></div>
           </div>
           <canvas id="k-canvas"></canvas>
         </div>

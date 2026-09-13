@@ -47,22 +47,34 @@ export interface CascadeResult {
 }
 
 /**
- * A short-lived objective with a real constraint. Right now there's one kind:
- * clear a full row where every cell was filled by a *straight bar* piece
- * (domino / 3-line / 4-line / I-pentomino) — no squares, no bends. Reward is a
- * life back, which matters now that a missed shard costs one.
+ * A short-lived objective with a real constraint. Vier Arten, eine zufällig
+ * pro Fenster — reißt der Spieler eine, kommt sofort die nächste, andere Art.
+ * Belohnung: ein Leben zurück (oder Punkte, wenn schon voll) **und** Extrazeit
+ * — Runden werden länger, aber nur wer die Aufgaben löst, verdient sich das.
  */
+export type ChallengeKind = "straight" | "rows" | "mono" | "combo";
 export interface Challenge {
+  kind: ChallengeKind;
   target: number;
   progress: number;
   /** `elapsedMs()` value at which the challenge expires. */
   deadline: number;
   label: string;
 }
+const CHALLENGE_KINDS: ReadonlyArray<{ kind: ChallengeKind; target: number; label: string }> = [
+  { kind: "straight", target: 1, label: "Reihe nur aus geraden Linien (2·3·4)" },
+  { kind: "rows", target: 2, label: "Räume 2 Reihen" },
+  { kind: "mono", target: 1, label: "Reihe nur in einer Farbe" },
+  { kind: "combo", target: 3, label: "Baue eine Kette ×3" },
+];
 const CHALLENGE_COOLDOWN_MIN = 12_000;
 const CHALLENGE_COOLDOWN_JITTER = 8_000;
-const CHALLENGE_WINDOW_MS = 22_000;
+/** Wie lange ein Fenster offen ist — exportiert, damit die View den Balken
+ *  (Countdown-Leiste über dem Brett) als Anteil davon füllen kann. */
+export const CHALLENGE_WINDOW_MS = 22_000;
 const CHALLENGE_FIRST_AT = 12_000;
+/** Bonuszeit für eine gelöste Aufgabe — Runden werden länger, wenn man sie löst. */
+const CHALLENGE_TIME_BONUS_MS = 10_000;
 
 export class CascadeState {
   readonly rows = CASCADE_ROWS;
@@ -92,6 +104,7 @@ export class CascadeState {
   /** Höchste bereits gefeierte Multiplikator-Stufe (abgerundet). */
   private multTierSeen = 1;
   private tierUp = 0;
+  private perfectFlag = false;
 
   /** The rows cleared by the last placement, once — for the view's burst/flash/pop. */
   consumeFreshClear(): { rows: number[]; gain: number; chain: number } | null {
@@ -105,6 +118,13 @@ export class CascadeState {
     const t = this.tierUp;
     this.tierUp = 0;
     return t;
+  }
+  /** Einmalig `true`, direkt nachdem das Brett komplett leer geworden ist — der
+   *  „alle Scherben weg"-Bonus (siehe `place()`). Für eine eigene Feier in der View. */
+  consumePerfectClear(): boolean {
+    const v = this.perfectFlag;
+    this.perfectFlag = false;
+    return v;
   }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
@@ -230,11 +250,13 @@ export class CascadeState {
         this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
       }
     } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 5000) {
+      const pick = CHALLENGE_KINDS[Math.floor(this.rng.next() * CHALLENGE_KINDS.length)]!;
       this.challenge = {
-        target: 1,
+        kind: pick.kind,
+        target: pick.target,
         progress: 0,
         deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
-        label: "Reihe nur aus geraden Linien (2·3·4)",
+        label: pick.label,
       };
     }
   }
@@ -335,24 +357,32 @@ export class CascadeState {
       this.multTierSeen = tier;
       this.tierUp = tier;
     }
+    // "combo"-Aufgabe: hängt an der Kette, nicht an einer einzelnen Reihe —
+    // darum erst hier geprüft, nachdem this.chain aktuell ist
+    if (this.challenge?.kind === "combo" && this.chain >= this.challenge.target) {
+      this.creditChallenge(this.challenge.target);
+    }
     if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
       // perfect clear (only counts if we actually cleared something)
       if (rows > 0) {
         this.perfectClears += 1;
         this.score += 200 * this.multiplier;
         this.extraMs += 5000;
+        this.perfectFlag = true;
       }
     }
     return rows;
   }
 
-  /** Clear every full row. Credits the "straight bars only" challenge for any
-   *  cleared row whose cells all came from straight-bar pieces. */
+  /** Clear every full row. Credits the active challenge (straight/mono/rows —
+   *  "combo" is checked separately in `place()`, after the chain updates). */
   private clearFullRows(): number {
     this.lastCleared = [];
     for (let r = 0; r < this.rows; r++) {
       let full = true;
       let straightOnly = true;
+      let monoOnly = true;
+      let firstColor = -1;
       for (let c = 0; c < this.cols; c++) {
         const v = this.board[this.idx(r, c)];
         if (!v) {
@@ -360,24 +390,36 @@ export class CascadeState {
           break;
         }
         if (!shardByColorIndex(v).straight) straightOnly = false;
+        if (firstColor === -1) firstColor = v;
+        else if (v !== firstColor) monoOnly = false;
       }
       if (full) {
         for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
         this.lastCleared.push(r);
-        if (straightOnly && this.challenge) this.creditChallenge();
+        const kind = this.challenge?.kind;
+        if (kind === "straight" && straightOnly) this.creditChallenge();
+        else if (kind === "mono" && monoOnly) this.creditChallenge();
+        else if (kind === "rows") this.creditChallenge();
       }
     }
     return this.lastCleared.length;
   }
 
-  private creditChallenge(): void {
+  private creditChallenge(amount = 1): void {
     const ch = this.challenge;
     if (!ch) return;
-    ch.progress += 1;
+    ch.progress = Math.min(ch.target, ch.progress + amount);
     if (ch.progress < ch.target) return;
-    // reward: a life back (matters now that a miss costs one), or points if full
+    this.completeChallenge();
+  }
+
+  /** Belohnung für eine gelöste Aufgabe: ein Leben zurück (oder Punkte, wenn
+   *  schon voll) und immer Extrazeit — so werden Runden länger, aber nur
+   *  wenn man die Aufgaben tatsächlich löst. */
+  private completeChallenge(): void {
     if (this.lives < CASCADE_LIVES) this.lives += 1;
     else this.score += 250 * this.multiplier;
+    this.extraMs += CHALLENGE_TIME_BONUS_MS;
     this.challengeWon = true;
     this.challenge = null;
     this.nextChallengeAt =

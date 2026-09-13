@@ -7,7 +7,7 @@
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
 import { BEATS, type Beat, beatAfter, INTRO, SPEAKERS } from "./beats.js";
-import { CascadeState } from "./cascade.js";
+import { type ChallengeKind, CHALLENGE_WINDOW_MS, CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
@@ -41,6 +41,12 @@ const fmt = (ms: number): string => {
 const nf = (n: number): string => Math.round(n).toLocaleString("de-DE");
 /** Multiplikator deutsch — "×1,5" statt "×1.5" (nicht runden!). */
 const xf = (n: number | string): string => String(n).replace(".", ",");
+const CHALLENGE_ICON: Record<ChallengeKind, string> = {
+  straight: "📏",
+  rows: "🧱",
+  mono: "🎨",
+  combo: "🔥",
+};
 
 type Tab = "home" | "daily" | "descent" | "cascade" | "collection";
 const SCREENS = [
@@ -1639,24 +1645,45 @@ function startCascade(): void {
       if (game.consumeChallengeWin()) {
         challengeWonUntil = performance.now() + 2000;
         sfx.win();
-        toast(h.lives < 3 ? "🎯 Aufgabe geschafft — Leben zurück! ❤" : "🎯 Aufgabe geschafft — Bonuspunkte!");
+        toast(
+          (h.lives < 3 ? "🎯 Aufgabe geschafft — Leben zurück! ❤" : "🎯 Aufgabe geschafft — Bonuspunkte!") +
+            " · +10s",
+        );
       }
       const cEl = $("k-challenge");
+      const bar = $("k-challenge-bar");
       if (game.challenge) {
         cEl.hidden = false;
         cEl.classList.remove("won");
         $("k-wrap").classList.add("has-challenge");
+        $("k-challenge-icon").textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
         $("k-challenge-txt").textContent = game.challenge.label;
-        $("k-challenge-clock").textContent = fmt(game.challengeRemainingMs());
+        const remain = game.challengeRemainingMs();
+        $("k-challenge-clock").textContent = fmt(remain);
+        const pct = Math.max(0, Math.min(100, (remain / CHALLENGE_WINDOW_MS) * 100));
+        bar.style.width = `${pct}%`;
+        bar.classList.toggle("low", remain < 5000);
       } else if (performance.now() < challengeWonUntil) {
         cEl.hidden = false;
         cEl.classList.add("won");
         $("k-wrap").classList.add("has-challenge");
         $("k-challenge-txt").textContent = "Aufgabe geschafft!";
         $("k-challenge-clock").textContent = "";
+        bar.style.width = "100%";
+        bar.classList.remove("low");
       } else {
         cEl.hidden = true;
         $("k-wrap").classList.remove("has-challenge");
+      }
+
+      // Serie: solange die Kette läuft, bleibt oben ein flackerndes Abzeichen
+      // stehen — nicht nur der kurze Einblend-Moment auf dem Brett
+      const streakEl = $("k-streak");
+      if (h.chain >= 2) {
+        streakEl.hidden = false;
+        streakEl.textContent = `🔥 ×${h.chain}`;
+      } else {
+        streakEl.hidden = true;
       }
     },
     onEnd: (r) => {

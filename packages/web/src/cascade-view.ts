@@ -11,6 +11,10 @@ import { shardByColorIndex, shardDef } from "./shards.js";
 
 const TAP_MOVE_PX = 10;
 const TAP_TIME_MS = 300;
+/** "+N"-Pops und die große Kette/Tier-Einblendung bleiben spürbar länger stehen,
+ *  bevor sie wegfallen/-faden — sonst wirkt der Erfolg zu flüchtig. */
+const POP_LIFE_S = 1.8;
+const COMBO_LIFE_S = 1.9;
 
 interface Layout {
   cssW: number;
@@ -54,7 +58,7 @@ interface Drag {
 
 export interface CascadeCallbacks {
   onEnd: (result: ReturnType<CascadeState["result"]>) => void;
-  onHud: (s: { score: number; mult: number; cleared: number; ms: number; lives: number }) => void;
+  onHud: (s: { score: number; mult: number; cleared: number; ms: number; lives: number; chain: number }) => void;
 }
 
 export class CascadeView {
@@ -77,6 +81,8 @@ export class CascadeView {
   /** short-lived "+N" score pops */
   private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
   private placePop: { r: number; c: number; t: number } | null = null;
+  /** Winziges Staubwölkchen beim Platzieren — billig: ein paar Kreise, kein Glow. */
+  private dust: Array<{ x: number; y: number; vx: number; vy: number; t: number; max: number; r: number }> = [];
   private ended = false;
   private nowMs = 0;
   /** Kamera-Wackler bei fetten Momenten (Mehrfach-Clear, Tier-Sprung, perfektes Brett). */
@@ -157,7 +163,7 @@ export class CascadeView {
       // schneller Ruck statt Dauerwackeln: von voller Stärke in ~0,3s wieder ruhig
       this.shakeMag = Math.max(0, this.shakeMag - dt * 24);
     }
-    if (this.comboPop && (this.comboPop.t += dt) > 0.9) this.comboPop = null;
+    if (this.comboPop && (this.comboPop.t += dt) > COMBO_LIFE_S) this.comboPop = null;
     if (this.tierFlashT >= 0) {
       this.tierFlashT += dt;
       if (this.tierFlashT > 0.5) this.tierFlashT = -1;
@@ -173,8 +179,16 @@ export class CascadeView {
     }
     this.sparks = this.sparks.filter((s) => s.t < s.max);
     for (const p of this.pops) p.t += dt;
-    this.pops = this.pops.filter((p) => p.t < 0.8);
+    this.pops = this.pops.filter((p) => p.t < POP_LIFE_S);
     if (this.placePop && (this.placePop.t += dt) > 0.28) this.placePop = null;
+    for (const d of this.dust) {
+      d.t += dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.vx *= 1 - dt * 2.2;
+      d.vy *= 1 - dt * 2.2;
+    }
+    this.dust = this.dust.filter((d) => d.t < d.max);
 
     const clear = this.game.consumeFreshClear();
     if (clear && this.layout) {
@@ -194,20 +208,35 @@ export class CascadeView {
         });
       }
       sfx.vibrate(24);
+      // Zwei verschiedene Combo-Arten, die auch verschieden aussehen — nicht
+      // immer dieselbe Zeile. Mehrfach-Clear ist seltener/größer, geht vor.
+      let comboShown = false;
+      if (clear.rows.length >= 2) {
+        const MULTI_ROW_NAMES: Record<number, string> = { 2: "DOPPEL-CLEAR!", 3: "TRIPLE-CLEAR!" };
+        this.comboPop = {
+          text: MULTI_ROW_NAMES[clear.rows.length] ?? "MEGA-CLEAR!",
+          t: 0,
+          color: cssVar("--sky"),
+        };
+        comboShown = true;
+        sfx.milestone();
+        this.shake(Math.min(9, 3 + clear.rows.length * 2));
+      }
       // Kette: mehrere Clears direkt hintereinander — eigene Feier, eskalierend
       if (clear.chain >= 2) {
-        const tierColors = ["", "", cssVar("--gold"), cssVar("--mango"), cssVar("--pink"), cssVar("--sky")];
-        this.comboPop = {
-          text: `KETTE ×${clear.chain}`,
-          t: 0,
-          color: tierColors[Math.min(clear.chain, tierColors.length - 1)] || cssVar("--gold"),
-        };
+        if (!comboShown) {
+          const tierColors = ["", "", cssVar("--gold"), cssVar("--mango"), cssVar("--pink"), cssVar("--sky")];
+          this.comboPop = {
+            text: `KETTE ×${clear.chain}`,
+            t: 0,
+            color: tierColors[Math.min(clear.chain, tierColors.length - 1)] || cssVar("--gold"),
+          };
+        }
         sfx.streak(clear.chain);
         // Wackler erst ab Kette 3 — sonst wackelt's bei fast jedem zweiten
         // Zug, das nervt statt zu feiern
         if (clear.chain >= 3) this.shake(Math.min(9, 3 + clear.chain * 1.1));
       }
-      if (clear.rows.length >= 2) this.shake(Math.min(9, 3 + clear.rows.length * 2));
     }
     const tier = this.game.consumeTierUp();
     if (tier !== null) {
@@ -215,6 +244,14 @@ export class CascadeView {
       sfx.milestone();
       this.shake(Math.min(9, 4 + tier * 0.8));
       if (!this.comboPop) this.comboPop = { text: `×${tier} MULTI!`, t: 0, color: cssVar("--gold") };
+    }
+    // das ganze Brett leer bekommen — der seltenste, größte Moment im Lauf
+    if (this.game.consumePerfectClear() && this.layout) {
+      const L = this.layout;
+      this.comboPop = { text: "PERFEKT! +5S", t: 0, color: cssVar("--go") };
+      sfx.milestone();
+      this.shake(9);
+      this.spawnBigBurst(L);
     }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
@@ -229,6 +266,7 @@ export class CascadeView {
       cleared: this.game.cleared,
       ms: this.game.remainingMs(),
       lives: this.game.lives,
+      chain: this.game.chain,
     });
   }
 
@@ -300,6 +338,48 @@ export class CascadeView {
   /** Kamera-Wackler anstoßen — nie kleiner machen als einen laufenden, größeren. */
   private shake(mag: number): void {
     if (mag > this.shakeMag) this.shakeMag = mag;
+  }
+
+  /** Großer Funkenregen übers ganze Brett verteilt — für den Perfekt-Clear. */
+  private spawnBigBurst(L: Layout): void {
+    const gold = cssVar("--gold");
+    const n = 42;
+    for (let i = 0; i < n; i++) {
+      const x = L.boardX + Math.random() * this.game.cols * L.cell;
+      const y = L.boardY + Math.random() * this.game.rows * L.cell;
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 60 + Math.random() * 200;
+      this.sparks.push({
+        x,
+        y,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 80,
+        t: 0,
+        max: 0.5 + Math.random() * 0.5,
+        color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : cssVar("--go"),
+        size: 3 + Math.random() * 5,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 14,
+      });
+    }
+  }
+
+  /** Kleines, billiges Staubwölkchen beim Platzieren — ein paar weiche Kreise. */
+  private spawnDust(cx: number, cy: number, cell: number): void {
+    const n = 5;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.6;
+      const sp = 16 + Math.random() * 24;
+      this.dust.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 8,
+        t: 0,
+        max: 0.3 + Math.random() * 0.16,
+        r: cell * (0.13 + Math.random() * 0.09),
+      });
+    }
   }
 
   /** A burst of little four-point stars along a row that just cleared. */
@@ -414,6 +494,21 @@ export class CascadeView {
       }
     }
 
+    // winziges Staubwölkchen beim Platzieren — billig: einfache Alpha-Kreise,
+    // kein Glow, keine "lighter"-Kompositierung
+    if (this.dust.length) {
+      ctx.save();
+      ctx.fillStyle = "#e9e4ff";
+      for (const d of this.dust) {
+        const k = 1 - d.t / d.max;
+        ctx.globalAlpha = Math.max(0, k) * 0.35;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r * (1 + (1 - k) * 0.7), 0, 6.28);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // a cleared row: a bright bar sweeping outward, then it's gone
     for (const f of this.flash) {
       const p = f.t / 0.5;
@@ -445,18 +540,24 @@ export class CascadeView {
       ctx.restore();
     }
 
-    // "+N" score pops
+    // "+N" score pops — steigen kurz auf, kippen dann satt nach unten weg und faden aus
     for (const pop of this.pops) {
-      const k = pop.t / 0.8;
+      const k = pop.t / POP_LIFE_S;
+      const rise = L.cell * 1.5;
+      const y =
+        k < 0.3
+          ? pop.y - rise * (k / 0.3)
+          : pop.y - rise + rise * 0.85 * ((k - 0.3) / 0.7) ** 2;
+      const alpha = k < 0.65 ? 1 : Math.max(0, 1 - (k - 0.65) / 0.35);
       ctx.save();
-      ctx.globalAlpha = Math.max(0, 1 - k);
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = pop.color;
       ctx.font = `800 ${Math.round(L.cell * 0.6)}px "Baloo 2", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0,0,0,0.5)";
       ctx.shadowBlur = 4;
-      ctx.fillText(pop.text, pop.x, pop.y - k * L.cell * 1.4);
+      ctx.fillText(pop.text, pop.x, y);
       ctx.restore();
     }
     ctx.textAlign = "left";
@@ -476,12 +577,13 @@ export class CascadeView {
 
     // Kette / Multiplikator-Sprung: eine große Einblendung über der Mitte des Bretts
     if (this.comboPop) {
-      const p = this.comboPop.t / 0.9;
-      const pop = p < 0.18 ? p / 0.18 : 1; // schnell rein
-      const fade = p > 0.6 ? 1 - (p - 0.6) / 0.4 : 1; // sanft raus
+      const p = this.comboPop.t / COMBO_LIFE_S;
+      const pop = p < 0.1 ? p / 0.1 : 1; // schnell rein
+      const fade = p > 0.78 ? 1 - (p - 0.78) / 0.22 : 1; // lange stehen, dann sanft raus
+      const drop = p > 0.78 ? ((p - 0.78) / 0.22) ** 2 * L.cell * 0.5 : 0; // setzt sich beim Ausklingen ab
       const scale = 0.7 + 0.3 * pop + 0.08 * Math.sin(p * Math.PI * 2) * (1 - p);
       const cx = L.boardX + (this.game.cols * L.cell) / 2;
-      const cy = L.boardY + (this.game.rows * L.cell) / 2;
+      const cy = L.boardY + (this.game.rows * L.cell) / 2 + drop;
       ctx.save();
       ctx.globalAlpha = Math.max(0, fade);
       ctx.translate(cx, cy);
@@ -702,6 +804,19 @@ export class CascadeView {
         sfx.place();
         sfx.vibrate(8);
         this.placePop = { r: snap.row, c: snap.col, t: 0 };
+        // winziges Staubwölkchen am Landepunkt — billig, aber es "satisfied"
+        const cells = this.game.cells(d.shard);
+        let sr = 0;
+        let sc = 0;
+        for (const [dr, dc] of cells) {
+          sr += snap.row + dr;
+          sc += snap.col + dc;
+        }
+        this.spawnDust(
+          L.boardX + (sc / cells.length + 0.5) * L.cell,
+          L.boardY + (sr / cells.length + 0.5) * L.cell,
+          L.cell,
+        );
         // the burst / flash / "+N" pop are spawned in step() via consumeFreshClear
         return;
       }
