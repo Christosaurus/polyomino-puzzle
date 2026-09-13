@@ -154,8 +154,8 @@ export class CascadeView {
     this.game.tick(dt);
     if (this.shakeMag > 0) {
       this.shakeT += dt;
-      // schneller Ruck statt Dauerwackeln: von voller Stärke in ~0,2s wieder ruhig
-      this.shakeMag = Math.max(0, this.shakeMag - dt * 30);
+      // schneller Ruck statt Dauerwackeln: von voller Stärke in ~0,3s wieder ruhig
+      this.shakeMag = Math.max(0, this.shakeMag - dt * 24);
     }
     if (this.comboPop && (this.comboPop.t += dt) > 0.9) this.comboPop = null;
     if (this.tierFlashT >= 0) {
@@ -203,17 +203,17 @@ export class CascadeView {
           color: tierColors[Math.min(clear.chain, tierColors.length - 1)] || cssVar("--gold"),
         };
         sfx.streak(clear.chain);
-        // Wackler erst ab einer echten Kette (4+) — sonst wackelt's bei fast
-        // jedem zweiten Zug, das nervt statt zu feiern
-        if (clear.chain >= 4) this.shake(Math.min(5, 2 + clear.chain * 0.5));
+        // Wackler erst ab Kette 3 — sonst wackelt's bei fast jedem zweiten
+        // Zug, das nervt statt zu feiern
+        if (clear.chain >= 3) this.shake(Math.min(9, 3 + clear.chain * 1.1));
       }
-      if (clear.rows.length >= 2) this.shake(Math.min(5, 2 + clear.rows.length));
+      if (clear.rows.length >= 2) this.shake(Math.min(9, 3 + clear.rows.length * 2));
     }
     const tier = this.game.consumeTierUp();
     if (tier !== null) {
       this.tierFlashT = 0;
       sfx.milestone();
-      this.shake(Math.min(5, 2 + tier * 0.4));
+      this.shake(Math.min(9, 4 + tier * 0.8));
       if (!this.comboPop) this.comboPop = { text: `×${tier} MULTI!`, t: 0, color: cssVar("--gold") };
     }
     if (this.game.isOver && !this.ended) {
