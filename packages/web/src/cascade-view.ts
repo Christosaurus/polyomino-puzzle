@@ -78,6 +78,14 @@ export class CascadeView {
   private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
   private placePop: { r: number; c: number; t: number } | null = null;
   private ended = false;
+  private nowMs = 0;
+  /** Kamera-Wackler bei fetten Momenten (Mehrfach-Clear, Tier-Sprung, perfektes Brett). */
+  private shakeT = 0;
+  private shakeMag = 0;
+  /** Große Einblendung übers Brett — Kette oder neue Multiplikator-Stufe. */
+  private comboPop: { text: string; t: number; color: string } | null = null;
+  /** Kurzer goldener Blitz übers ganze Brett bei einer neuen Multiplikator-Stufe. */
+  private tierFlashT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
   private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
@@ -142,7 +150,17 @@ export class CascadeView {
   };
 
   private step(dt: number): void {
+    this.nowMs = performance.now();
     this.game.tick(dt);
+    if (this.shakeMag > 0) {
+      this.shakeT += dt;
+      this.shakeMag = Math.max(0, this.shakeMag - dt * 3.4);
+    }
+    if (this.comboPop && (this.comboPop.t += dt) > 0.9) this.comboPop = null;
+    if (this.tierFlashT >= 0) {
+      this.tierFlashT += dt;
+      if (this.tierFlashT > 0.5) this.tierFlashT = -1;
+    }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
     for (const s of this.sparks) {
       s.t += dt;
@@ -175,6 +193,25 @@ export class CascadeView {
         });
       }
       sfx.vibrate(24);
+      // Kette: mehrere Clears direkt hintereinander — eigene Feier, eskalierend
+      if (clear.chain >= 2) {
+        const tierColors = ["", "", cssVar("--gold"), cssVar("--mango"), cssVar("--pink"), cssVar("--sky")];
+        this.comboPop = {
+          text: `KETTE ×${clear.chain}`,
+          t: 0,
+          color: tierColors[Math.min(clear.chain, tierColors.length - 1)] || cssVar("--gold"),
+        };
+        sfx.streak(clear.chain);
+        this.shake(Math.min(10, 3 + clear.chain * 1.4));
+      }
+      if (clear.rows.length >= 2) this.shake(4 + clear.rows.length * 2);
+    }
+    const tier = this.game.consumeTierUp();
+    if (tier !== null) {
+      this.tierFlashT = 0;
+      sfx.milestone();
+      this.shake(6 + tier);
+      if (!this.comboPop) this.comboPop = { text: `×${tier} MULTI!`, t: 0, color: cssVar("--gold") };
     }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
@@ -257,6 +294,11 @@ export class CascadeView {
     });
   }
 
+  /** Kamera-Wackler anstoßen — nie kleiner machen als einen laufenden, größeren. */
+  private shake(mag: number): void {
+    if (mag > this.shakeMag) this.shakeMag = mag;
+  }
+
   /** A burst of little four-point stars along a row that just cleared. */
   private spawnRowBurst(row: number, L: Layout): void {
     const gold = cssVar("--gold");
@@ -313,6 +355,12 @@ export class CascadeView {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, L.cssW, L.cssH);
 
+    // Kamera-Wackler — rein optisch, verschiebt nur die Zeichnung, nicht das
+    // Koordinatensystem fürs Pointer-Hit-Testing (das rechnet über layout, nicht ctx)
+    if (this.shakeMag > 0.05) {
+      ctx.translate((Math.random() - 0.5) * 2 * this.shakeMag, (Math.random() - 0.5) * 2 * this.shakeMag);
+    }
+
     // leeres Brett-Raster: einmal gebaut, danach nur noch als Bild geblittet
     const grid = boardGrid(this.gridCells, L.cell, dpr, cssVar("--cell"));
     ctx.drawImage(grid.canvas, L.boardX, L.boardY, grid.w, grid.h);
@@ -327,6 +375,26 @@ export class CascadeView {
       12,
     );
     ctx.stroke();
+
+    // nur noch 1 Leben: sichtbarer Druck — der Rand pulsiert rot, statt dass
+    // die Gefahr nur in einer kleinen Herz-Reihe steht
+    if (this.game.lives === 1 && !this.game.isOver) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.nowMs / 260);
+      ctx.save();
+      ctx.strokeStyle = cssVar("--stop");
+      ctx.globalAlpha = 0.45 + 0.4 * pulse;
+      ctx.lineWidth = 3 + pulse * 3;
+      roundRect(
+        ctx,
+        L.boardX - 4,
+        L.boardY - 4,
+        this.game.cols * L.cell + 8,
+        this.game.rows * L.cell + 8,
+        13,
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // filled cells — the just-placed piece gets a quick pop
     for (let r = 0; r < this.game.rows; r++) {
@@ -390,6 +458,43 @@ export class CascadeView {
     }
     ctx.textAlign = "left";
     ctx.textBaseline = "alphabetic";
+
+    // neue Multiplikator-Stufe: ein kurzer goldener Blitz übers ganze Brett
+    if (this.tierFlashT >= 0) {
+      const p = this.tierFlashT / 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.max(0, 1 - p) * 0.5;
+      ctx.fillStyle = cssVar("--gold");
+      roundRect(ctx, L.boardX - 3, L.boardY - 3, this.game.cols * L.cell + 6, this.game.rows * L.cell + 6, 12);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Kette / Multiplikator-Sprung: eine große Einblendung über der Mitte des Bretts
+    if (this.comboPop) {
+      const p = this.comboPop.t / 0.9;
+      const pop = p < 0.18 ? p / 0.18 : 1; // schnell rein
+      const fade = p > 0.6 ? 1 - (p - 0.6) / 0.4 : 1; // sanft raus
+      const scale = 0.7 + 0.3 * pop + 0.08 * Math.sin(p * Math.PI * 2) * (1 - p);
+      const cx = L.boardX + (this.game.cols * L.cell) / 2;
+      const cy = L.boardY + (this.game.rows * L.cell) / 2;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, fade);
+      ctx.translate(cx, cy);
+      ctx.scale(scale, scale);
+      ctx.font = `900 ${Math.round(L.cell * 0.85)}px "Baloo 2", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(20, 10, 40, 0.55)";
+      ctx.strokeText(this.comboPop.text, 0, 0);
+      ctx.fillStyle = this.comboPop.color;
+      ctx.fillText(this.comboPop.text, 0, 0);
+      ctx.restore();
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+    }
 
     // belt
     ctx.fillStyle = cssVar("--surface-2");

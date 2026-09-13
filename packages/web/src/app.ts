@@ -1611,11 +1611,21 @@ function startCascade(): void {
   const bestScore = store.load().cascade.bestScore;
   let newRecord = false;
   let challengeWonUntil = 0;
+  let lastMultTier = 1;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
       $("k-score-txt").textContent = nf(h.score);
-      $("k-mult").textContent = `×${xf(h.mult.toFixed(1))}`;
+      const multEl = $("k-mult");
+      multEl.textContent = `×${xf(h.mult.toFixed(1))}`;
+      const tier = Math.floor(h.mult);
+      for (let t = 2; t <= 5; t++) multEl.classList.toggle(`tier-${t}`, tier === t || (t === 5 && tier > 5));
+      if (tier > lastMultTier) {
+        multEl.classList.remove("bump");
+        void multEl.offsetWidth;
+        multEl.classList.add("bump");
+      }
+      lastMultTier = tier;
       $("k-cleared").textContent = nf(h.cleared);
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
@@ -1668,6 +1678,7 @@ function startCascade(): void {
         `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
         ` · ✦ +${nf(shards)}` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
+        (r.bestChain >= 3 ? ` · 🔥 Kette ×${r.bestChain}` : "") +
         (newRecord ? ` · 🏆 neue Bestmarke!` : "") +
         (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} freigeschaltet</small>` : "");
       const ov = $("k-overlay");

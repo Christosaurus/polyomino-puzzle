@@ -41,6 +41,7 @@ export interface CascadeResult {
   covered: number;
   perfectClears: number;
   livesLeft: number;
+  bestChain: number;
   /** Gespielte Zeit in ms — für die Plausibilitätsprüfung der Bestenliste. */
   elapsedMs: number;
 }
@@ -79,17 +80,31 @@ export class CascadeState {
   misses = 0;
   /** A shard reaching the bottom unplaced costs one of these; hit 0 and the run ends. */
   lives = CASCADE_LIVES;
+  /** Aufeinanderfolgende Platzierungen, die je mindestens eine Reihe räumen —
+   *  reißt bei einer Platzierung ohne Clear oder einem verpassten Splitter. */
+  chain = 0;
+  bestChain = 0;
   /** Row indices cleared by the most recent `place()` — for the view's flash. */
   lastCleared: number[] = [];
   /** Score before the most recent clear-causing placement — for the view's "+N" pop. */
   private clearScoreBase = 0;
   private freshClear = false;
+  /** Höchste bereits gefeierte Multiplikator-Stufe (abgerundet). */
+  private multTierSeen = 1;
+  private tierUp = 0;
 
   /** The rows cleared by the last placement, once — for the view's burst/flash/pop. */
-  consumeFreshClear(): { rows: number[]; gain: number } | null {
+  consumeFreshClear(): { rows: number[]; gain: number; chain: number } | null {
     if (!this.freshClear) return null;
     this.freshClear = false;
-    return { rows: [...this.lastCleared], gain: Math.round(this.score - this.clearScoreBase) };
+    return { rows: [...this.lastCleared], gain: Math.round(this.score - this.clearScoreBase), chain: this.chain };
+  }
+  /** Neue Multiplikator-Stufe (2..6), einmalig — oder `null`. Für Screen-Shake + Fanfare. */
+  consumeTierUp(): number | null {
+    if (!this.tierUp) return null;
+    const t = this.tierUp;
+    this.tierUp = 0;
+    return t;
   }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
@@ -166,6 +181,7 @@ export class CascadeState {
       covered: this.coveredCells(),
       perfectClears: this.perfectClears,
       livesLeft: this.lives,
+      bestChain: this.bestChain,
       elapsedMs: Math.round(this.elapsedMs()),
     };
   }
@@ -185,6 +201,8 @@ export class CascadeState {
       this.belt = this.belt.filter((s) => s.y < 1);
       this.misses += fell.length;
       this.multiplier = 1;
+      this.chain = 0;
+      this.multTierSeen = 1;
       // the whole point now: every shard on the belt is meant to get used —
       // let one ride off unplaced and it costs a life, same as failing a move
       this.lives = Math.max(0, this.lives - fell.length);
@@ -306,6 +324,16 @@ export class CascadeState {
       this.score += 12 * rows * rows * this.multiplier;
       this.multiplier = Math.min(6, this.multiplier + 0.4 * rows);
       this.freshClear = true;
+      this.chain += 1;
+      if (this.chain > this.bestChain) this.bestChain = this.chain;
+    } else {
+      this.chain = 0;
+    }
+    // eine neue Multiplikator-Stufe (2..6) zünden — einmalig, für Shake + Fanfare
+    const tier = Math.floor(this.multiplier);
+    if (tier > this.multTierSeen) {
+      this.multTierSeen = tier;
+      this.tierUp = tier;
     }
     if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
       // perfect clear (only counts if we actually cleared something)
