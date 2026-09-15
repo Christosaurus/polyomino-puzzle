@@ -121,16 +121,26 @@ export class CascadeState {
   /** Score before the most recent clear-causing placement — for the view's "+N" pop. */
   private clearScoreBase = 0;
   private freshClear = false;
+  /** Nur Level-Modus: wie viele neue Leerzeilen beim letzten Kollaps oben
+   *  entstanden sind — die View animiert damit das Zusammenrutschen. */
+  private collapsedRows = 0;
   /** Höchste bereits gefeierte Multiplikator-Stufe (abgerundet). */
   private multTierSeen = 1;
   private tierUp = 0;
   private perfectFlag = false;
 
   /** The rows cleared by the last placement, once — for the view's burst/flash/pop. */
-  consumeFreshClear(): { rows: number[]; gain: number; chain: number } | null {
+  consumeFreshClear(): { rows: number[]; gain: number; chain: number; collapsedRows: number } | null {
     if (!this.freshClear) return null;
     this.freshClear = false;
-    return { rows: [...this.lastCleared], gain: Math.round(this.score - this.clearScoreBase), chain: this.chain };
+    const collapsedRows = this.collapsedRows;
+    this.collapsedRows = 0;
+    return {
+      rows: [...this.lastCleared],
+      gain: Math.round(this.score - this.clearScoreBase),
+      chain: this.chain,
+      collapsedRows,
+    };
   }
   /** Neue Multiplikator-Stufe (2..6), einmalig — oder `null`. Für Screen-Shake + Fanfare. */
   consumeTierUp(): number | null {
@@ -426,10 +436,20 @@ export class CascadeState {
     return rows;
   }
 
-  /** Clear every full row. Credits the active challenge (straight/mono/rows —
-   *  "combo" is checked separately in `place()`, after the chain updates). */
+  /**
+   * Clear every full row. Credits the active challenge (straight/mono/rows —
+   * "combo" is checked separately in `place()`, after the chain updates).
+   *
+   * Im Level-Modus fallen geräumte Reihen nicht einfach leer aus — der ganze
+   * Rest des Turms rutscht wie bei Tetris zusammen: alles, was noch über einer
+   * geräumten Reihe stand, sackt nach unten, oben wird Platz frei. Das ist die
+   * "Steine rutschen nach"-Bewegung der Rettungsszene. Im Free Play bleibt das
+   * alte Verhalten (Reihe wird leer, nichts rutscht) — dort ist Tempo der Kern,
+   * kein Turm, der abgetragen wird.
+   */
   private clearFullRows(): number {
     this.lastCleared = [];
+    const clearedSet = new Set<number>();
     for (let r = 0; r < this.rows; r++) {
       let full = true;
       let straightOnly = true;
@@ -446,13 +466,32 @@ export class CascadeState {
         else if (v !== firstColor) monoOnly = false;
       }
       if (full) {
-        for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
+        clearedSet.add(r);
         this.lastCleared.push(r);
         const kind = this.challenge?.kind;
         if (kind === "straight" && straightOnly) this.creditChallenge();
         else if (kind === "mono" && monoOnly) this.creditChallenge();
         else if (kind === "rows") this.creditChallenge();
       }
+    }
+    if (clearedSet.size === 0) return 0;
+
+    if (this.level) {
+      // Kollaps: alle nicht geräumten Reihen behalten ihre Reihenfolge, rücken
+      // aber ganz nach unten zusammen — oben (Reihe 0) entsteht der Freiraum.
+      const kept: number[] = [];
+      for (let r = 0; r < this.rows; r++) if (!clearedSet.has(r)) kept.push(r);
+      const next = new Int8Array(this.rows * this.cols);
+      const topGap = this.rows - kept.length;
+      for (let i = 0; i < kept.length; i++) {
+        const srcRow = kept[i]!;
+        const dstRow = topGap + i;
+        for (let c = 0; c < this.cols; c++) next[dstRow * this.cols + c] = this.board[srcRow * this.cols + c]!;
+      }
+      this.board.set(next);
+      this.collapsedRows = topGap; // für die View: so viele neue Leerzeilen oben
+    } else {
+      for (const r of clearedSet) for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
     }
     return this.lastCleared.length;
   }

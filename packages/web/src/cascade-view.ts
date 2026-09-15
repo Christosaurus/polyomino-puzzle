@@ -252,6 +252,9 @@ export class CascadeView {
         // Zug, das nervt statt zu feiern
         if (clear.chain >= 3) this.shake(Math.min(9, 3 + clear.chain * 1.1));
       }
+      // Level-Modus: der Rest des Turms ist gerade zusammengerutscht — ein
+      // kurzer Ruck, proportional zur Zahl der neuen Leerzeilen oben.
+      if (clear.collapsedRows > 0) this.shake(Math.min(7, 2 + clear.collapsedRows * 1.4));
     }
     const tier = this.game.consumeTierUp();
     if (tier !== null) {
