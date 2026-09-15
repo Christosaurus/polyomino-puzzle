@@ -44,6 +44,24 @@ export interface CascadeResult {
   bestChain: number;
   /** Gespielte Zeit in ms — für die Plausibilitätsprüfung der Bestenliste. */
   elapsedMs: number;
+  /** Nur im Level-Modus aussagekräftig — Ziel erreicht, bevor Leben/Budget alle waren. */
+  won: boolean;
+}
+
+/**
+ * Ein Story-Level: dieselbe Kaskade-Mechanik, aber mit einem festen Ziel statt
+ * einer Uhr. Kein Zeitdruck — der Druck kommt aus dem Scherben-Budget: ist es
+ * aufgebraucht (und Band + Ablage leer), bevor `targetRows` erreicht ist, ist
+ * das Level verloren, genau wie bei 0 Leben.
+ */
+export interface LevelConfig {
+  rows: number;
+  cols: number;
+  /** Wie viele Scherben dieses Level insgesamt ausspuckt — kein Nachschub danach. */
+  shardBudget: number;
+  /** So viele Reihen müssen geräumt werden, um zu gewinnen. */
+  targetRows: number;
+  lives: number;
 }
 
 /**
@@ -77,10 +95,12 @@ const CHALLENGE_FIRST_AT = 12_000;
 const CHALLENGE_TIME_BONUS_MS = 10_000;
 
 export class CascadeState {
-  readonly rows = CASCADE_ROWS;
-  readonly cols = CASCADE_COLS;
+  readonly rows: number;
+  readonly cols: number;
   /** 0 = empty, otherwise 1-based index into PIECE_NAMES for the colour. */
-  readonly board = new Int8Array(CASCADE_ROWS * CASCADE_COLS);
+  readonly board: Int8Array;
+  /** Gesetzt, wenn dies ein Story-Level ist (Budget statt Uhr) — sonst `null` = Free Play. */
+  readonly level: LevelConfig | null;
 
   belt: Shard[] = [];
   hold: Shard | null = null;
@@ -91,7 +111,7 @@ export class CascadeState {
   perfectClears = 0;
   misses = 0;
   /** A shard reaching the bottom unplaced costs one of these; hit 0 and the run ends. */
-  lives = CASCADE_LIVES;
+  lives: number;
   /** Aufeinanderfolgende Platzierungen, die je mindestens eine Reihe räumen —
    *  reißt bei einer Platzierung ohne Clear oder einem verpassten Splitter. */
   chain = 0;
@@ -142,8 +162,13 @@ export class CascadeState {
   private nextChallengeAt = CHALLENGE_FIRST_AT;
   private challengeWon = false;
 
-  constructor(seed: string) {
+  constructor(seed: string, level: LevelConfig | null = null) {
     this.rng = rngFromSeed(seed);
+    this.level = level;
+    this.rows = level?.rows ?? CASCADE_ROWS;
+    this.cols = level?.cols ?? CASCADE_COLS;
+    this.board = new Int8Array(this.rows * this.cols);
+    this.lives = level?.lives ?? CASCADE_LIVES;
     this.belt.push(this.makeShard(0.72), this.makeShard(0.38), this.makeShard(0.04));
   }
 
@@ -153,8 +178,19 @@ export class CascadeState {
     return { id: this.nextId++, name, orientationIndex: 0, y };
   }
 
-  /** Belt speed ramps up over the run — a run gets visibly faster near the end. */
+  /** Wie viele Scherben dieses Level noch ausspuckt — `Infinity` im Free Play. */
+  get shardsLeft(): number {
+    return this.level ? Math.max(0, this.level.shardBudget - this.spawnCount) : Infinity;
+  }
+  /** Nur im Level-Modus aussagekräftig: Ziel schon erreicht? */
+  get won(): boolean {
+    return this.level !== null && this.cleared >= this.level.targetRows;
+  }
+
+  /** Belt speed ramps up over the run — a run gets visibly faster near the end.
+   *  Im Level-Modus gibt's keine Uhr, gegen die man ramped — konstantes Tempo. */
   private travelMs(): number {
+    if (this.level) return BELT_TRAVEL_MS_START;
     const t = this.started === null ? 0 : Math.min(1, this.elapsedMs() / DURATION_MS);
     return BELT_TRAVEL_MS_START + (BELT_TRAVEL_MS_END - BELT_TRAVEL_MS_START) * t;
   }
@@ -184,11 +220,22 @@ export class CascadeState {
     const end = this.endedAt ?? this.pausedAt ?? performance.now();
     return end - this.started - this.pausedTotal;
   }
+  /** Im Level-Modus bedeutungslos (keine Uhr) — `Infinity`, statt eine falsche
+   *  Zahl runterzuzählen, gegen die niemand spielt. */
   remainingMs(): number {
+    if (this.level) return Infinity;
     return Math.max(0, DURATION_MS + this.extraMs - this.elapsedMs());
   }
   get isOver(): boolean {
-    return this.isStarted && (this.remainingMs() <= 0 || this.lives <= 0);
+    if (!this.isStarted) return false;
+    if (this.lives <= 0) return true;
+    if (this.level) {
+      // gewonnen, oder aus Scherben (Band + Ablage leer, kein Nachschub mehr) —
+      // beides beendet den Lauf, ohne dass eine Uhr mitspielt
+      if (this.won) return true;
+      return this.shardsLeft <= 0 && this.belt.length === 0 && !this.hold;
+    }
+    return this.remainingMs() <= 0;
   }
   finish(): void {
     if (this.endedAt === null) this.endedAt = performance.now();
@@ -203,6 +250,7 @@ export class CascadeState {
       livesLeft: this.lives,
       bestChain: this.bestChain,
       elapsedMs: Math.round(this.elapsedMs()),
+      won: this.won,
     };
   }
 
@@ -213,8 +261,9 @@ export class CascadeState {
     const speed = dt / (this.travelMs() / 1000);
     for (const s of this.belt) s.y += speed;
 
-    // passive ramp: spawns come a little faster the longer the run goes
-    this.spawnInterval = Math.max(MIN_SPAWN_MS, this.spawnInterval - dt * 13);
+    // passive ramp: spawns come a little faster the longer the run goes — nur
+    // im Free Play, ein Level soll sein eigenes, vorhersagbares Tempo halten
+    if (!this.level) this.spawnInterval = Math.max(MIN_SPAWN_MS, this.spawnInterval - dt * 13);
 
     const fell = this.belt.filter((s) => s.y >= 1);
     if (fell.length > 0) {
@@ -237,13 +286,16 @@ export class CascadeState {
     if (
       this.spawnTimer >= this.spawnInterval &&
       this.belt.length < MAX_ON_BELT &&
-      topGap >= MIN_GAP_Y
+      topGap >= MIN_GAP_Y &&
+      this.shardsLeft > 0 // Level: kein Nachschub mehr, wenn das Budget aufgebraucht ist
     ) {
       this.spawnTimer = 0;
       this.belt.push(this.makeShard(0));
     }
 
     // objective: a short window to pull off a constrained clear for a life back
+    // — nur im Free Play; ein Level hat schon sein eigenes Ziel, keine Zeit-Boni
+    if (this.level) return;
     if (this.challenge) {
       if (this.elapsedMs() >= this.challenge.deadline) {
         this.challenge = null;

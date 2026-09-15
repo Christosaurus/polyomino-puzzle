@@ -9,6 +9,7 @@ import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js
 import { BEATS, type Beat, beatAfter, INTRO, SPEAKERS } from "./beats.js";
 import { type ChallengeKind, CHALLENGE_WINDOW_MS, CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
+import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
 import { countryName, detectCountry, flag } from "./countries.js";
@@ -55,6 +56,7 @@ const SCREENS = [
   "daily",
   "descent",
   "cascade",
+  "rescue",
   "collection",
   "play",
   "kaskade",
@@ -66,6 +68,11 @@ let regions: Region[] = [];
 let gameView: GameView | null = null;
 let cascadeView: CascadeView | null = null;
 let cascadeGame: CascadeState | null = null;
+/** Wohin „Neu starten" / „Beenden" in der Pause führen — Free Play und
+ *  Story-Level teilen sich denselben Play-Screen + dieselbe Pause-Overlay,
+ *  darum wird das hier pro Lauf umgebogen statt fest verdrahtet. */
+let cascadeRestart: () => void = () => startCascade();
+let cascadeQuit: () => void = () => setTab("cascade");
 let clockTimer = 0;
 /** Kurze Schonfrist nach dem Öffnen: wer nur reinschaut, kann ohne Kosten
  *  wieder raus — danach läuft die Uhr, auch ohne ersten Zug. Sonst wäre
@@ -1605,6 +1612,9 @@ function startCascade(): void {
   teardownGame();
   scenery.setTheme("garden");
   playMusic("cascade");
+  cascadeRestart = startCascade;
+  cascadeQuit = () => setTab("cascade");
+  $("rs-scene").hidden = true;
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
@@ -1714,9 +1724,141 @@ function startCascade(): void {
       ov.classList.add("show");
       $<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
       $<HTMLButtonElement>("k-again").onclick = startCascade;
+      $("k-again").textContent = "Nochmal";
     },
   });
   $("k-best").textContent = nf(bestScore);
+  showScreen("kaskade");
+  window.scrollTo(0, 0);
+}
+
+// ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
+function renderRescueList(): void {
+  const s = store.load();
+  const list = $("rescue-list");
+  list.replaceChildren(
+    ...RESCUE_LEVELS.map((lvl, i) => {
+      const prev = i === 0 ? null : RESCUE_LEVELS[i - 1]!;
+      const unlocked = i === 0 || (!!prev && (s.rescue[prev.id]?.stars ?? 0) > 0);
+      const stars = s.rescue[lvl.id]?.stars ?? 0;
+      const row = document.createElement("button");
+      row.className = `rescue-row${unlocked ? "" : " locked"}`;
+      row.innerHTML =
+        `<span class="rr-num">${i + 1}</span>` +
+        `<span class="rr-body"><span class="rr-name">${lvl.name}</span>` +
+        `<span class="rr-blurb">${lvl.blurb}</span></span>` +
+        `<span class="rr-stars">${[0, 1, 2].map((n) => `<span class="${n < stars ? "" : "off"}">⭐</span>`).join("")}</span>`;
+      if (unlocked) row.addEventListener("click", () => startRescueLevel(lvl));
+      return row;
+    }),
+  );
+}
+
+function openRescue(): void {
+  scenery.setTheme("surge");
+  renderRescueList();
+  showScreen("rescue");
+}
+
+function startRescueLevel(level: RescueLevel): void {
+  teardownGame();
+  scenery.setTheme("garden");
+  playMusic("cascade");
+  cascadeRestart = () => startRescueLevel(level);
+  cascadeQuit = openRescue;
+  $("k-overlay").classList.remove("show");
+  $("k-pause-overlay").classList.remove("show");
+  $("k-score-txt").classList.remove("new-record");
+
+  // Szene oben: Bedrohung + Held + ein Brocken pro Reihen-Ziel
+  $("rs-scene").hidden = false;
+  $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
+  $("rs-blurb").textContent = level.blurb;
+  const rubble = $("rs-rubble");
+  rubble.replaceChildren(
+    ...Array.from({ length: level.config.targetRows }, () => {
+      const span = document.createElement("span");
+      span.className = "rescue-chunk";
+      span.textContent = "🪨";
+      return span;
+    }),
+  );
+
+  const game = new CascadeState(`rescue-${level.id}-${Date.now()}`, level.config);
+  cascadeGame = game;
+  let lastMultTier = 1;
+  if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
+  cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
+    onHud: (h) => {
+      $("k-score-txt").textContent = nf(h.score);
+      const multEl = $("k-mult");
+      multEl.textContent = `×${xf(h.mult.toFixed(1))}`;
+      const tier = Math.floor(h.mult);
+      for (let t = 2; t <= 5; t++) multEl.classList.toggle(`tier-${t}`, tier === t || (t === 5 && tier > 5));
+      if (tier > lastMultTier) {
+        multEl.classList.remove("bump");
+        void multEl.offsetWidth;
+        multEl.classList.add("bump");
+      }
+      lastMultTier = tier;
+      $("k-cleared").textContent = `${nf(h.cleared)}/${nf(level.config.targetRows)}`;
+      const el = $("k-clock");
+      el.textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
+      el.classList.toggle("warn", h.shardsLeft <= 3);
+      for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
+      // keine Zwischenaufgaben im Level — das Ziel ist das Ziel
+      $("k-challenge").hidden = true;
+      $("k-wrap").classList.remove("has-challenge");
+
+      const streakEl = $("k-streak");
+      if (h.chain >= 2) {
+        streakEl.hidden = false;
+        streakEl.textContent = `🔥 ×${h.chain}`;
+      } else {
+        streakEl.hidden = true;
+      }
+
+      // ein Brocken pro geräumter Reihe verschwindet — der Held wird freier
+      const chunks = rubble.children;
+      for (let i = 0; i < chunks.length; i++) chunks[i]!.classList.toggle("gone", i < h.cleared);
+    },
+    onEnd: (r) => {
+      const stars = !r.won
+        ? 0
+        : r.livesLeft >= level.config.lives
+          ? 3
+          : r.livesLeft >= Math.ceil(level.config.lives / 2)
+            ? 2
+            : 1;
+      store.recordRescueLevel(level.id, stars, r.score);
+      const shards = r.won ? Math.min(30, 8 + Math.floor(r.score / 100)) : 0;
+      if (shards) store.addShards(shards);
+      const freshAch = syncAchievements();
+      celebrate(freshAch);
+      renderTopPills();
+
+      $("k-overlay-title").textContent = r.won
+        ? "Befreit!"
+        : r.livesLeft <= 0
+          ? "Keine Leben mehr!"
+          : "Keine Scherben mehr!";
+      $("k-result").innerHTML = r.won
+        ? `${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}<br><b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
+          (shards ? ` · ✦ +${nf(shards)}` : "") +
+          (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} freigeschaltet</small>` : "")
+        : `<b>${nf(r.cleared)}</b> von ${nf(level.config.targetRows)} Reihen geschafft — nochmal?`;
+      const ov = $("k-overlay");
+      ov.classList.remove("show");
+      void ov.offsetWidth;
+      ov.classList.add("show");
+      const nextLevel = RESCUE_LEVELS[RESCUE_LEVELS.indexOf(level) + 1];
+      $<HTMLButtonElement>("k-quit").onclick = openRescue;
+      const goNext = r.won && nextLevel;
+      $<HTMLButtonElement>("k-again").onclick = goNext ? () => startRescueLevel(nextLevel) : () => startRescueLevel(level);
+      $("k-again").textContent = goNext ? "Weiter ›" : "Nochmal";
+    },
+  });
+  $("k-best").textContent = "–";
   showScreen("kaskade");
   window.scrollTo(0, 0);
 }
@@ -2076,6 +2218,7 @@ $("ps-quit").addEventListener("click", () => {
 $("daily-play").addEventListener("click", playDaily);
 $("descent-play").addEventListener("click", startDescent);
 $("cascade-play").addEventListener("click", startCascade);
+$("rescue-open").addEventListener("click", openRescue);
 $("lb-open").addEventListener("click", openLeaderboard);
 $("lb-x").addEventListener("click", () => $("lb-overlay").classList.remove("show"));
 $("lb-overlay").addEventListener("click", (e) => {
@@ -2107,11 +2250,11 @@ $("kp-resume").addEventListener("click", closeKPause);
 $("kp-x").addEventListener("click", closeKPause);
 $("kp-restart").addEventListener("click", () => {
   $("k-pause-overlay").classList.remove("show");
-  startCascade();
+  cascadeRestart();
 });
 $("kp-quit").addEventListener("click", () => {
   $("k-pause-overlay").classList.remove("show");
-  setTab("cascade");
+  cascadeQuit();
 });
 $("jk-hint").addEventListener("click", () => useJoker("hint"));
 $("jk-time").addEventListener("click", () => useJoker("time"));

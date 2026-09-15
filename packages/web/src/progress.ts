@@ -27,6 +27,8 @@ export interface SaveData {
   daily: { lastDayDone: string; streak: number; bestStreak: number; claimedMilestones: number[] };
   descent: { bestDepth: number; runs: number; seq: number };
   cascade: { bestScore: number; bestCleared: number; runs: number };
+  /** Story-Modus (Kaskade-Level): id -> bester Sternestand + Score. */
+  rescue: Record<string, { stars: number; best: number }>;
   achievements: string[];
   /** Story-Beats, die schon gespielt wurden (für „Erinnerungen"). */
   beatsSeen: string[];
@@ -70,6 +72,7 @@ const EMPTY: SaveData = {
   daily: { lastDayDone: "", streak: 0, bestStreak: 0, claimedMilestones: [] },
   descent: { bestDepth: 0, runs: 0, seq: 0 },
   cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
+  rescue: {},
   achievements: [],
   beatsSeen: [],
   jokers: { hint: 5, time: 5, solvent: 5 },
@@ -102,6 +105,7 @@ export function load(): SaveData {
       daily: { ...EMPTY.daily, ...parsed.daily, claimedMilestones: parsed.daily?.claimedMilestones ?? [] },
       descent: { ...EMPTY.descent, ...parsed.descent },
       cascade: { ...EMPTY.cascade, ...parsed.cascade },
+      rescue: parsed.rescue ?? {},
       achievements: parsed.achievements ?? [],
       beatsSeen: parsed.beatsSeen ?? [],
       jokers: { ...EMPTY.jokers, ...parsed.jokers },
@@ -363,6 +367,17 @@ export function recordCascade(score: number, cleared: number): SaveData {
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
     // erhellt keine Story-Fenster mehr — Punkte zählen für Erfolge, die
     // Lichtsplitter fürs Herz-/Joker-Budget
+  });
+}
+
+/** Ergebnis eines Story-Levels speichern — nur bei Sieg gibt's Sterne. */
+export function recordRescueLevel(id: string, stars: number, score: number): SaveData {
+  return update((d) => {
+    const prev = d.rescue[id];
+    d.rescue[id] = {
+      stars: Math.max(prev?.stars ?? 0, stars),
+      best: Math.max(prev?.best ?? 0, score),
+    };
   });
 }
 

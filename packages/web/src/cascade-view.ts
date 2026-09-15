@@ -58,7 +58,16 @@ interface Drag {
 
 export interface CascadeCallbacks {
   onEnd: (result: ReturnType<CascadeState["result"]>) => void;
-  onHud: (s: { score: number; mult: number; cleared: number; ms: number; lives: number; chain: number }) => void;
+  onHud: (s: {
+    score: number;
+    mult: number;
+    cleared: number;
+    ms: number;
+    lives: number;
+    chain: number;
+    /** `Infinity` im Free Play — nur im Level-Modus ein echtes Budget. */
+    shardsLeft: number;
+  }) => void;
 }
 
 export class CascadeView {
@@ -248,7 +257,8 @@ export class CascadeView {
     // das ganze Brett leer bekommen — der seltenste, größte Moment im Lauf
     if (this.game.consumePerfectClear() && this.layout) {
       const L = this.layout;
-      this.comboPop = { text: "PERFEKT! +5S", t: 0, color: cssVar("--go") };
+      // Zeitbonus gibt's nur im Free Play — im Level läuft keine Uhr
+      this.comboPop = { text: this.game.level ? "PERFEKT!" : "PERFEKT! +5S", t: 0, color: cssVar("--go") };
       sfx.milestone();
       this.shake(9);
       this.spawnBigBurst(L);
@@ -267,6 +277,7 @@ export class CascadeView {
       ms: this.game.remainingMs(),
       lives: this.game.lives,
       chain: this.game.chain,
+      shardsLeft: this.game.shardsLeft,
     });
   }
 

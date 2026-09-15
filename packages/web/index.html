@@ -1253,6 +1253,126 @@
           animation: k-streak-in 0.2s var(--tap) both;
         }
       }
+      /* ── Story-Modus: Rettungsszene über dem Kaskade-Brett ──────────────── */
+      .rescue-scene {
+        position: relative;
+        margin: 2px 0 8px;
+        padding: 10px 10px 6px;
+        border-radius: var(--r-md);
+        background: linear-gradient(180deg, #1c1450, #100b34);
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .rescue-figures {
+        position: relative;
+        height: 68px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+      }
+      .rescue-threat {
+        position: absolute;
+        top: -12px;
+        right: 10%;
+        width: 42px;
+        opacity: 0.9;
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
+      }
+      .rescue-hero {
+        width: 54px;
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
+      }
+      .rescue-rubble {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 3px;
+        flex-wrap: wrap;
+        margin-top: -20px;
+        min-height: 22px;
+      }
+      .rescue-chunk {
+        font-size: 19px;
+        line-height: 1;
+        transition: transform 0.35s var(--tap), opacity 0.3s ease;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
+      }
+      .rescue-chunk.gone {
+        opacity: 0;
+        transform: scale(0.25) translateY(8px) rotate(25deg);
+      }
+      .rescue-blurb {
+        margin: 4px 0 0;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ink-dim);
+        line-height: 1.3;
+      }
+      /* ── Story-Modus: Levelauswahl ───────────────────────────────────────── */
+      .rescue-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .rescue-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: var(--r-md);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        text-align: left;
+        width: 100%;
+      }
+      .rescue-row .rr-num {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--panel-inset);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        flex: none;
+      }
+      .rescue-row .rr-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .rescue-row .rr-name {
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .rescue-row .rr-blurb {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        text-shadow: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rescue-row .rr-stars {
+        display: flex;
+        gap: 1px;
+        flex: none;
+        font-size: 13px;
+      }
+      .rescue-row .rr-stars .off {
+        opacity: 0.3;
+      }
+      .rescue-row.locked {
+        opacity: 0.55;
+      }
+      .rescue-row.locked .rr-name::after {
+        content: " 🔒";
+      }
       .metric small {
         display: block;
         font-weight: 700;
@@ -2518,7 +2638,14 @@
           <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
           <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
           <button class="go big" id="cascade-play">Kaskade starten</button>
+          <button id="rescue-open" style="margin-top:8px">🏰 Story-Modus</button>
         </div>
+      </section>
+
+      <section class="screen" id="screen-rescue" hidden>
+        <h1>Story-Modus</h1>
+        <p class="muted">Kaskade mit einem Ziel statt einer Uhr: Räum genug Reihen, bevor die Scherben ausgehen, und befrei die Figur aus dem Schutt.</p>
+        <div class="rescue-list" id="rescue-list"></div>
       </section>
 
       <section class="screen" id="screen-collection" hidden>
@@ -2555,6 +2682,14 @@
 
       <section class="screen play" id="screen-kaskade" hidden>
         <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
+        <div class="rescue-scene" id="rs-scene" hidden>
+          <div class="rescue-figures">
+            <img class="rescue-threat" id="rs-threat" src="ui/chars/umbra.webp" alt="" />
+            <img class="rescue-hero" id="rs-hero" src="ui/chars/mira.webp" alt="" />
+          </div>
+          <div class="rescue-rubble" id="rs-rubble"></div>
+          <p class="rescue-blurb" id="rs-blurb"></p>
+        </div>
         <div class="hud">
           <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
           <div class="clock" id="k-clock">2:30</div>
