@@ -1665,7 +1665,6 @@ function startCascade(): void {
       if (game.challenge) {
         cEl.hidden = false;
         cEl.classList.remove("won");
-        $("k-wrap").classList.add("has-challenge");
         $("k-challenge-icon").textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
         $("k-challenge-txt").textContent = game.challenge.label;
         const remain = game.challengeRemainingMs();
@@ -1676,25 +1675,21 @@ function startCascade(): void {
       } else if (performance.now() < challengeWonUntil) {
         cEl.hidden = false;
         cEl.classList.add("won");
-        $("k-wrap").classList.add("has-challenge");
         $("k-challenge-txt").textContent = "Aufgabe geschafft!";
         $("k-challenge-clock").textContent = "";
         bar.style.width = "100%";
         bar.classList.remove("low");
       } else {
         cEl.hidden = true;
-        $("k-wrap").classList.remove("has-challenge");
       }
 
       // Serie: solange die Kette läuft, bleibt oben ein flackerndes Abzeichen
-      // stehen — nicht nur der kurze Einblend-Moment auf dem Brett
+      // stehen — nicht nur der kurze Einblend-Moment auf dem Brett. Nur die
+      // Opacity wechselt (.active), nie `hidden` — die Zeile bleibt immer im
+      // Layout reserviert, sonst springt das Brett beim Auftauchen der Kette.
       const streakEl = $("k-streak");
-      if (h.chain >= 2) {
-        streakEl.hidden = false;
-        streakEl.textContent = `🔥 ×${h.chain}`;
-      } else {
-        streakEl.hidden = true;
-      }
+      streakEl.classList.toggle("active", h.chain >= 2);
+      if (h.chain >= 2) streakEl.textContent = `🔥 ×${h.chain}`;
     },
     onEnd: (r) => {
       store.recordCascade(r.score, r.cleared);
@@ -1820,15 +1815,10 @@ function startRescueLevel(level: RescueLevel): void {
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
       // keine Zwischenaufgaben im Level — das Ziel ist das Ziel
       $("k-challenge").hidden = true;
-      $("k-wrap").classList.remove("has-challenge");
 
       const streakEl = $("k-streak");
-      if (h.chain >= 2) {
-        streakEl.hidden = false;
-        streakEl.textContent = `🔥 ×${h.chain}`;
-      } else {
-        streakEl.hidden = true;
-      }
+      streakEl.classList.toggle("active", h.chain >= 2);
+      if (h.chain >= 2) streakEl.textContent = `🔥 ×${h.chain}`;
 
       // ein Brocken pro geräumter Reihe verschwindet — der Held wird freier
       const chunks = rubble.children;

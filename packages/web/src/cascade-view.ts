@@ -304,8 +304,10 @@ export class CascadeView {
     // elongated conveyor with a longer visible travel path
     const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
     const boardAreaW = cssW - beltW - pad * 3;
-    // the challenge banner reserves a band above the board (see #k-wrap.has-challenge)
-    const chalBand = this.wrap.classList.contains("has-challenge") ? 46 : 0;
+    // Die Challenge-Karte reserviert ihren Streifen jetzt IMMER (#k-wrap hat
+    // padding-top: 58px fest, nicht mehr nur bei .has-challenge) — sonst
+    // sprang das Brett beim Erscheinen/Verschwinden der Karte sichtbar um.
+    const chalBand = 58;
     const maxH = Math.max(320, viewportH - 216 - chalBand); // hud rows + lives strip + pad + banner
 
     const cell = Math.max(
@@ -722,22 +724,27 @@ export class CascadeView {
       const cells = this.game
         .cells(d.shard)
         .map(([r, c]) => [r + snap.row, c + snap.col] as [number, number]);
+      const ctx = this.ctx;
       // Farbe bleibt IMMER die echte Teile-Farbe — nicht rot einfärben, sonst
       // sieht ein von Natur aus rotes Teil (z. B. #ff4d4d) genauso aus wie ein
-      // ungültig platziertes. „Geht nicht" zeigt stattdessen ein von der Farbe
-      // unabhängiger, marschierender Rahmen.
-      drawPieceBody(this.ctx, cells, L.boardX, L.boardY, L.cell, shardDef(d.shard.name).color, {
-        alpha: ok ? 0.96 : 0.5,
+      // ungültig platziertes. „Geht nicht" zeigt stattdessen ein leichtes
+      // Kopfschütteln + einen pulsierenden, marschierenden Rahmen — eine
+      // starre Kontur allein wirkt tot.
+      const jitter = ok ? 0 : Math.sin(this.nowMs / 60) * L.cell * 0.045;
+      ctx.save();
+      ctx.translate(jitter, 0);
+      drawPieceBody(ctx, cells, L.boardX, L.boardY, L.cell, shardDef(d.shard.name).color, {
+        alpha: ok ? 0.96 : 0.55,
         scale: 1.03,
         glow: ok ? 20 : 0,
         selected: ok,
       });
       if (!ok) {
         const inSet = new Set(cells.map(([r, c]) => `${r},${c}`));
-        const ctx = this.ctx;
-        ctx.save();
+        const pulse = 0.5 + 0.5 * Math.sin(this.nowMs / 120);
+        ctx.globalAlpha = 0.55 + pulse * 0.45;
         ctx.setLineDash([L.cell * 0.16, L.cell * 0.1]);
-        ctx.lineDashOffset = -(this.nowMs / 45) % (L.cell * 0.26);
+        ctx.lineDashOffset = -(this.nowMs / 40) % (L.cell * 0.26);
         strokeCellOutline(
           ctx,
           (r, c) => inSet.has(`${r},${c}`),
@@ -746,10 +753,10 @@ export class CascadeView {
           L.boardY,
           L.cell,
           "#ff2d4d",
-          3,
+          2.5 + pulse * 2,
         );
-        ctx.restore();
       }
+      ctx.restore();
     } else {
       // big, follows the finger
       this.drawShard(d.shard, d.px, d.py - L.cell * 0.3, L.cell * 1.05, true);

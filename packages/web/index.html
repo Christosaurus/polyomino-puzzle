@@ -1103,9 +1103,11 @@
         opacity: 0.3;
         filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
       }
-      /* sits in a reserved band ABOVE the board (see #k-wrap.has-challenge) so
-         it never covers a playable row */
-      #k-wrap.has-challenge {
+      /* Reservierter Streifen für die Challenge-Karte — IMMER da, ob eine
+         Aufgabe gerade läuft oder nicht. Früher nur bei .has-challenge, aber
+         dann sprang das Brett beim Erscheinen/Verschwinden der Karte sichtbar
+         größer/kleiner. Die Spielfläche darf sich nie verändern. */
+      #k-wrap {
         padding-top: 58px;
       }
       .challenge {
@@ -1222,9 +1224,14 @@
         box-shadow: 0 0 10px 4px rgba(102, 224, 95, 0.9), 0 0 3px 1px #fff;
       }
       /* Serie: solange sie läuft, ein flackerndes, wackelndes Abzeichen —
-         "gehyped bleiben", nicht nur der kurze Einblend-Moment auf dem Brett */
+         "gehyped bleiben", nicht nur der kurze Einblend-Moment auf dem Brett.
+         Bleibt IMMER im Layout (min-height reserviert) und wird nur über
+         Opacity ein-/ausgeblendet — mit `hidden`/display:none würde die Zeile
+         beim Auftauchen der Kette das Brett nach unten schieben. */
       .k-streak {
         width: fit-content;
+        min-height: 27px;
+        box-sizing: border-box;
         margin: 0 auto 4px;
         padding: 4px 16px;
         border-radius: 999px;
@@ -1234,6 +1241,12 @@
         background: linear-gradient(180deg, var(--mango), var(--stop));
         box-shadow: 0 0 16px rgba(255, 91, 106, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.3);
         text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        visibility: hidden;
+      }
+      .k-streak.active {
+        opacity: 1;
+        visibility: visible;
         animation: k-streak-in 0.2s var(--tap) both, k-streak-wobble 0.5s ease-in-out infinite;
       }
       @keyframes k-streak-in {
@@ -1252,7 +1265,7 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .k-streak {
+        .k-streak.active {
           animation: k-streak-in 0.2s var(--tap) both;
         }
       }
@@ -2708,7 +2721,7 @@
           <span class="metric"><small>Reihen</small><span id="k-cleared">0</span></span>
           <span class="metric right"><small>Rekord</small><span id="k-best">0</span></span>
         </div>
-        <div class="k-streak" id="k-streak" hidden></div>
+        <div class="k-streak" id="k-streak"></div>
         <div class="board-wrap" id="k-wrap">
           <div class="challenge" id="k-challenge" hidden>
             <div class="chal-top">
