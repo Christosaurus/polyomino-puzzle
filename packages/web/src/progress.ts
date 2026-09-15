@@ -32,6 +32,8 @@ export interface SaveData {
   achievements: string[];
   /** Story-Beats, die schon gespielt wurden (für „Erinnerungen"). */
   beatsSeen: string[];
+  /** Einmalige Spielhinweise, die schon gezeigt wurden (z. B. „Tippen dreht"). */
+  hintsSeen: string[];
   jokers: Jokers;
   /** Region ids whose completion reward has been granted. */
   regionRewards: string[];
@@ -75,6 +77,7 @@ const EMPTY: SaveData = {
   rescue: {},
   achievements: [],
   beatsSeen: [],
+  hintsSeen: [],
   jokers: { hint: 5, time: 5, solvent: 5 },
   regionRewards: [],
   milestone: 0,
@@ -108,6 +111,7 @@ export function load(): SaveData {
       rescue: parsed.rescue ?? {},
       achievements: parsed.achievements ?? [],
       beatsSeen: parsed.beatsSeen ?? [],
+      hintsSeen: parsed.hintsSeen ?? [],
       jokers: { ...EMPTY.jokers, ...parsed.jokers },
       regionRewards: parsed.regionRewards ?? [],
       milestone: parsed.milestone ?? 0,
@@ -390,6 +394,14 @@ export function markBeatSeen(id: string): void {
   update((d) => {
     if (!d.beatsSeen.includes(id)) d.beatsSeen.push(id);
   });
+}
+
+/** Einmaligen Spielhinweis als gesehen markieren; `true`, wenn er *neu* war
+ *  (also jetzt gezeigt werden soll). */
+export function markHintSeen(id: string): boolean {
+  const already = load().hintsSeen.includes(id);
+  if (!already) update((d) => d.hintsSeen.push(id));
+  return !already;
 }
 export function beatsSeen(): string[] {
   return load().beatsSeen;

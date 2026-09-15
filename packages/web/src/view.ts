@@ -1181,13 +1181,25 @@ export class GameView {
     const snapped = this.snappedPos(drag, layout);
     if (snapped && this.overBoard(drag.pointerX, drag.pointerY, layout)) {
       const ok = this.game.canPlace(drag.piece, snapped);
-      this.drawPiece(this.game.cellsAt(drag.piece, snapped), layout.board, PIECE_COLORS[drag.piece.name], {
+      const cells = this.game.cellsAt(drag.piece, snapped);
+      // Farbe bleibt die echte Teile-Farbe — nicht rot einfärben, sonst sieht
+      // ein von Natur aus rotes Teil (F-Pentomino: #ff4d4d) bei einer gültigen
+      // Platzierung genauso aus wie ein ungültig platziertes irgendein Teil.
+      this.drawPiece(cells, layout.board, PIECE_COLORS[drag.piece.name], {
         scale: 1.05,
-        glow: ok ? 18 : 6,
-        alpha: ok ? 0.95 : 0.6,
-        tint: ok ? undefined : "#ff4d4d",
+        glow: ok ? 18 : 0,
+        alpha: ok ? 0.95 : 0.55,
         selected: ok,
       });
+      if (!ok) {
+        const b = layout.board;
+        const inSet = new Set(cells.map(([r, c]) => `${r},${c}`));
+        this.ctx.save();
+        this.ctx.setLineDash([b.cell * 0.16, b.cell * 0.1]);
+        this.ctx.lineDashOffset = -(this.nowMs / 45) % (b.cell * 0.26);
+        strokeCellOutline(this.ctx, (r, c) => inSet.has(`${r},${c}`), cells, b.x, b.y, b.cell, "#ff2d4d", 3);
+        this.ctx.restore();
+      }
     } else {
       const cell = layout.board.cell;
       const cells = this.game.localCells(drag.piece);

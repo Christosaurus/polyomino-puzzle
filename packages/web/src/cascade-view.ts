@@ -5,7 +5,7 @@
 
 import { cssVar } from "./colors.js";
 import { CascadeState, type Pos, type Shard } from "./cascade.js";
-import { boardGrid, drawPieceBody, roundRect } from "./render.js";
+import { boardGrid, drawPieceBody, roundRect, strokeCellOutline } from "./render.js";
 import { sfx } from "./sfx.js";
 import { shardByColorIndex, shardDef } from "./shards.js";
 
@@ -81,6 +81,11 @@ export class CascadeView {
   /** `computeLayout` erzwingt einen Reflow (DOM-Reads). Nur neu rechnen, wenn
    *  sich Viewport oder Challenge-Band ändern — nicht pro Frame. */
   private layoutDirty = true;
+  /** Sobald die Spielfläche einmal vermessen ist, steht sie fest — auch wenn
+   *  z. B. die mobile Adressleiste beim Ziehen ein-/ausblendet und dadurch
+   *  `visualViewport` kurz eine andere Höhe meldet. Das Brett darf sich
+   *  während eines Laufs nie mehr sichtbar verschieben oder umgrößern. */
+  private layoutLocked = false;
   private drag: Drag | null = null;
   private running = false;
   private raf = 0;
@@ -160,6 +165,7 @@ export class CascadeView {
   }
 
   private kick = (): void => {
+    if (this.layoutLocked) return; // Spielfläche steht fest — kein Resize-Reflow mehr
     this.layoutDirty = true;
     this.render();
   };
@@ -284,8 +290,13 @@ export class CascadeView {
   // ── Layout — the board is as big as the width allows ────────────────────
   private computeLayout(): Layout {
     const cssW = this.wrap.clientWidth || 340;
-    // Wrap noch nicht vermessen → nächsten Frame erneut rechnen
-    if (!this.wrap.clientWidth) this.layoutDirty = true;
+    if (!this.wrap.clientWidth) {
+      // Wrap noch nicht vermessen → nächsten Frame erneut rechnen
+      this.layoutDirty = true;
+    } else {
+      // ab der ersten echten Messung steht die Fläche fest (siehe kick())
+      this.layoutLocked = true;
+    }
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const pad = 10;
 
@@ -711,13 +722,34 @@ export class CascadeView {
       const cells = this.game
         .cells(d.shard)
         .map(([r, c]) => [r + snap.row, c + snap.col] as [number, number]);
+      // Farbe bleibt IMMER die echte Teile-Farbe — nicht rot einfärben, sonst
+      // sieht ein von Natur aus rotes Teil (z. B. #ff4d4d) genauso aus wie ein
+      // ungültig platziertes. „Geht nicht" zeigt stattdessen ein von der Farbe
+      // unabhängiger, marschierender Rahmen.
       drawPieceBody(this.ctx, cells, L.boardX, L.boardY, L.cell, shardDef(d.shard.name).color, {
-        alpha: ok ? 0.96 : 0.55,
+        alpha: ok ? 0.96 : 0.5,
         scale: 1.03,
-        glow: ok ? 20 : 6,
-        tint: ok ? undefined : "#ff4d4d",
+        glow: ok ? 20 : 0,
         selected: ok,
       });
+      if (!ok) {
+        const inSet = new Set(cells.map(([r, c]) => `${r},${c}`));
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.setLineDash([L.cell * 0.16, L.cell * 0.1]);
+        ctx.lineDashOffset = -(this.nowMs / 45) % (L.cell * 0.26);
+        strokeCellOutline(
+          ctx,
+          (r, c) => inSet.has(`${r},${c}`),
+          cells,
+          L.boardX,
+          L.boardY,
+          L.cell,
+          "#ff2d4d",
+          3,
+        );
+        ctx.restore();
+      }
     } else {
       // big, follows the finger
       this.drawShard(d.shard, d.px, d.py - L.cell * 0.3, L.cell * 1.05, true);

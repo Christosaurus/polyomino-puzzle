@@ -1730,6 +1730,15 @@ function startCascade(): void {
   $("k-best").textContent = nf(bestScore);
   showScreen("kaskade");
   window.scrollTo(0, 0);
+  maybeHintRotate();
+}
+
+/** Einmaliger Hinweis, dass Antippen eine Figur dreht — sonst findet das
+ *  kaum jemand von allein. Feuert beim ersten Einstieg in irgendeinen
+ *  Kaskade-Modus (Free Play oder Story-Level), danach nie wieder. */
+function maybeHintRotate(): void {
+  if (!store.markHintSeen("rotate-tip")) return;
+  window.setTimeout(() => toast("💡 Tippen dreht eine Figur"), 1100);
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
@@ -1770,8 +1779,11 @@ function startRescueLevel(level: RescueLevel): void {
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
 
-  // Szene oben: Bedrohung + Held + ein Brocken pro Reihen-Ziel
-  $("rs-scene").hidden = false;
+  // Szene oben: Bedrohung + Held + ein Brocken pro Reihen-Ziel — auf Wunsch
+  // erstmal rausgenommen (nicht gelöscht), bleibt hidden. Der Rest hier baut
+  // die Brocken trotzdem auf, damit onHud sie weiter aktualisieren kann, ohne
+  // dass es einen Unterschied macht, ob die Szene je gezeigt wird.
+  $("rs-scene").hidden = true;
   $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
   $("rs-blurb").textContent = level.blurb;
   const rubble = $("rs-rubble");
@@ -1861,6 +1873,7 @@ function startRescueLevel(level: RescueLevel): void {
   $("k-best").textContent = "–";
   showScreen("kaskade");
   window.scrollTo(0, 0);
+  maybeHintRotate();
 }
 
 // ── Sammlung ───────────────────────────────────────────────────────────────

@@ -144,6 +144,9 @@
       .screen.play {
         padding-bottom: 16px;
         justify-content: flex-start;
+        /* verhindert Doppeltipp-Zoom irgendwo auf dem Spielbildschirm — nicht
+           nur auf dem Brett selbst (das hat schon touch-action: none) */
+        touch-action: manipulation;
       }
       /* let the board panel float in the middle of the free space between the
          HUD/difficulty strip and the joker foot, instead of hugging the top */
