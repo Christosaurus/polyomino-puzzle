@@ -3,7 +3,7 @@
  * Drag shards off the belt (or the hold slot) onto the board with one finger.
  */
 
-import { cssVar } from "./colors.js";
+import { cssVar, shade } from "./colors.js";
 import { CascadeState, type Pos, type Shard } from "./cascade.js";
 import { boardGrid, drawPieceBody, roundRect } from "./render.js";
 import { sfx } from "./sfx.js";
@@ -99,6 +99,14 @@ export class CascadeView {
   private dust: Array<{ x: number; y: number; vx: number; vy: number; t: number; max: number; r: number }> = [];
   private ended = false;
   private nowMs = 0;
+  /** Nur Level-Modus: wie viele Reihen der Schutt gerade sichtbar bedeckt —
+   *  gleitet sanft auf `game.shrunkRows` zu, statt in einem Ruck zu springen,
+   *  damit man das Feld wirklich schrumpfen *sieht*. */
+  private rubbleDisplay = 0;
+  /** Höchste bereits "gelandete" Schutt-Reihe — für den kurzen Setz-Hüpfer,
+   *  wenn eine neue Reihe Steine ankommt. */
+  private rubbleSettledRows = 0;
+  private rubbleBounceT = 999;
   /** Kamera-Wackler bei fetten Momenten (Mehrfach-Clear, Tier-Sprung, perfektes Brett). */
   private shakeT = 0;
   private shakeMag = 0;
@@ -173,6 +181,19 @@ export class CascadeView {
   private step(dt: number): void {
     this.nowMs = performance.now();
     this.game.tick(dt);
+    // Schutt sanft auf den echten Stand nachziehen — das Feld schrumpft dann
+    // sichtbar über ~0,4s, statt in einem Frame zu springen.
+    if (this.rubbleDisplay !== this.game.shrunkRows) {
+      const d = this.game.shrunkRows - this.rubbleDisplay;
+      const step = d * Math.min(1, dt * 5);
+      this.rubbleDisplay += Math.abs(step) > 0.002 ? step : d;
+    }
+    const settled = Math.floor(this.rubbleDisplay + 0.001);
+    if (settled > this.rubbleSettledRows) {
+      this.rubbleSettledRows = settled;
+      this.rubbleBounceT = 0; // neue Reihe Steine ist gerade angekommen — kurzer Hüpfer
+    }
+    this.rubbleBounceT += dt;
     if (this.shakeMag > 0) {
       this.shakeT += dt;
       // schneller Ruck statt Dauerwackeln: von voller Stärke in ~0,3s wieder ruhig
@@ -465,6 +486,66 @@ export class CascadeView {
     }
   }
 
+  /** Steinfarben in Lumen-Palette — meist kühles Traube/Iris, ab und zu ein
+   *  goldener Splitter darunter (Funkeln im Geröll, wie in den Referenzbildern). */
+  private static readonly RUBBLE_HUES = ["#5039c6", "#8b6bff", "#2a1d6b", "#8b6bff", "#5039c6", "#ffc23b"];
+
+  /**
+   * Der Schutt, der die obersten `rows` Reihen des Bretts wieder eingenommen
+   * hat — dasselbe Feld, das gerade kleiner wird, nicht ein separates Bild.
+   * Glänzende Steinbrocken im Lumen-Look (dieselbe Kugel-Schattierung wie die
+   * Spielteile), mit einem kurzen Hüpfer, wenn eine neue Reihe ankommt.
+   */
+  private drawRubbleFill(L: Layout, rows: number): void {
+    const ctx = this.ctx;
+    const w = this.game.cols * L.cell;
+    // kurzer Setz-Hüpfer: die Kante überschießt beim Landen leicht und
+    // schwingt zurück, statt einfach stehenzubleiben
+    const bt = this.rubbleBounceT;
+    const overshoot = bt < 0.26 ? Math.sin((bt / 0.26) * Math.PI) * (1 - bt / 0.26) * L.cell * 0.16 : 0;
+    const h = rows * L.cell + overshoot;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(L.boardX, L.boardY, w, h);
+    ctx.clip();
+
+    const grad = ctx.createLinearGradient(0, L.boardY, 0, L.boardY + h);
+    grad.addColorStop(0, "#251d47");
+    grad.addColorStop(1, "#3a2e63");
+    ctx.fillStyle = grad;
+    ctx.fillRect(L.boardX, L.boardY, w, h);
+
+    // mehrere kleine, glänzende Brocken pro Zelle — dichter als eine Kugel
+    // pro Zelle, näher am "Geröllhaufen"-Bild der Vorlage. Deterministisch
+    // nach Zelle geseedet, damit es zwischen Frames nicht flimmert.
+    const rowsToDraw = Math.ceil(rows) + 1;
+    for (let r = -1; r < rowsToDraw; r++) {
+      for (let c = 0; c < this.game.cols; c++) {
+        for (let k = 0; k < 3; k++) {
+          const seed = (((r * 13 + c * 7 + k * 29) % 17) + 17) % 17;
+          const hue = CascadeView.RUBBLE_HUES[seed % CascadeView.RUBBLE_HUES.length]!;
+          const cx = L.boardX + (c + 0.5) * L.cell + (((seed % 7) - 3) / 3) * L.cell * 0.32;
+          const cy = L.boardY + (r + 0.5) * L.cell + ((((seed * 5) % 7) - 3) / 3) * L.cell * 0.32;
+          const rr = L.cell * (0.1 + (seed % 5) * 0.018);
+          const g = ctx.createRadialGradient(cx - rr * 0.3, cy - rr * 0.35, rr * 0.1, cx, cy, rr);
+          g.addColorStop(0, shade(hue, 0.5));
+          g.addColorStop(0.5, hue);
+          g.addColorStop(1, shade(hue, -0.4));
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(cx, cy, rr, 0, 6.28);
+          ctx.fill();
+        }
+      }
+    }
+    // ein feiner heller Streifen genau an der Kante zum Spielfeld — die Grenze,
+    // die beim nächsten Clear weiter runterrutscht
+    const edgeY = L.boardY + h;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillRect(L.boardX, edgeY - 2, w, 2);
+    ctx.restore();
+  }
+
   private drawStar(x: number, y: number, r: number, rot: number): void {
     const ctx = this.ctx;
     ctx.beginPath();
@@ -506,6 +587,14 @@ export class CascadeView {
     // leeres Brett-Raster: einmal gebaut, danach nur noch als Bild geblittet
     const grid = boardGrid(this.gridCells, L.cell, dpr, cssVar("--cell"));
     ctx.drawImage(grid.canvas, L.boardX, L.boardY, grid.w, grid.h);
+
+    // Level-Modus: der Schutt hat die obersten `rubbleDisplay` Reihen schon
+    // wieder eingenommen — das Spielfeld ist dort sichtbar kleiner geworden,
+    // nicht nur leer. Läuft weich mit, wenn eine Reihe geräumt wird.
+    if (this.game.level && this.rubbleDisplay > 0.01) {
+      this.drawRubbleFill(L, Math.min(this.rubbleDisplay, this.game.rows));
+    }
+
     ctx.strokeStyle = cssVar("--board-edge");
     ctx.lineWidth = 3;
     roundRect(

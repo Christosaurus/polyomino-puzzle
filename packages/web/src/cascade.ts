@@ -124,6 +124,13 @@ export class CascadeState {
   /** Nur Level-Modus: wie viele neue Leerzeilen beim letzten Kollaps oben
    *  entstanden sind — die View animiert damit das Zusammenrutschen. */
   private collapsedRows = 0;
+  /**
+   * Nur Level-Modus: wie viele Reihen von oben schon dauerhaft weg sind. Das
+   * Spielfeld selbst wird kleiner, nicht nur sein Inhalt — Reihen `< shrunkRows`
+   * gehören nicht mehr zum Brett (dort liegt jetzt der Schutt der Szene) und
+   * können nie wieder bebaut werden. Steigt nur, geht nie zurück.
+   */
+  shrunkRows = 0;
   /** Höchste bereits gefeierte Multiplikator-Stufe (abgerundet). */
   private multTierSeen = 1;
   private tierUp = 0;
@@ -386,6 +393,9 @@ export class CascadeState {
       const r = pos.row + dr;
       const c = pos.col + dc;
       if (r < 0 || c < 0 || r >= this.rows || c >= this.cols) return false;
+      // Level-Modus: die obersten `shrunkRows` Reihen gehören nicht mehr zum
+      // Brett — das Feld ist dort schon geschrumpft, das gehört jetzt dem Schutt.
+      if (r < this.shrunkRows) return false;
       if (this.board[this.idx(r, c)] !== 0) return false;
     }
     return true;
@@ -490,6 +500,7 @@ export class CascadeState {
       }
       this.board.set(next);
       this.collapsedRows = topGap; // für die View: so viele neue Leerzeilen oben
+      this.shrunkRows += topGap; // dauerhaft: das Feld ist jetzt insgesamt so viel kleiner
     } else {
       for (const r of clearedSet) for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
     }

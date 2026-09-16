@@ -1830,6 +1830,11 @@ function startRescueLevel(level: RescueLevel): void {
         goalEl.classList.toggle("done", goalLeft === 0);
         lastGoalLeft = goalLeft;
       }
+      // Die Bedrohung rückt näher, je mehr vom Scherben-Budget weg ist — wird
+      // das Budget leer, bevor das Ziel steht, hat sie euch eingeholt (=
+      // dieselbe Niederlage wie "keine Scherben mehr").
+      const usedFrac = Math.min(1, 1 - h.shardsLeft / level.config.shardBudget);
+      $("rs-threat").style.transform = `translateY(${Math.round(usedFrac * 58)}px)`;
       const el = $("k-clock");
       el.textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
       el.classList.toggle("warn", h.shardsLeft <= 3);
@@ -1881,6 +1886,7 @@ function startRescueLevel(level: RescueLevel): void {
       $("k-again").textContent = goNext ? "Weiter ›" : "Nochmal";
     },
   });
+  if (import.meta.env.DEV) (window as unknown as { __cascadeView: CascadeView }).__cascadeView = cascadeView;
   $("k-best").textContent = "–";
   showScreen("kaskade");
   window.scrollTo(0, 0);
