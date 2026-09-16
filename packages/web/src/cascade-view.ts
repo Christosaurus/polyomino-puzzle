@@ -5,7 +5,7 @@
 
 import { cssVar } from "./colors.js";
 import { CascadeState, type Pos, type Shard } from "./cascade.js";
-import { boardGrid, drawPieceBody, roundRect, strokeCellOutline } from "./render.js";
+import { boardGrid, drawPieceBody, roundRect } from "./render.js";
 import { sfx } from "./sfx.js";
 import { shardByColorIndex, shardDef } from "./shards.js";
 
@@ -293,25 +293,33 @@ export class CascadeView {
   // ── Layout — the board is as big as the width allows ────────────────────
   private computeLayout(): Layout {
     const cssW = this.wrap.clientWidth || 340;
-    if (!this.wrap.clientWidth) {
-      // Wrap noch nicht vermessen → nächsten Frame erneut rechnen
-      this.layoutDirty = true;
-    } else {
-      // ab der ersten echten Messung steht die Fläche fest (siehe kick())
-      this.layoutLocked = true;
-    }
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const pad = 10;
+
+    // Echter vertikaler Platz: Viewport minus wo der Canvas tatsächlich anfängt
+    // — das schließt automatisch ALLES ein, was darüber sitzt (Rettungsszene,
+    // HUD-Zeilen, Leben, Serie-Abzeichen, Challenge-Reservierung), egal wie
+    // viel das gerade ist. Der alte feste Abzug (216px + Challenge-Band) war
+    // auf eine bestimmte Chrome-Höhe geeicht und lag daneben, sobald oben mehr
+    // stand (z. B. die Rettungsszene) — das Brett lief dann über den
+    // sichtbaren Bereich hinaus ("nur das halbe Feld sichtbar").
+    const rawTop = this.canvas.getBoundingClientRect().top;
+    const canvasTop = rawTop > 40 ? rawTop : 160;
+    // Mindestbreite als Plausibilitätsschwelle: mitten in einer Screen-
+    // Umblendung oder vor dem ersten Layout-Pass kann clientWidth kurz einen
+    // winzigen Zwischenwert liefern (z. B. 20-30px), der > 0, aber offenkundig
+    // keine echte Bretttbreite ist. Ohne diese Schwelle hätte layoutLocked
+    // genau so einen Ausreißer für immer eingefroren — genau der Bug, den
+    // Christian als "nur das halbe Feld sichtbar" gemeldet hat.
+    const measured = rawTop > 40 && this.wrap.clientWidth >= 150;
+    if (!measured) this.layoutDirty = true; // noch nicht verlässlich vermessen → nächsten Frame erneut
+    else this.layoutLocked = true; // Breite UND Position stehen plausibel fest
 
     // narrower and with a smaller hold slot than before — a leaner, more
     // elongated conveyor with a longer visible travel path
     const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
     const boardAreaW = cssW - beltW - pad * 3;
-    // Die Challenge-Karte reserviert ihren Streifen jetzt IMMER (#k-wrap hat
-    // padding-top: 58px fest, nicht mehr nur bei .has-challenge) — sonst
-    // sprang das Brett beim Erscheinen/Verschwinden der Karte sichtbar um.
-    const chalBand = 58;
-    const maxH = Math.max(320, viewportH - 216 - chalBand); // hud rows + lives strip + pad + banner
+    const maxH = Math.max(280, viewportH - canvasTop - 24);
 
     const cell = Math.max(
       22,
@@ -730,9 +738,8 @@ export class CascadeView {
       const ctx = this.ctx;
       // Farbe bleibt IMMER die echte Teile-Farbe — nicht rot einfärben, sonst
       // sieht ein von Natur aus rotes Teil (z. B. #ff4d4d) genauso aus wie ein
-      // ungültig platziertes. „Geht nicht" zeigt stattdessen ein leichtes
-      // Kopfschütteln + einen pulsierenden, marschierenden Rahmen — eine
-      // starre Kontur allein wirkt tot.
+      // ungültig platziertes. „Geht nicht" zeigt ein leichtes Kopfschütteln +
+      // gedämpfte Deckkraft — keine rote Kontur mehr (auf Wunsch raus).
       const jitter = ok ? 0 : Math.sin(this.nowMs / 60) * L.cell * 0.045;
       ctx.save();
       ctx.translate(jitter, 0);
@@ -742,23 +749,6 @@ export class CascadeView {
         glow: ok ? 20 : 0,
         selected: ok,
       });
-      if (!ok) {
-        const inSet = new Set(cells.map(([r, c]) => `${r},${c}`));
-        const pulse = 0.5 + 0.5 * Math.sin(this.nowMs / 120);
-        ctx.globalAlpha = 0.55 + pulse * 0.45;
-        ctx.setLineDash([L.cell * 0.16, L.cell * 0.1]);
-        ctx.lineDashOffset = -(this.nowMs / 40) % (L.cell * 0.26);
-        strokeCellOutline(
-          ctx,
-          (r, c) => inSet.has(`${r},${c}`),
-          cells,
-          L.boardX,
-          L.boardY,
-          L.cell,
-          "#ff2d4d",
-          2.5 + pulse * 2,
-        );
-      }
       ctx.restore();
     } else {
       // big, follows the finger

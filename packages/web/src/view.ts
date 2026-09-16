@@ -1185,8 +1185,8 @@ export class GameView {
       // Farbe bleibt die echte Teile-Farbe — nicht rot einfärben, sonst sieht
       // ein von Natur aus rotes Teil (F-Pentomino: #ff4d4d) bei einer gültigen
       // Platzierung genauso aus wie ein ungültig platziertes irgendein Teil.
-      // Ungültig: leichtes Kopfschütteln + pulsierender Rahmen statt starrer
-      // Kontur — eine reine Umrandung allein wirkt tot.
+      // Ungültig: leichtes Kopfschütteln + gedämpfte Deckkraft — keine rote
+      // Kontur mehr (auf Wunsch raus).
       const jitter = ok ? 0 : Math.sin(this.nowMs / 60) * layout.board.cell * 0.045;
       this.ctx.save();
       this.ctx.translate(jitter, 0);
@@ -1196,24 +1196,6 @@ export class GameView {
         alpha: ok ? 0.95 : 0.6,
         selected: ok,
       });
-      if (!ok) {
-        const b = layout.board;
-        const inSet = new Set(cells.map(([r, c]) => `${r},${c}`));
-        const pulse = 0.5 + 0.5 * Math.sin(this.nowMs / 120);
-        this.ctx.globalAlpha = 0.55 + pulse * 0.45;
-        this.ctx.setLineDash([b.cell * 0.16, b.cell * 0.1]);
-        this.ctx.lineDashOffset = -(this.nowMs / 40) % (b.cell * 0.26);
-        strokeCellOutline(
-          this.ctx,
-          (r, c) => inSet.has(`${r},${c}`),
-          cells,
-          b.x,
-          b.y,
-          b.cell,
-          "#ff2d4d",
-          2.5 + pulse * 2,
-        );
-      }
       this.ctx.restore();
     } else {
       const cell = layout.board.cell;
