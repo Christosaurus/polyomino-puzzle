@@ -1734,7 +1734,9 @@ function startCascade(): void {
  *  Kaskade-Modus (Free Play oder Story-Level), danach nie wieder. */
 function maybeHintRotate(): void {
   if (!store.markHintSeen("rotate-tip")) return;
-  window.setTimeout(() => toast("💡 Tippen dreht eine Figur"), 1100);
+  // erst nachdem ein eventueller Ziel-Toast (Story-Level, ~7s) durch ist —
+  // sonst überschreiben sich die beiden auf dem allerersten Level
+  window.setTimeout(() => toast("💡 Tippen dreht eine Figur"), 7300);
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
@@ -1791,6 +1793,14 @@ function startRescueLevel(level: RescueLevel): void {
       return span;
     }),
   );
+  // Ziel-Abzeichen: die eine Zahl, die zählt — zählt runter auf 0, wie bei
+  // Royal Match/Royal Kingdom. Plus einmal in Worten beim Start, damit von
+  // Sekunde 1 an klar ist, was zu tun ist.
+  const goalEl = $("rs-goal");
+  goalEl.classList.remove("done");
+  $("rs-goal-num").textContent = nf(level.config.targetRows);
+  let lastGoalLeft = level.config.targetRows;
+  window.setTimeout(() => toast(`🎯 Ziel: ${nf(level.config.targetRows)} Reihen räumen!`), 500);
 
   const game = new CascadeState(`rescue-${level.id}-${Date.now()}`, level.config);
   cascadeGame = game;
@@ -1810,6 +1820,16 @@ function startRescueLevel(level: RescueLevel): void {
       }
       lastMultTier = tier;
       $("k-cleared").textContent = `${nf(h.cleared)}/${nf(level.config.targetRows)}`;
+      const goalLeft = Math.max(0, level.config.targetRows - h.cleared);
+      if (goalLeft !== lastGoalLeft) {
+        const numEl = $("rs-goal-num");
+        numEl.textContent = nf(goalLeft);
+        numEl.classList.remove("bump");
+        void numEl.offsetWidth;
+        numEl.classList.add("bump");
+        goalEl.classList.toggle("done", goalLeft === 0);
+        lastGoalLeft = goalLeft;
+      }
       const el = $("k-clock");
       el.textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
       el.classList.toggle("warn", h.shardsLeft <= 3);
