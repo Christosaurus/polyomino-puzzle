@@ -1635,8 +1635,7 @@ function renderRescueList(): void {
       row.className = `rescue-row${unlocked ? "" : " locked"}`;
       row.innerHTML =
         `<span class="rr-num">${i + 1}</span>` +
-        `<span class="rr-body"><span class="rr-name">${lvl.name}</span>` +
-        `<span class="rr-blurb">${lvl.blurb}</span></span>` +
+        `<span class="rr-name">${lvl.name}</span>` +
         `<span class="rr-stars">${[0, 1, 2].map((n) => `<span class="${n < stars ? "" : "off"}">⭐</span>`).join("")}</span>`;
       if (unlocked) row.addEventListener("click", () => startRescueLevel(lvl));
       return row;
