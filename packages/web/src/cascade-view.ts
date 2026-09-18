@@ -67,10 +67,6 @@ export interface CascadeCallbacks {
     chain: number;
     /** `Infinity` im Free Play — nur im Level-Modus ein echtes Budget. */
     shardsLeft: number;
-    /** Einmalig `true`, direkt nachdem eine Mini-Aufgabe gelöst wurde — für
-     *  Toast/Belohnungstext außerhalb des Canvas. Die Feier selbst (großer,
-     *  wegfadender Text) zeichnet die View schon aufs Brett. */
-    challengeWon: boolean;
   }) => void;
 }
 
@@ -95,6 +91,7 @@ export class CascadeView {
   private raf = 0;
   private last = 0;
   private flash: { row: number; t: number }[] = [];
+  private flashCols: { col: number; t: number }[] = [];
   private sparks: Spark[] = [];
   /** short-lived "+N" score pops */
   private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
@@ -212,6 +209,7 @@ export class CascadeView {
       if (this.tierFlashT > 0.5) this.tierFlashT = -1;
     }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
+    this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
     for (const s of this.sparks) {
       s.t += dt;
       s.x += s.vx * dt;
@@ -240,11 +238,17 @@ export class CascadeView {
         this.flash.push({ row: r, t: 0 });
         this.spawnRowBurst(r, L);
       }
-      if (clear.rows.length > 0) sfx.rowClear(clear.rows.length);
-      if (clear.gain >= 12 && clear.rows.length > 0) {
+      for (const c of clear.cols) {
+        this.flashCols.push({ col: c, t: 0 });
+        this.spawnColBurst(c, L);
+      }
+      const lineCount = clear.rows.length + clear.cols.length;
+      if (lineCount > 0) sfx.rowClear(lineCount);
+      if (clear.gain >= 12 && lineCount > 0) {
+        const popRow = clear.rows.length > 0 ? clear.rows[0]! + 0.2 : 0.4;
         this.pops.push({
           x: L.boardX + (this.game.cols * L.cell) / 2,
-          y: L.boardY + (clear.rows[0]! + 0.2) * L.cell,
+          y: L.boardY + popRow * L.cell,
           t: 0,
           text: `+${clear.gain.toLocaleString("de-DE")}`,
           color: cssVar("--gold"),
@@ -254,16 +258,16 @@ export class CascadeView {
       // Zwei verschiedene Combo-Arten, die auch verschieden aussehen — nicht
       // immer dieselbe Zeile. Mehrfach-Clear ist seltener/größer, geht vor.
       let comboShown = false;
-      if (clear.rows.length >= 2) {
+      if (lineCount >= 2) {
         const MULTI_ROW_NAMES: Record<number, string> = { 2: "DOPPEL-CLEAR!", 3: "TRIPLE-CLEAR!" };
         this.comboPop = {
-          text: MULTI_ROW_NAMES[clear.rows.length] ?? "MEGA-CLEAR!",
+          text: MULTI_ROW_NAMES[lineCount] ?? "MEGA-CLEAR!",
           t: 0,
           color: cssVar("--sky"),
         };
         comboShown = true;
         sfx.milestone();
-        this.shake(Math.min(9, 3 + clear.rows.length * 2));
+        this.shake(Math.min(9, 3 + lineCount * 2));
       }
       // Kette: mehrere Clears direkt hintereinander — eigene Feier, eskalierend
       if (clear.chain >= 2) {
@@ -303,11 +307,10 @@ export class CascadeView {
     // Mini-Aufgabe gelöst: kein Kasten, nur ein großer, weißer Text übers
     // Brett, der kurz steht und dann wegfadet — dieselbe Feier-Mechanik wie
     // Ketten/Tier-Sprünge, nur in Weiß statt Akzentfarbe.
-    const challengeWon = this.game.consumeChallengeWin();
-    if (challengeWon) {
+    if (this.game.consumeChallengeWin()) {
       sfx.win();
       if (!this.comboPop) {
-        this.comboPop = { text: "Aufgabe geschafft!", t: 0, color: "#ffffff", fontScale: 0.42 };
+        this.comboPop = { text: "Aufgabe geschafft! +15s", t: 0, color: "#ffffff", fontScale: 0.34 };
       }
     }
     if (this.game.isOver && !this.ended) {
@@ -325,7 +328,6 @@ export class CascadeView {
       lives: this.game.lives,
       chain: this.game.chain,
       shardsLeft: this.game.shardsLeft,
-      challengeWon,
     });
   }
 
@@ -507,6 +509,29 @@ export class CascadeView {
       this.sparks.push({
         x,
         y: y + (Math.random() - 0.5) * L.cell * 0.6,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 60,
+        t: 0,
+        max: 0.45 + Math.random() * 0.45,
+        color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : "#ffe08a",
+        size: 3 + Math.random() * 4.5,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 14,
+      });
+    }
+  }
+
+  private spawnColBurst(col: number, L: Layout): void {
+    const gold = cssVar("--gold");
+    const x = L.boardX + (col + 0.5) * L.cell;
+    const n = 20;
+    for (let i = 0; i < n; i++) {
+      const y = L.boardY + ((i + 0.5) / n) * this.game.rows * L.cell + (Math.random() - 0.5) * L.cell;
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 70 + Math.random() * 220;
+      this.sparks.push({
+        x: x + (Math.random() - 0.5) * L.cell * 0.6,
+        y,
         vx: Math.cos(ang) * sp,
         vy: Math.sin(ang) * sp - 60,
         t: 0,
@@ -706,6 +731,24 @@ export class CascadeView {
       ctx.fillStyle = g;
       const bh = L.cell * (1 + p * 0.6);
       ctx.fillRect(L.boardX, y - (bh - L.cell) / 2, w, bh);
+      ctx.restore();
+    }
+
+    // a cleared column: dieselbe helle Leiste, nur senkrecht
+    for (const f of this.flashCols) {
+      const p = f.t / 0.5;
+      const x = L.boardX + f.col * L.cell;
+      const h = this.game.rows * L.cell;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createLinearGradient(x, L.boardY, x, L.boardY + h);
+      const a = (1 - p) * 0.9;
+      g.addColorStop(0, `rgba(255,255,255,0)`);
+      g.addColorStop(0.5, `rgba(255,240,190,${a})`);
+      g.addColorStop(1, `rgba(255,255,255,0)`);
+      ctx.fillStyle = g;
+      const bw = L.cell * (1 + p * 0.6);
+      ctx.fillRect(x - (bw - L.cell) / 2, L.boardY, bw, h);
       ctx.restore();
     }
 

@@ -1535,15 +1535,9 @@ function startCascade(): void {
       }
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
-      if (h.challengeWon) {
-        toast(
-          (h.lives < 3 ? "🎯 Aufgabe geschafft — Leben zurück! ❤" : "🎯 Aufgabe geschafft — Bonuspunkte!") +
-            " · +10s",
-        );
-      }
-      // Die Feier selbst (großer, wegfadender Text) zeichnet die View aufs
-      // Brett — der Kasten hier zeigt nur noch die laufende Aufgabe an und
-      // verschwindet sofort wieder, sobald keine mehr aktiv ist.
+      // Die Feier (großer, wegfadender weißer Text mit "+15s") zeichnet die
+      // View direkt aufs Brett — der Kasten hier zeigt nur noch die laufende
+      // Aufgabe an und verschwindet sofort wieder, sobald keine mehr aktiv ist.
       const cEl = $("k-challenge");
       const bar = $("k-challenge-bar");
       if (game.challenge) {
@@ -1583,7 +1577,7 @@ function startCascade(): void {
       );
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
       $("k-result").innerHTML =
-        `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
+        `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Linien` +
         ` · ✦ +${nf(shards)}` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
         (r.bestChain >= 3 ? ` · 🔥 Kette ×${r.bestChain}` : "") +

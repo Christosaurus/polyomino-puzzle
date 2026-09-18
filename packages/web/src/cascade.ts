@@ -92,7 +92,7 @@ const CHALLENGE_COOLDOWN_JITTER = 8_000;
 export const CHALLENGE_WINDOW_MS = 22_000;
 const CHALLENGE_FIRST_AT = 12_000;
 /** Bonuszeit für eine gelöste Aufgabe — Runden werden länger, wenn man sie löst. */
-const CHALLENGE_TIME_BONUS_MS = 10_000;
+const CHALLENGE_TIME_BONUS_MS = 15_000;
 
 export class CascadeState {
   readonly rows: number;
@@ -118,6 +118,8 @@ export class CascadeState {
   bestChain = 0;
   /** Row indices cleared by the most recent `place()` — for the view's flash. */
   lastCleared: number[] = [];
+  /** Column indices cleared by the most recent `place()` — vertikale Reihen. */
+  lastClearedCols: number[] = [];
   /** Score before the most recent clear-causing placement — for the view's "+N" pop. */
   private clearScoreBase = 0;
   private freshClear = false;
@@ -136,14 +138,21 @@ export class CascadeState {
   private tierUp = 0;
   private perfectFlag = false;
 
-  /** The rows cleared by the last placement, once — for the view's burst/flash/pop. */
-  consumeFreshClear(): { rows: number[]; gain: number; chain: number; collapsedRows: number } | null {
+  /** The rows/cols cleared by the last placement, once — for the view's burst/flash/pop. */
+  consumeFreshClear(): {
+    rows: number[];
+    cols: number[];
+    gain: number;
+    chain: number;
+    collapsedRows: number;
+  } | null {
     if (!this.freshClear) return null;
     this.freshClear = false;
     const collapsedRows = this.collapsedRows;
     this.collapsedRows = 0;
     return {
       rows: [...this.lastCleared],
+      cols: [...this.lastClearedCols],
       gain: Math.round(this.score - this.clearScoreBase),
       chain: this.chain,
       collapsedRows,
@@ -206,7 +215,12 @@ export class CascadeState {
    */
   private pickPlaceableName(): string {
     const crowdedFrac = this.coveredCells() / (this.rows * this.cols);
-    const name = pickShardName(this.rng, crowdedFrac);
+    // Läuft gerade die "nur gerade Linien"-Aufgabe, sollen spürbar öfter
+    // gerade Steine kommen — sonst ist die Aufgabe oft gar nicht lösbar,
+    // bevor das Zeitfenster zu ist. Nicht ausschließlich, sonst wäre es
+    // trivial statt einer echten Aufgabe.
+    const favorStraight = this.challenge?.kind === "straight";
+    const name = pickShardName(this.rng, crowdedFrac, favorStraight);
     const others = this.hold ? [...this.belt, this.hold] : this.belt;
     const somethingFits = this.canPlaceAnywhere(name) || others.some((s) => this.canPlaceAnywhere(s.name));
     // "mono" (1x1) passt in jede einzelne freie Zelle — der einzig echte
@@ -457,11 +471,15 @@ export class CascadeState {
     this.score += 5 * this.multiplier;
     this.multiplier = Math.min(6, this.multiplier + 0.25);
 
-    const rows = this.clearFullRows();
-    if (rows > 0) {
-      this.cleared += rows;
-      this.score += 12 * rows * rows * this.multiplier;
-      this.multiplier = Math.min(6, this.multiplier + 0.4 * rows);
+    const { rows, cols } = this.clearFullRows();
+    const lines = rows + cols;
+    if (lines > 0) {
+      this.cleared += lines;
+      // Gleiche Multi-Clear-Kurve wie bisher (quadratisch über alle Linien),
+      // plus ein Bonus pro Spalte — vertikale Reihen sind seltener zu bauen
+      // und sollen sich sichtbar mehr lohnen.
+      this.score += (12 * lines * lines + 10 * cols) * this.multiplier;
+      this.multiplier = Math.min(6, this.multiplier + 0.4 * lines);
       this.freshClear = true;
       this.chain += 1;
       if (this.chain > this.bestChain) this.bestChain = this.chain;
@@ -492,19 +510,26 @@ export class CascadeState {
   }
 
   /**
-   * Clear every full row. Credits the active challenge (straight/mono/rows —
-   * "combo" is checked separately in `place()`, after the chain updates).
+   * Clear every full row AND every full column — Kaskade räumt in beide
+   * Richtungen. Credits the active challenge (straight/mono/rows — "rows"
+   * meint wörtlich horizontale Reihen, Spalten zählen dafür nicht; "combo"
+   * wird separat in `place()` geprüft, nach dem Chain-Update).
    *
    * Im Level-Modus fallen geräumte Reihen nicht einfach leer aus — der ganze
    * Rest des Turms rutscht wie bei Tetris zusammen: alles, was noch über einer
    * geräumten Reihe stand, sackt nach unten, oben wird Platz frei. Das ist die
    * "Steine rutschen nach"-Bewegung der Rettungsszene. Im Free Play bleibt das
    * alte Verhalten (Reihe wird leer, nichts rutscht) — dort ist Tempo der Kern,
-   * kein Turm, der abgetragen wird.
+   * kein Turm, der abgetragen wird. Spalten lösen in keinem Modus einen
+   * Kollaps aus (die "Turm sackt"-Bewegung ist bewusst an Reihen gebunden) —
+   * sie werden einfach direkt geleert, in beiden Modi gleich.
    */
-  private clearFullRows(): number {
+  private clearFullRows(): { rows: number; cols: number } {
     this.lastCleared = [];
-    const clearedSet = new Set<number>();
+    this.lastClearedCols = [];
+    const clearedRows = new Set<number>();
+    const clearedCols = new Set<number>();
+
     for (let r = 0; r < this.rows; r++) {
       let full = true;
       let straightOnly = true;
@@ -521,7 +546,7 @@ export class CascadeState {
         else if (v !== firstColor) monoOnly = false;
       }
       if (full) {
-        clearedSet.add(r);
+        clearedRows.add(r);
         this.lastCleared.push(r);
         const kind = this.challenge?.kind;
         if (kind === "straight" && straightOnly) this.creditChallenge();
@@ -529,13 +554,34 @@ export class CascadeState {
         else if (kind === "rows") this.creditChallenge();
       }
     }
-    if (clearedSet.size === 0) return 0;
+    // Spalten nur im Free Play: der Level-Modus hat ein explizites Reihen-Ziel
+    // (targetRows) und eine Erzählung, die an Reihen hängt (Turm-Kollaps,
+    // Schutt-Füllung) — Spalten hätten dort keine passende Entsprechung.
+    if (!this.level) {
+      for (let c = 0; c < this.cols; c++) {
+        let full = true;
+        for (let r = 0; r < this.rows; r++) {
+          if (!this.board[this.idx(r, c)]) {
+            full = false;
+            break;
+          }
+        }
+        if (full) {
+          clearedCols.add(c);
+          this.lastClearedCols.push(c);
+        }
+      }
+    }
+    if (clearedRows.size === 0 && clearedCols.size === 0) return { rows: 0, cols: 0 };
+
+    // Spalten zuerst direkt leeren — unabhängig vom Modus, kein Kollaps.
+    for (const c of clearedCols) for (let r = 0; r < this.rows; r++) this.board[this.idx(r, c)] = 0;
 
     if (this.level) {
       // Kollaps: alle nicht geräumten Reihen behalten ihre Reihenfolge, rücken
       // aber ganz nach unten zusammen — oben (Reihe 0) entsteht der Freiraum.
       const kept: number[] = [];
-      for (let r = 0; r < this.rows; r++) if (!clearedSet.has(r)) kept.push(r);
+      for (let r = 0; r < this.rows; r++) if (!clearedRows.has(r)) kept.push(r);
       const next = new Int8Array(this.rows * this.cols);
       const topGap = this.rows - kept.length;
       for (let i = 0; i < kept.length; i++) {
@@ -547,9 +593,9 @@ export class CascadeState {
       this.collapsedRows = topGap; // für die View: so viele neue Leerzeilen oben
       this.shrunkRows += topGap; // dauerhaft: das Feld ist jetzt insgesamt so viel kleiner
     } else {
-      for (const r of clearedSet) for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
+      for (const r of clearedRows) for (let c = 0; c < this.cols; c++) this.board[this.idx(r, c)] = 0;
     }
-    return this.lastCleared.length;
+    return { rows: this.lastCleared.length, cols: this.lastClearedCols.length };
   }
 
   private creditChallenge(amount = 1): void {

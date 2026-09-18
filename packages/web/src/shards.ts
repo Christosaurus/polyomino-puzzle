@@ -99,8 +99,11 @@ export function shardByColorIndex(i: number): ShardDef {
 /**
  * Weighted random pick, biased toward small pieces as the board fills up
  * (`crowdedFrac` 0..1) so a nearly-full board still has an easy out.
+ * `favorStraight` boosts straight bars (duo/trio-i/quad-i/I-pentomino) —
+ * used while the "nur gerade Linien"-Aufgabe läuft, damit sie tatsächlich
+ * lösbar ist, ohne ausschließlich gerade Teile zu spucken.
  */
-export function pickShardName(rng: Rng, crowdedFrac: number): string {
+export function pickShardName(rng: Rng, crowdedFrac: number, favorStraight = false): string {
   const f = Math.max(0, Math.min(1, crowdedFrac));
   let total = 0;
   const weights = SHARD_DEFS.map((d) => {
@@ -111,6 +114,7 @@ export function pickShardName(rng: Rng, crowdedFrac: number): string {
     if (d.size <= 2) w *= 1 + f * 3.2;
     else if (d.size === 3) w *= 1 + f * 1.4;
     else if (d.size >= 5) w *= Math.max(0.15, 1 - f * 0.82);
+    if (favorStraight && d.straight) w *= 3.5;
     total += w;
     return w;
   });
