@@ -105,8 +105,12 @@ export function pickShardName(rng: Rng, crowdedFrac: number): string {
   let total = 0;
   const weights = SHARD_DEFS.map((d) => {
     let w = d.weight;
-    if (d.size <= 3) w *= 1 + f * 1.4;
-    else if (d.size >= 5) w *= Math.max(0.2, 1 - f * 0.75);
+    // je voller das Brett, desto eher ein winziger Ausweg (1x1 / 2x1) — die
+    // stärkste Anhebung von allen, damit ein enges Brett fast immer einen
+    // Notausgang bekommt, nicht nur "irgendein kleineres Teil".
+    if (d.size <= 2) w *= 1 + f * 3.2;
+    else if (d.size === 3) w *= 1 + f * 1.4;
+    else if (d.size >= 5) w *= Math.max(0.15, 1 - f * 0.82);
     total += w;
     return w;
   });

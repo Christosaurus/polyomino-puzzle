@@ -313,9 +313,16 @@ export class CascadeView {
 
   // ── Layout — the board is as big as the width allows ────────────────────
   private computeLayout(): Layout {
-    const cssW = this.wrap.clientWidth || 340;
+    const pad = 8;
+    const wrapW = this.wrap.clientWidth;
+    // Der Canvas rendert `width:100%` seines Wraps (`.board-wrap`), der aber
+    // selbst 10px Padding links/rechts hat — `clientWidth` zählt dieses
+    // Padding MIT. Ohne den Abzug rechnet das Layout mit mehr Breite, als der
+    // Canvas tatsächlich bekommt, und alles landet beim Zeichnen minimal
+    // seitlich gestaucht (Kreise werden zu Ellipsen, Zellen wirken enger als
+    // geplant) — ein Teil davon, warum die Figuren zu klein wirkten.
+    const cssW = (wrapW || 340) - 20;
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
-    const pad = 10;
 
     // Echter vertikaler Platz: Viewport minus wo der Canvas tatsächlich anfängt
     // — das schließt automatisch ALLES ein, was darüber sitzt (Rettungsszene,
@@ -332,7 +339,7 @@ export class CascadeView {
     // keine echte Bretttbreite ist. Ohne diese Schwelle hätte layoutLocked
     // genau so einen Ausreißer für immer eingefroren — genau der Bug, den
     // Christian als "nur das halbe Feld sichtbar" gemeldet hat.
-    const measured = rawTop > 40 && this.wrap.clientWidth >= 150;
+    const measured = rawTop > 40 && wrapW >= 150;
     if (!measured) this.layoutDirty = true; // noch nicht verlässlich vermessen → nächsten Frame erneut
     else this.layoutLocked = true; // Breite UND Position stehen plausibel fest
 
@@ -354,10 +361,18 @@ export class CascadeView {
     const beltX = cssW - beltW - pad;
     const beltTop = pad;
     const holdSize = Math.round(beltW * 0.8);
-    const beltH = boardH - holdSize - 10;
+    // Der Gürtel darf sichtbar länger sein als das Brett hoch ist, wenn genug
+    // vertikaler Raum da ist — ein längerer Weg von oben nach unten, wie
+    // gewünscht. Nach unten durch `maxH` begrenzt (nie über den sichtbaren
+    // Bereich hinaus), nach oben nie kürzer als vorher (die alte, ans Brett
+    // gekoppelte Höhe bleibt die Untergrenze).
+    const minBeltH = boardH - holdSize - 10;
+    const desiredBeltH = boardH * 1.55 - holdSize - 10;
+    const maxBeltH = maxH - holdSize - 10;
+    const beltH = Math.max(minBeltH, Math.min(desiredBeltH, maxBeltH));
     const holdY = beltTop + beltH + 10;
 
-    const cssH = boardH + pad * 2;
+    const cssH = Math.max(boardH, beltH + holdSize + 10) + pad * 2;
     const bandH = beltH / 3.15;
     const shardCell = Math.max(11, Math.min(bandH / 4.2, beltW / 4.2));
 

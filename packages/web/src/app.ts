@@ -1503,7 +1503,7 @@ function startCascade(): void {
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
   for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.remove("lost");
-  // Runden-Token für die Bestenliste holen (fire-and-forget, hat 2:30 Zeit)
+  // Runden-Token für die Bestenliste holen (fire-and-forget, hat 3:00 Zeit)
   cascadeToken = null;
   void startCascadeRun().then((t) => (cascadeToken = t));
   const game = new CascadeState(`kaskade-${Date.now()}`);
