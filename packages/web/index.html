@@ -1126,6 +1126,10 @@
         line-height: 1.15;
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
         animation: chal-in 0.3s var(--tap) both;
+        /* rein informativ — darf nie Taps aufs Brett darunter schlucken, auch
+           nicht wenn die Box (z. B. mit langem Aufgabentext) mal knapp in die
+           Spielfläche hineinragt */
+        pointer-events: none;
       }
       .chal-top {
         display: flex;
@@ -1207,9 +1211,25 @@
         font-size: 14px;
       }
       .challenge.won {
-        animation: chal-in 0.3s var(--tap) both;
+        /* kurz reinpoppen, dann binnen 2s wachsen UND wegfaden — die Fläche
+           gibt den Blick aufs Brett schnell wieder frei, statt die volle
+           Zeit undurchsichtig stehen zu bleiben */
+        animation:
+          chal-in 0.3s var(--tap) both,
+          chal-won-fade 2s ease-in both;
         border-color: var(--go);
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 0 18px rgba(102, 224, 95, 0.6);
+      }
+      @keyframes chal-won-fade {
+        0%,
+        25% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.3);
+          opacity: 0;
+        }
       }
       .challenge.won .cclock {
         color: var(--go);
