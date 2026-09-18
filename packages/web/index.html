@@ -405,7 +405,7 @@
         --accent: var(--sky);
         --accent-lo: var(--sky-lo);
       }
-      #screen-cascade {
+      #home-cascade-card {
         --accent: var(--grape-bright);
         --accent-lo: var(--grape-bright-lo);
       }
@@ -634,9 +634,7 @@
       }
       #screen-home > .topbar,
       #screen-home > .brand,
-      #screen-home > #home-status,
-      #screen-home > #home-play,
-      #screen-home > #regions {
+      #screen-home > .mode-card {
         position: relative;
         z-index: 1;
       }
@@ -2637,9 +2635,17 @@
         <div class="brand">
           <img class="brand-logo" src="ui/logo-home.webp" alt="Lumen" />
         </div>
-        <p class="muted" id="home-status">Wird geladen …</p>
-        <button class="go big" id="home-play" hidden>Weiter</button>
-        <div class="journey" id="regions"></div>
+        <div class="card mode-card" id="home-cascade-card">
+          <div class="row">
+            <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
+            <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
+          </div>
+          <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
+          <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
+          <button class="go big" id="cascade-play">Kaskade starten</button>
+          <button id="rescue-open" style="margin-top:8px">🏰 Story-Modus</button>
+          <button id="lb-open" style="margin-top:4px">🏆 Bestenliste</button>
+        </div>
       </section>
 
       <div class="peek-scrim" id="peek-scrim" hidden></div>
@@ -2683,22 +2689,6 @@
           <p class="muted">Fenster für Fenster hinab in Anselms Stollen. Jedes schwerer. Zu viele Fehlzüge und der Lauf endet.</p>
           <p class="muted" id="descent-lantern">✦ Lichtsplitter mit jeder Ebene — und Erfolge für die Tiefe.</p>
           <button class="go big" id="descent-play">Abstieg beginnen</button>
-        </div>
-      </section>
-
-      <section class="screen mode-screen" id="screen-cascade" hidden>
-        <button class="corner-btn" id="lb-open" aria-label="Bestenliste">🏆</button>
-        <div class="mode-icon"><img class="icon-img" src="ui/cascade.webp" alt="" /></div>
-        <h1>Kaskade</h1>
-        <div class="card mode-card">
-          <div class="row">
-            <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
-            <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
-          </div>
-          <p class="muted">2½ Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
-          <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
-          <button class="go big" id="cascade-play">Kaskade starten</button>
-          <button id="rescue-open" style="margin-top:8px">🏰 Story-Modus</button>
         </div>
       </section>
 
@@ -2891,8 +2881,6 @@
       <nav id="tabbar">
         <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Start</button>
         <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Täglich</button>
-        <button data-tab="descent"><span class="ic"><img class="icon-img" src="ui/descent.webp" alt="" /></span>Abstieg</button>
-        <button data-tab="cascade"><span class="ic"><img class="icon-img" src="ui/cascade.webp" alt="" /></span>Kaskade</button>
         <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span>Sammlung</button>
       </nav>
 

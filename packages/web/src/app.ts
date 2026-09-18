@@ -1,7 +1,8 @@
 /**
- * App shell: bottom-tab navigation between Spielen (regions → levels), Täglich,
- * Abstieg, Kaskade and Sammlung; plus the shared play screen for the three
- * "fill the frame" modes and the Kaskade screen.
+ * App shell: bottom-tab navigation between Start (jetzt direkt Kaskade),
+ * Täglich und Sammlung; plus der geteilte Play-Screen für Kaskade.
+ * Kampagne (Regionen/Fenster) und Abstieg sind ohne Tab/Einstieg nicht mehr
+ * erreichbar, ihr Code bleibt aber unangetastet liegen (nicht gelöscht).
  */
 
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
@@ -49,13 +50,12 @@ const CHALLENGE_ICON: Record<ChallengeKind, string> = {
   combo: "🔥",
 };
 
-type Tab = "home" | "daily" | "descent" | "cascade" | "collection";
+type Tab = "home" | "daily" | "descent" | "collection";
 const SCREENS = [
   "home",
   "region",
   "daily",
   "descent",
-  "cascade",
   "rescue",
   "collection",
   "play",
@@ -72,7 +72,7 @@ let cascadeGame: CascadeState | null = null;
  *  Story-Level teilen sich denselben Play-Screen + dieselbe Pause-Overlay,
  *  darum wird das hier pro Lauf umgebogen statt fest verdrahtet. */
 let cascadeRestart: () => void = () => startCascade();
-let cascadeQuit: () => void = () => setTab("cascade");
+let cascadeQuit: () => void = () => setTab("home");
 let clockTimer = 0;
 /** Kurze Schonfrist nach dem Öffnen: wer nur reinschaut, kann ohne Kosten
  *  wieder raus — danach läuft die Uhr, auch ohne ersten Zug. Sonst wäre
@@ -288,7 +288,6 @@ function setTab(tab: Tab): void {
   if (tab === "home") renderHome();
   if (tab === "daily") renderDaily();
   if (tab === "descent") renderDescent();
-  if (tab === "cascade") renderCascade();
   if (tab === "collection") renderCollection();
   playMusic("menu"); // Browsing-Screens teilen sich das ruhige Thema
   showScreen(tab);
@@ -366,121 +365,12 @@ function sideStation(
 }
 
 function renderHome(): void {
-  if (!manifest) return;
   refreshLight();
-  scenery.setTheme("menu");
+  scenery.setTheme("surge");
   renderTopPills();
   const s = store.load();
-  const panes = store.panes(s);
-  const pct = Math.round(lightFrac() * 100);
-  const target = currentCampaignTarget();
-  const allDone = !target && regions.length > 0;
-  $("home-status").innerHTML = allDone
-    ? "Alle Fenster erhellt. Das Tal gehört wieder euch. ✨"
-    : `<b>${panes}</b> Fenster erhellt · das Tal ist zu <b>${pct}%</b> im Licht.`;
-
-  // ── Der eine Knopf: weiter im Lichtpfad ──
-  const hero = $<HTMLButtonElement>("home-play");
-  const dailyDoneToday = store.load().daily.lastDayDone === store.todayKey();
-  if (target) {
-    hero.hidden = false;
-    hero.textContent = `Weiter · ${windowName(
-      target.region.id,
-      target.index,
-      target.region.levels[target.index]?.id,
-    )}`;
-    hero.onclick = () => void playCampaign(target.region, target.index);
-  } else if (allDone && !dailyDoneToday) {
-    // Kampagne durch — der Knopf zeigt aufs Tagesfenster als laufenden Inhalt
-    hero.hidden = false;
-    hero.textContent = "🌅 Tagesfenster";
-    hero.onclick = () => void playDaily();
-  } else {
-    hero.hidden = true;
-  }
-
-  // ── Der Pfad: Regionen mit den Seitenmodi als Orte dazwischen ──
-  const host = $("regions");
-  host.replaceChildren();
-
-  const regionStation = (r: Region, i: number): HTMLElement => {
-    const locked = panes < r.panesToUnlock;
-    const { got, max } = regionStars(r);
-    const complete = got >= max && max > 0;
-    const station = document.createElement("div");
-    station.className = `station${locked ? " locked" : complete ? " done" : " current"}`;
-    station.dataset.region = r.id;
-    const prevUnlock = regions[i - 1]?.panesToUnlock ?? 0;
-    const lanternFill = locked
-      ? Math.round(((panes - prevUnlock) / Math.max(1, r.panesToUnlock - prevUnlock)) * 100)
-      : 100;
-    station.innerHTML = `
-      <div class="st-card">
-        <div class="row">
-          <div class="name">${r.name}</div>
-          <div class="want">${
-            locked
-              ? `🏮 ${panes} / ${r.panesToUnlock}`
-              : `<b>★ ${got}</b> / ${max}${complete ? " ✓" : ""}`
-          }</div>
-        </div>
-        <div class="muted">${
-          locked
-            ? `Die Laterne füllt sich — noch ${nf(r.panesToUnlock - panes)} erhellte Fenster.`
-            : r.subtitle
-        }</div>
-        <div class="progress"><i style="width:${locked ? lanternFill : max ? (got / max) * 100 : 0}%"></i></div>
-      </div>`;
-    if (!locked) station.addEventListener("click", () => openRegion(i));
-    return station;
-  };
-
-  const dailyDone = s.daily.lastDayDone === store.todayKey();
-  const daily = sideStation(
-    "#ffc23b",
-    "🌅",
-    "Das Tagesfenster",
-    dailyDone ? "erledigt ✓" : `🔥 ${s.daily.streak}`,
-    dailyDone ? "Morgen wartet das nächste." : "Ein Fenster für heute — für Splitter und die Serie.",
-    () => setTab("daily"),
-  );
-  const descent = sideStation(
-    "#45c1ff",
-    "🕯",
-    "Anselms Stollen",
-    `Ebene ${s.descent.bestDepth}`,
-    "Wie tief kommst du? Für Erfolge und Lichtsplitter.",
-    () => setTab("descent"),
-  );
-  const cascade = sideStation(
-    "#a875ff",
-    "⚡",
-    "Der Scherbenregen",
-    nf(s.cascade.bestScore),
-    "2½ Minuten. Punkte jagen, Erfolge holen.",
-    () => setTab("cascade"),
-  );
-
-  // Reihenfolge: Region → Ort → Region → Ort → Region → Ort
-  host.append(regionStation(regions[0]!, 0));
-  host.append(daily);
-  if (regions[1]) host.append(regionStation(regions[1], 1));
-  host.append(descent);
-  if (regions[2]) host.append(regionStation(regions[2], 2));
-  host.append(cascade);
-
-  // auf die aktuelle Region scrollen — außer man ist noch im Garten: dann soll
-  // der Blick oben bleiben (Logo, warmes Talende), sonst scrollt der
-  // Startbildschirm sofort ins Dunkle
-  if (target && target.regionIndex > 0) {
-    const nodes = host.children;
-    const idx = target.regionIndex === 1 ? 2 : 4;
-    (nodes[idx] as HTMLElement | undefined)?.scrollIntoView({ block: "center", behavior: "auto" });
-  } else {
-    $("screen-home").scrollTop = 0;
-  }
-
-  window.setTimeout(maybeShowPeek, 3200);
+  $("cascade-best").textContent = nf(s.cascade.bestScore);
+  $("cascade-cleared").textContent = nf(s.cascade.bestCleared);
 }
 
 function openRegion(index: number): void {
@@ -1535,13 +1425,6 @@ function endDescent(reachedDepth?: number): void {
 }
 
 // ── Kaskade ────────────────────────────────────────────────────────────────
-function renderCascade(): void {
-  scenery.setTheme("surge");
-  const s = store.load();
-  $("cascade-best").textContent = nf(s.cascade.bestScore);
-  $("cascade-cleared").textContent = nf(s.cascade.bestCleared);
-}
-
 // ── Bestenliste (Overlay, Clash-of-Clans-Aufbau) ──────────────────────────
 let lbScope: "country" | "global" = "country";
 let lbSeq = 0;
@@ -1613,7 +1496,7 @@ function startCascade(): void {
   scenery.setTheme("garden");
   playMusic("cascade");
   cascadeRestart = startCascade;
-  cascadeQuit = () => setTab("cascade");
+  cascadeQuit = () => setTab("home");
   $("rs-scene").hidden = true;
   $("k-hud2").hidden = false;
   $("k-overlay").classList.remove("show");
@@ -1718,7 +1601,7 @@ function startCascade(): void {
       ov.classList.remove("show");
       void ov.offsetWidth;
       ov.classList.add("show");
-      $<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
+      $<HTMLButtonElement>("k-quit").onclick = () => setTab("home");
       $<HTMLButtonElement>("k-again").onclick = startCascade;
       $("k-again").textContent = "Nochmal";
     },
@@ -1902,10 +1785,8 @@ function renderCollection(): void {
   const allBeats = [...INTRO, ...BEATS];
   const memSeen = store.beatsSeen().filter((id) => allBeats.some((b) => b.id === id)).length;
   const stats: [string, string][] = [
-    ["Fenster erhellt", nf(store.panes(s))],
     ["Licht gesammelt", nf(s.shards)],
     ["Erinnerungen", `${nf(memSeen)} / ${nf(allBeats.length)}`],
-    ["Tiefster Stollen", `Ebene ${nf(s.descent.bestDepth)}`],
     ["Scherbenregen", nf(s.cascade.bestScore)],
     ["Erfolge", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
@@ -2263,7 +2144,7 @@ for (const id of ["lb-tab-country", "lb-tab-global"]) {
   });
 }
 // k-quit / k-again werden pro Runde in onEnd gesetzt (wegen eventueller Cutscene)
-$<HTMLButtonElement>("k-quit").onclick = () => setTab("cascade");
+$<HTMLButtonElement>("k-quit").onclick = () => setTab("home");
 $<HTMLButtonElement>("k-again").onclick = startCascade;
 $("k-pause").addEventListener("click", () => {
   const ov = $("k-pause-overlay");
@@ -2333,7 +2214,7 @@ async function boot(): Promise<void> {
       /* Home steht schon; die Cutscene lag nur davor */
     });
   } catch (err) {
-    $("home-status").textContent = `Levels konnten nicht geladen werden (${(err as Error).message}).`;
+    toast(`Level-Daten konnten nicht geladen werden (${(err as Error).message}).`);
   }
 }
 void boot();
