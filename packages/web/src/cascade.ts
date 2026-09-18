@@ -191,8 +191,42 @@ export class CascadeState {
 
   private makeShard(y: number): Shard {
     this.spawnCount += 1;
-    const name = pickShardName(this.rng, this.coveredCells() / (this.rows * this.cols));
+    const name = this.pickPlaceableName();
     return { id: this.nextId++, name, orientationIndex: 0, y };
+  }
+
+  /**
+   * Gewichtet nach Crowding (siehe `pickShardName`) — garantiert aber danach,
+   * dass mindestens eine Scherbe im Spiel (Band + Ablage + die neue) auch
+   * wirklich irgendwo hinpasst. Ohne diese Garantie kann ein enges Brett
+   * softlocken: alle sichtbaren Scherben passen nirgends mehr, und der Lauf
+   * ist praktisch vorbei, obwohl noch Leben übrig sind. Andere Scherben, die
+   * gerade nirgends passen, dürfen trotzdem weiter auftauchen — nur *irgendeine*
+   * muss immer gehen.
+   */
+  private pickPlaceableName(): string {
+    const crowdedFrac = this.coveredCells() / (this.rows * this.cols);
+    const name = pickShardName(this.rng, crowdedFrac);
+    const others = this.hold ? [...this.belt, this.hold] : this.belt;
+    const somethingFits = this.canPlaceAnywhere(name) || others.some((s) => this.canPlaceAnywhere(s.name));
+    // "mono" (1x1) passt in jede einzelne freie Zelle — der einzig echte
+    // Notausgang, solange das Brett nicht buchstäblich zu 100% voll ist.
+    return somethingFits ? name : "mono";
+  }
+
+  /** Passt diese Scherbe in irgendeiner Drehung irgendwo aufs aktuelle Brett? */
+  private canPlaceAnywhere(name: string): boolean {
+    const probe: Shard = { id: -1, name, orientationIndex: 0, y: 0 };
+    const oCount = this.orientationCount(name);
+    for (let oi = 0; oi < oCount; oi++) {
+      probe.orientationIndex = oi;
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          if (this.canPlace(probe, { row: r, col: c })) return true;
+        }
+      }
+    }
+    return false;
   }
 
   /** Wie viele Scherben dieses Level noch ausspuckt — `Infinity` im Free Play. */
@@ -293,6 +327,17 @@ export class CascadeState {
       // let one ride off unplaced and it costs a life, same as failing a move
       this.lives = Math.max(0, this.lives - fell.length);
       this.spawnInterval = Math.max(MIN_SPAWN_MS, this.spawnInterval * 0.97);
+      // Sicherheitsnetz: fiel gerade die letzte Scherbe vom Band, die irgendwo
+      // gepasst hätte, sofort nachlegen — sonst könnte genau in diesem Fenster
+      // niemand mehr ziehen, bis der nächste planmäßige Spawn kommt.
+      // `makeShard()` garantiert selbst, dass die neue Scherbe passt.
+      if (this.belt.length < MAX_ON_BELT && this.shardsLeft > 0) {
+        const others = this.hold ? [...this.belt, this.hold] : this.belt;
+        if (!others.some((s) => this.canPlaceAnywhere(s.name))) {
+          this.belt.push(this.makeShard(0));
+          this.spawnTimer = 0;
+        }
+      }
     }
 
     // gentle multiplier decay while idle

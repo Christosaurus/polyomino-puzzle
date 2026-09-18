@@ -2525,13 +2525,14 @@
         background: none;
         box-shadow: none;
         text-shadow: none;
-        padding: 6px 2px 3px;
+        padding: 4px 2px;
         color: var(--ink-dim);
         font-size: 13px;
         font-weight: 800;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 2px;
         transition: none;
       }
@@ -2540,23 +2541,24 @@
       }
       #tabbar button .ic {
         font-size: 22px;
+        display: flex;
         filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
       }
       #tabbar button.on {
         color: #fff;
       }
       #tabbar button.on .ic {
-        transform: translateY(-6px) scale(1.1);
+        transform: scale(1.1);
         filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
       }
       /* the active tab's whole content (icon + label) sits inside one raised,
-         gold-ringed badge — big enough to actually contain both */
+         gold-ringed badge, centred on the button's own (centred) content */
       #tabbar button.on::before {
         content: "";
         position: absolute;
-        top: -22px;
+        top: 50%;
         left: 50%;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
         width: 78px;
         height: 88px;
         border-radius: 30px;
@@ -2568,16 +2570,18 @@
       #tabbar button {
         position: relative;
       }
-      /* Kaskade ist der Hauptact in der Mitte — deutlich größer als Täglich/Sammlung */
-      #tabbar button[data-tab="home"] {
+      /* Kaskade ist der Hauptact in der Mitte — aber nur im aktiven Zustand
+         größer als Täglich/Sammlung, sonst sieht der Tab inaktiv identisch
+         zu den anderen aus (gleiche Höhe, gleiche Größe) und wächst erst,
+         wenn man ihn antippt. */
+      #tabbar button[data-tab="home"].on {
         font-size: 16px;
       }
-      #tabbar button[data-tab="home"] .ic .icon-img {
+      #tabbar button[data-tab="home"].on .ic .icon-img {
         width: 46px;
         height: 46px;
       }
       #tabbar button[data-tab="home"].on::before {
-        top: -30px;
         width: 96px;
         height: 104px;
       }
@@ -2640,8 +2644,6 @@
             <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Reihen</div></div>
           </div>
-          <p class="muted">3 Minuten. Scherben vom Fließband ziehen, Reihen füllen, entzünden. Tempo hält den Multiplikator hoch.</p>
-          <p class="muted" id="cascade-lantern">✦ Lichtsplitter nach Punktzahl — und Erfolge für Rekorde.</p>
           <button class="go big" id="cascade-play">Kaskade starten</button>
           <button id="rescue-open" style="margin-top:8px">🏰 Story-Modus</button>
         </div>
