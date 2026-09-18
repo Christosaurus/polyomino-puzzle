@@ -1210,37 +1210,6 @@
         font-variant-numeric: tabular-nums;
         font-size: 14px;
       }
-      .challenge.won {
-        /* kurz reinpoppen, dann binnen 2s wachsen UND wegfaden — die Fläche
-           gibt den Blick aufs Brett schnell wieder frei, statt die volle
-           Zeit undurchsichtig stehen zu bleiben */
-        animation:
-          chal-in 0.3s var(--tap) both,
-          chal-won-fade 2s ease-in both;
-        border-color: var(--go);
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), 0 0 18px rgba(102, 224, 95, 0.6);
-      }
-      @keyframes chal-won-fade {
-        0%,
-        25% {
-          transform: scale(1);
-          opacity: 1;
-        }
-        100% {
-          transform: scale(1.3);
-          opacity: 0;
-        }
-      }
-      .challenge.won .cclock {
-        color: var(--go);
-      }
-      .challenge.won .chal-fill {
-        background: linear-gradient(90deg, var(--go-lo), var(--go));
-      }
-      .challenge.won .chal-fill::after {
-        background: #eafff0;
-        box-shadow: 0 0 10px 4px rgba(102, 224, 95, 0.9), 0 0 3px 1px #fff;
-      }
       /* Serie: solange sie läuft, ein flackerndes, wackelndes Abzeichen —
          "gehyped bleiben", nicht nur der kurze Einblend-Moment auf dem Brett.
          Bleibt IMMER im Layout (min-height reserviert) und wird nur über
@@ -2591,19 +2560,16 @@
         position: relative;
       }
       /* Kaskade ist der Hauptact in der Mitte — aber nur im aktiven Zustand
-         größer als Täglich/Sammlung, sonst sieht der Tab inaktiv identisch
-         zu den anderen aus (gleiche Höhe, gleiche Größe) und wächst erst,
-         wenn man ihn antippt. */
+         größer als Täglich/Sammlung, und rein über `transform` (nie über
+         font-size/width/height): eine echte Größenänderung wäre eine
+         Layout-Eigenschaft und würde die ganze Tab-Leiste mitwachsen lassen,
+         weil die Buttons per Flex gestreckt werden. `transform` verändert
+         nur die Darstellung, nicht die Box — die Leiste bleibt exakt gleich
+         hoch, nur der Button selbst sticht sichtbar heraus. */
       #tabbar button[data-tab="home"].on {
-        font-size: 16px;
-      }
-      #tabbar button[data-tab="home"].on .ic .icon-img {
-        width: 46px;
-        height: 46px;
-      }
-      #tabbar button[data-tab="home"].on::before {
-        width: 96px;
-        height: 104px;
+        transform: scale(1.32);
+        transform-origin: 50% 68%;
+        z-index: 1;
       }
 
       /* ── Toast ─────────────────────────────────────── */

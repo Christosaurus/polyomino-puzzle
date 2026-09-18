@@ -67,6 +67,10 @@ export interface CascadeCallbacks {
     chain: number;
     /** `Infinity` im Free Play — nur im Level-Modus ein echtes Budget. */
     shardsLeft: number;
+    /** Einmalig `true`, direkt nachdem eine Mini-Aufgabe gelöst wurde — für
+     *  Toast/Belohnungstext außerhalb des Canvas. Die Feier selbst (großer,
+     *  wegfadender Text) zeichnet die View schon aufs Brett. */
+    challengeWon: boolean;
   }) => void;
 }
 
@@ -111,7 +115,10 @@ export class CascadeView {
   private shakeT = 0;
   private shakeMag = 0;
   /** Große Einblendung übers Brett — Kette oder neue Multiplikator-Stufe. */
-  private comboPop: { text: string; t: number; color: string } | null = null;
+  /** `fontScale` skaliert die Schriftgröße relativ zur Zellgröße — kürzere
+   *  Rufe (KETTE ×3, PERFEKT!) dürfen groß sein, längere Sätze (Aufgabe
+   *  geschafft!) brauchen eine kleinere Schrift, sonst laufen sie übers Brett. */
+  private comboPop: { text: string; t: number; color: string; fontScale?: number } | null = null;
   /** Kurzer goldener Blitz übers ganze Brett bei einer neuen Multiplikator-Stufe. */
   private tierFlashT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
@@ -293,6 +300,16 @@ export class CascadeView {
       this.shake(9);
       this.spawnBigBurst(L);
     }
+    // Mini-Aufgabe gelöst: kein Kasten, nur ein großer, weißer Text übers
+    // Brett, der kurz steht und dann wegfadet — dieselbe Feier-Mechanik wie
+    // Ketten/Tier-Sprünge, nur in Weiß statt Akzentfarbe.
+    const challengeWon = this.game.consumeChallengeWin();
+    if (challengeWon) {
+      sfx.win();
+      if (!this.comboPop) {
+        this.comboPop = { text: "Aufgabe geschafft!", t: 0, color: "#ffffff", fontScale: 0.42 };
+      }
+    }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
       this.game.finish();
@@ -308,6 +325,7 @@ export class CascadeView {
       lives: this.game.lives,
       chain: this.game.chain,
       shardsLeft: this.game.shardsLeft,
+      challengeWon,
     });
   }
 
@@ -752,7 +770,7 @@ export class CascadeView {
       ctx.globalAlpha = Math.max(0, fade);
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
-      ctx.font = `900 ${Math.round(L.cell * 0.85)}px "Baloo 2", sans-serif`;
+      ctx.font = `900 ${Math.round(L.cell * (this.comboPop.fontScale ?? 0.85))}px "Baloo 2", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.lineWidth = 5;

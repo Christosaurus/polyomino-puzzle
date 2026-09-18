@@ -1510,7 +1510,6 @@ function startCascade(): void {
   cascadeGame = game;
   const bestScore = store.load().cascade.bestScore;
   let newRecord = false;
-  let challengeWonUntil = 0;
   let lastMultTier = 1;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
@@ -1536,19 +1535,19 @@ function startCascade(): void {
       }
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
-      if (game.consumeChallengeWin()) {
-        challengeWonUntil = performance.now() + 2000;
-        sfx.win();
+      if (h.challengeWon) {
         toast(
           (h.lives < 3 ? "🎯 Aufgabe geschafft — Leben zurück! ❤" : "🎯 Aufgabe geschafft — Bonuspunkte!") +
             " · +10s",
         );
       }
+      // Die Feier selbst (großer, wegfadender Text) zeichnet die View aufs
+      // Brett — der Kasten hier zeigt nur noch die laufende Aufgabe an und
+      // verschwindet sofort wieder, sobald keine mehr aktiv ist.
       const cEl = $("k-challenge");
       const bar = $("k-challenge-bar");
       if (game.challenge) {
         cEl.hidden = false;
-        cEl.classList.remove("won");
         $("k-challenge-icon").textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
         $("k-challenge-txt").textContent = game.challenge.label;
         const remain = game.challengeRemainingMs();
@@ -1556,13 +1555,6 @@ function startCascade(): void {
         const pct = Math.max(0, Math.min(100, (remain / CHALLENGE_WINDOW_MS) * 100));
         bar.style.width = `${pct}%`;
         bar.classList.toggle("low", remain < 5000);
-      } else if (performance.now() < challengeWonUntil) {
-        cEl.hidden = false;
-        cEl.classList.add("won");
-        $("k-challenge-txt").textContent = "Aufgabe geschafft!";
-        $("k-challenge-clock").textContent = "";
-        bar.style.width = "100%";
-        bar.classList.remove("low");
       } else {
         cEl.hidden = true;
       }
