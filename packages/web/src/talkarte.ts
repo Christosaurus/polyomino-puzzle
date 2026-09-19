@@ -62,29 +62,52 @@ export function mountTalkarteFx(opts: FxOpts): void {
   // Buttons) bleibt fest an seinem Platz. 0 = oberer Bildrand; negativ = weiter
   // nach unten im Bild gezogen (der untere Bildrand darf nicht über den
   // Bildschirmrand hinaus sichtbar werden, deshalb die Klemme unten).
+  //
+  // Der Finger bewegt nur `targetOffsetY` — `offsetY` (was tatsächlich
+  // gezeichnet wird) gleitet dem in einer eigenen rAF-Schleife hinterher.
+  // Direkt bei jedem `pointermove` zu schreiben wirkte zackig, weil Touch-
+  // Events unregelmäßiger reinkommen als der Bildschirm zeichnet; so wird nur
+  // einmal pro Frame aktualisiert, mit einer sanften Annäherung statt einem Sprung.
   let offsetY = 0;
+  let targetOffsetY = 0;
   let dragStartY = 0;
   let dragStartOffset = 0;
   let dragging = false;
+  let panRaf = 0;
   const clampOffset = (v: number): number => {
     const maxUp = Math.max(0, img.clientHeight - opts.scroller.clientHeight);
     return Math.min(0, Math.max(-maxUp, v));
   };
   const applyOffset = (): void => {
-    opts.root.style.transform = `translateY(${offsetY}px)`;
+    opts.root.style.transform = `translateY(${offsetY.toFixed(1)}px)`;
+  };
+  const panStep = (): void => {
+    offsetY += (targetOffsetY - offsetY) * 0.35;
+    if (Math.abs(targetOffsetY - offsetY) < 0.05) offsetY = targetOffsetY;
+    applyOffset();
+    if (dragging || offsetY !== targetOffsetY) panRaf = requestAnimationFrame(panStep);
+    else panRaf = 0;
+  };
+  const ensurePanLoop = (): void => {
+    if (!panRaf) panRaf = requestAnimationFrame(panStep);
   };
   opts.scroller.addEventListener("pointerdown", (e: PointerEvent) => {
     dragging = true;
     dragStartY = e.clientY;
-    dragStartOffset = offsetY;
+    dragStartOffset = targetOffsetY;
+    ensurePanLoop();
   });
-  window.addEventListener("pointermove", (e: PointerEvent) => {
-    if (!dragging) return;
-    offsetY = clampOffset(dragStartOffset + (e.clientY - dragStartY));
-    applyOffset();
-  });
+  window.addEventListener(
+    "pointermove",
+    (e: PointerEvent) => {
+      if (!dragging) return;
+      targetOffsetY = clampOffset(dragStartOffset + (e.clientY - dragStartY));
+    },
+    { passive: true },
+  );
   const endDrag = (): void => {
     dragging = false;
+    ensurePanLoop(); // notfalls noch bis zum Ziel ausgleiten
   };
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
@@ -103,6 +126,7 @@ export function mountTalkarteFx(opts: FxOpts): void {
     // Bei Größenänderung (Rotation, Bild fertig geladen) neu klemmen — sonst
     // könnte der Hintergrund von einer vorherigen Größe her außerhalb stehen.
     offsetY = clampOffset(offsetY);
+    targetOffsetY = offsetY;
     applyOffset();
   };
   if (img.complete) resize();
