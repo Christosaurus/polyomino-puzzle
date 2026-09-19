@@ -1068,15 +1068,33 @@
         font-size: 16px;
         text-shadow: 0 2px 0 var(--stroke);
       }
-      /* Score & Best stehen beieinander — Best trägt die Krone, bleibt aber
-         klein, damit Score der klare Blickfang bleibt. */
+      /* Score & Highscore stehen beieinander, gleich groß — erst wenn man den
+         Highscore knackt, tritt Highscore ab und Score übernimmt als "New
+         Highscore" (siehe .burst unten + app.ts). */
       .score-group {
         display: flex;
         align-items: baseline;
         gap: 16px;
       }
       .metric.best {
+        display: inline-block;
+        transform-origin: center;
         color: var(--gold);
+      }
+      #k-best {
+        font-size: 26px;
+        font-weight: 900;
+        text-shadow: 0 2px 0 var(--stroke), 0 0 14px rgba(255, 194, 59, 0.5);
+      }
+      /* Highscore geknackt: kurz aufblitzen und wegspringen, dann verschwindet
+         das Element ganz (app.ts setzt danach `hidden`). */
+      .metric.best.burst {
+        animation: best-burst 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+      }
+      @keyframes best-burst {
+        0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+        35% { transform: scale(1.7); opacity: 1; filter: brightness(1.9); }
+        100% { transform: scale(2.4); opacity: 0; filter: brightness(1.9); }
       }
       /* Score & Multiplikator sind die wichtigsten Zahlen im Spiel — größer und
          mit einem sanften Leuchten, damit sie im Blick bleiben. */
@@ -1098,6 +1116,7 @@
       /* Multiplikator eskaliert sichtbar in Farbe, je heißer die Serie läuft */
       #k-mult {
         display: inline-block;
+        position: relative;
         transform-origin: center;
         font-size: 24px;
         font-weight: 900;
@@ -1119,6 +1138,32 @@
         58% { transform: scale(1.55) rotate(-4deg); }
         76% { transform: scale(1.4) rotate(2deg); }
         100% { transform: scale(1) rotate(0deg); }
+      }
+      /* neue Stufe: kurz brennt eine Flamme drumherum, verglimmt nach ein paar
+         Sekunden von selbst wieder — eigene Pseudo-Elemente, damit sie nicht
+         mit dem Bump (transform auf #k-mult selbst) kollidiert. */
+      #k-mult.flame {
+        text-shadow: 0 2px 0 var(--stroke), 0 0 16px rgba(255, 140, 40, 0.9), 0 0 30px rgba(255, 80, 20, 0.6);
+      }
+      #k-mult.flame::before,
+      #k-mult.flame::after {
+        content: "🔥";
+        position: absolute;
+        top: 50%;
+        font-size: 0.85em;
+        pointer-events: none;
+        animation: mult-flame 2.4s ease-out forwards;
+      }
+      #k-mult.flame::before { left: -22px; }
+      #k-mult.flame::after { right: -22px; }
+      @keyframes mult-flame {
+        0% { opacity: 0; transform: translateY(-50%) scale(0.5); }
+        10% { opacity: 1; transform: translateY(-50%) scale(1.15); }
+        25% { transform: translateY(-50%) scale(0.95) rotate(-5deg); }
+        40% { transform: translateY(-50%) scale(1.1) rotate(4deg); }
+        55% { transform: translateY(-50%) scale(0.97) rotate(-3deg); }
+        70% { opacity: 1; transform: translateY(-50%) scale(1.03) rotate(2deg); }
+        100% { opacity: 0; transform: translateY(-50%) scale(0.7) rotate(0deg); }
       }
       /* ── Kaskade lives — a little cluster of hearts, centre one bigger ── */
       .k-lives {
@@ -2785,8 +2830,8 @@
         </div>
         <div class="hud">
           <span class="score-group">
-            <span class="metric" id="k-score"><small>Score</small><span id="k-score-txt">0</span></span>
-            <span class="metric best" id="k-best-wrap"><small>👑 Best</small><span id="k-best">0</span></span>
+            <span class="metric" id="k-score"><small id="k-score-label">Score</small><span id="k-score-txt">0</span></span>
+            <span class="metric best" id="k-best-wrap"><small>👑 Highscore</small><span id="k-best">0</span></span>
           </span>
           <div class="clock" id="k-clock">3:00</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>

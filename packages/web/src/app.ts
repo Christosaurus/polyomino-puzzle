@@ -1500,6 +1500,8 @@ function startCascade(): void {
   $("rs-scene").hidden = true;
   $("k-hud2").hidden = false;
   $("k-best-wrap").hidden = false;
+  $("k-best-wrap").classList.remove("burst");
+  $("k-score-label").textContent = "Score";
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
@@ -1524,6 +1526,10 @@ function startCascade(): void {
         multEl.classList.remove("bump");
         void multEl.offsetWidth;
         multEl.classList.add("bump");
+        multEl.classList.remove("flame");
+        void multEl.offsetWidth;
+        multEl.classList.add("flame");
+        window.setTimeout(() => multEl.classList.remove("flame"), 2400);
       }
       lastMultTier = tier;
       $("k-cleared").textContent = nf(h.cleared);
@@ -1531,6 +1537,16 @@ function startCascade(): void {
       el.textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
       if (h.score > bestScore) {
+        if (!newRecord) {
+          // erstes Überholen in dieser Runde: Highscore springt kurz auf und
+          // verschwindet, Score übernimmt seinen Platz als "New Highscore"
+          const bestWrap = $("k-best-wrap");
+          bestWrap.classList.add("burst");
+          window.setTimeout(() => {
+            bestWrap.hidden = true;
+            $("k-score-label").textContent = "New Highscore";
+          }, 550);
+        }
         newRecord = true;
         $("k-score-txt").classList.add("new-record");
       }
@@ -1645,6 +1661,7 @@ function startRescueLevel(level: RescueLevel): void {
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
+  $("k-score-label").textContent = "Score";
 
   // Szene oben statt der Multiplikator-Zeile: Bedrohung + Held + ein Brocken
   // pro Reihen-Ziel. Jede geräumte Reihe lässt unten im Turm einen Brocken
@@ -1652,6 +1669,7 @@ function startRescueLevel(level: RescueLevel): void {
   $("rs-scene").hidden = false;
   $("k-hud2").hidden = true;
   $("k-best-wrap").hidden = true;
+  $("k-best-wrap").classList.remove("burst");
   $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
   $("rs-blurb").textContent = level.blurb;
   const rubble = $("rs-rubble");
@@ -1687,6 +1705,10 @@ function startRescueLevel(level: RescueLevel): void {
         multEl.classList.remove("bump");
         void multEl.offsetWidth;
         multEl.classList.add("bump");
+        multEl.classList.remove("flame");
+        void multEl.offsetWidth;
+        multEl.classList.add("flame");
+        window.setTimeout(() => multEl.classList.remove("flame"), 2400);
       }
       lastMultTier = tier;
       $("k-cleared").textContent = `${nf(h.cleared)}/${nf(level.config.targetRows)}`;
