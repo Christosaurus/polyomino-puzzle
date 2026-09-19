@@ -627,10 +627,32 @@
       /* ── Der Lichtpfad: gemalte Talkarte hinter dem Startbildschirm ── */
       #screen-home {
         position: relative;
-        /* deckt die feste #scenery-Ebene ab — sonst blitzt sie beim
-           Überscrollen unten unter der Talkarte durch */
+        /* deckt die feste #scenery-Ebene ab — sonst blitzt sie beim Ziehen
+           unten unter der Talkarte durch */
         background: #241a54;
-        overscroll-behavior-y: contain;
+        /* Das Menü (Logo, Karten, Buttons) steht fest — nur der gemalte
+           Hintergrund lässt sich per Ziehen verschieben (siehe talkarte.ts).
+           Kein natives Scrollen hier, sonst würde die Geste beides bewegen. */
+        overflow: hidden;
+        touch-action: none;
+      }
+      /* Kein Scroll-Fallback mehr (siehe oben) — auf kurzen Bildschirmen muss
+         der Inhalt darum von sich aus passen. Logo und Abstände schrumpfen,
+         die Karten bleiben vollständig sichtbar über der Tableiste. */
+      @media (max-height: 720px) {
+        #screen-home {
+          gap: 8px;
+        }
+        #screen-home .brand {
+          margin: 0;
+        }
+        #screen-home .brand-logo {
+          width: min(34%, 130px);
+        }
+        #screen-home .mode-card {
+          padding: 12px;
+          gap: 8px;
+        }
       }
       #screen-home > .topbar,
       #screen-home > .brand,
@@ -2631,7 +2653,10 @@
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Linien</div></div>
           </div>
           <button class="go big" id="cascade-play">Kaskade starten</button>
-          <button id="rescue-open" style="margin-top:8px">🏰 Story-Modus</button>
+        </div>
+        <div class="card mode-card" id="home-story-card">
+          <p class="muted" style="margin:0">Kaskade mit einem Ziel statt einer Uhr — befrei die Figur aus dem Schutt.</p>
+          <button id="rescue-open">🏰 Story-Modus</button>
         </div>
       </section>
 

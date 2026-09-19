@@ -1,13 +1,14 @@
 /**
- * Die Talkarte lebendig machen: sanfter Parallax (die gemalte Karte scrollt
- * langsamer als die Stationen davor) plus eine dünne Effekt-Ebene darüber —
- * glimmende Fenster, Glühwürmchen, ein paar Vögel und Schmetterlinge. Alles in
- * Bild-Bruchteilen verankert, damit es mit der Malerei mitwandert; Tag wie
- * Nacht sichtbar, nur unterschiedlich gewichtet.
+ * Die Talkarte lebendig machen: per Ziehen verschiebbarer Hintergrund (das
+ * Menü davor steht fest — nur die gemalte Karte selbst lässt sich hoch/runter
+ * schieben) plus eine dünne Effekt-Ebene darüber — glimmende Fenster,
+ * Glühwürmchen, ein paar Vögel und Schmetterlinge. Alles in Bild-Bruchteilen
+ * verankert, damit es mit der Malerei mitwandert; Tag wie Nacht sichtbar, nur
+ * unterschiedlich gewichtet.
  */
 
 type FxOpts = {
-  /** Der scrollbare Startbildschirm. */
+  /** Der Startbildschirm — fängt die Zieh-Geste für den Hintergrund ab. */
   scroller: HTMLElement;
   /** Der Container mit `<img>` + `<canvas class="talkarte-fx">`. */
   root: HTMLElement;
@@ -16,8 +17,6 @@ type FxOpts = {
   /** Ob der Startbildschirm gerade sichtbar ist (sonst pausiert die Schleife). */
   visible: () => boolean;
 };
-
-const PARALLAX = 0.4; // 0 = mitgescrollt, 1 = stünde still
 
 /** Fensterpunkte im Bild (Bruchteile), an denen es warm glimmt. */
 const LAMPS: Array<{ x: number; y: number; warm: number }> = [
@@ -58,12 +57,38 @@ export function mountTalkarteFx(opts: FxOpts): void {
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ── Parallax ────────────────────────────────────────────────────────────
-  const onScroll = (): void => {
-    opts.root.style.transform = `translateY(${opts.scroller.scrollTop * PARALLAX}px)`;
+  // ── Ziehbarer Hintergrund ────────────────────────────────────────────────
+  // Nur die Talkarte selbst bewegt sich beim Ziehen — das Menü (Logo, Karten,
+  // Buttons) bleibt fest an seinem Platz. 0 = oberer Bildrand; negativ = weiter
+  // nach unten im Bild gezogen (der untere Bildrand darf nicht über den
+  // Bildschirmrand hinaus sichtbar werden, deshalb die Klemme unten).
+  let offsetY = 0;
+  let dragStartY = 0;
+  let dragStartOffset = 0;
+  let dragging = false;
+  const clampOffset = (v: number): number => {
+    const maxUp = Math.max(0, img.clientHeight - opts.scroller.clientHeight);
+    return Math.min(0, Math.max(-maxUp, v));
   };
-  opts.scroller.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
+  const applyOffset = (): void => {
+    opts.root.style.transform = `translateY(${offsetY}px)`;
+  };
+  opts.scroller.addEventListener("pointerdown", (e: PointerEvent) => {
+    dragging = true;
+    dragStartY = e.clientY;
+    dragStartOffset = offsetY;
+  });
+  window.addEventListener("pointermove", (e: PointerEvent) => {
+    if (!dragging) return;
+    offsetY = clampOffset(dragStartOffset + (e.clientY - dragStartY));
+    applyOffset();
+  });
+  const endDrag = (): void => {
+    dragging = false;
+  };
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", endDrag);
+  applyOffset();
 
   // ── Effekt-Ebene ────────────────────────────────────────────────────────
   let w = 0;
@@ -75,6 +100,10 @@ export function mountTalkarteFx(opts: FxOpts): void {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Bei Größenänderung (Rotation, Bild fertig geladen) neu klemmen — sonst
+    // könnte der Hintergrund von einer vorherigen Größe her außerhalb stehen.
+    offsetY = clampOffset(offsetY);
+    applyOffset();
   };
   if (img.complete) resize();
   img.addEventListener("load", resize);
