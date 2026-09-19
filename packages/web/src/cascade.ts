@@ -9,7 +9,7 @@
  */
 
 import { type Rng, rngFromSeed } from "@polyomino/puzzle-core";
-import { pickShardName, shardByColorIndex, shardColorIndex, shardDef } from "./shards.js";
+import { pickShardName, shardByColorIndex, shardColorIndex, shardDef, shardsFittingGap } from "./shards.js";
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
@@ -220,12 +220,59 @@ export class CascadeState {
     // bevor das Zeitfenster zu ist. Nicht ausschließlich, sonst wäre es
     // trivial statt einer echten Aufgabe.
     const favorStraight = this.challenge?.kind === "straight";
-    const name = pickShardName(this.rng, crowdedFrac, favorStraight);
+    // Steht ein Ultra-Clear kurz bevor (mehrere Reihen/Spalten brauchen
+    // zusammen nur noch eine Handvoll Zellen), kommt mit erhöhter statt
+    // garantierter Chance ein Teil, das genau in die Lücke passt — der
+    // Spieler merkt nur, dass gerade das Richtige dabei ist, nicht dass
+    // nachgeholfen wurde. Ob er es auch richtig einsetzt, bleibt ihm überlassen.
+    const gap = this.findClearGap();
+    let name: string;
+    if (gap && this.rng.next() < 0.65) {
+      const fitting = shardsFittingGap(gap);
+      name = fitting.length
+        ? fitting[Math.floor(this.rng.next() * fitting.length)]!
+        : pickShardName(this.rng, crowdedFrac, favorStraight);
+    } else {
+      name = pickShardName(this.rng, crowdedFrac, favorStraight);
+    }
     const others = this.hold ? [...this.belt, this.hold] : this.belt;
     const somethingFits = this.canPlaceAnywhere(name) || others.some((s) => this.canPlaceAnywhere(s.name));
     // "mono" (1x1) passt in jede einzelne freie Zelle — der einzig echte
     // Notausgang, solange das Brett nicht buchstäblich zu 100% voll ist.
     return somethingFits ? name : "mono";
+  }
+
+  /**
+   * Sucht eine kleine, verstreute Lücke, deren Füllung mehrere Reihen/Spalten
+   * *gleichzeitig* räumen würde ("Ultra Clear") — dafür müssen mindestens
+   * zwei Reihen/Spalten schon fast voll sein (höchstens `NEAR` leere Zellen,
+   * die Größe unserer größten Alltagsteile) und die Gesamtlücke darf nicht
+   * größer sein, als sich mit ~3 Teilen realistisch noch füllen lässt.
+   * `null`, wenn gerade keine solche Gelegenheit ansteht.
+   */
+  private findClearGap(): Array<[number, number]> | null {
+    const NEAR = 4;
+    const GAP_BUDGET = 10;
+    const nearLines: Array<Array<[number, number]>> = [];
+    for (let r = this.shrunkRows; r < this.rows; r++) {
+      const empties: Array<[number, number]> = [];
+      for (let c = 0; c < this.cols; c++) if (!this.board[this.idx(r, c)]) empties.push([r, c]);
+      if (empties.length > 0 && empties.length <= NEAR) nearLines.push(empties);
+    }
+    // Spalten räumen nur im Free Play (siehe clearFullRows) — die Erleichterung
+    // muss derselben Regel folgen wie das echte Clearing.
+    if (!this.level) {
+      for (let c = 0; c < this.cols; c++) {
+        const empties: Array<[number, number]> = [];
+        for (let r = 0; r < this.rows; r++) if (!this.board[this.idx(r, c)]) empties.push([r, c]);
+        if (empties.length > 0 && empties.length <= NEAR) nearLines.push(empties);
+      }
+    }
+    if (nearLines.length < 2) return null;
+    const gapMap = new Map<string, [number, number]>();
+    for (const line of nearLines) for (const cell of line) gapMap.set(`${cell[0]},${cell[1]}`, cell);
+    const gap = [...gapMap.values()];
+    return gap.length <= GAP_BUDGET ? gap : null;
   }
 
   /** Passt diese Scherbe in irgendeiner Drehung irgendwo aufs aktuelle Brett? */

@@ -97,6 +97,52 @@ export function shardByColorIndex(i: number): ShardDef {
 }
 
 /**
+ * Namen aller Formen, die *irgendwo* komplett innerhalb von `targetCells`
+ * Platz fänden, in mindestens einer Drehung — für die Kaskaden-Erleichterung:
+ * steht ein Multi-Clear kurz bevor, sollen bevorzugt Teile kommen, die genau
+ * in die restliche Lücke passen. Reine Geometrie, kein Board-Zugriff nötig.
+ */
+export function shardsFittingGap(targetCells: ReadonlyArray<readonly [number, number]>): string[] {
+  if (targetCells.length === 0) return [];
+  const set = new Set(targetCells.map(([r, c]) => `${r},${c}`));
+  let minR = Infinity;
+  let maxR = -Infinity;
+  let minC = Infinity;
+  let maxC = -Infinity;
+  for (const [r, c] of targetCells) {
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (c < minC) minC = c;
+    if (c > maxC) maxC = c;
+  }
+  const fits: string[] = [];
+  for (const def of SHARD_DEFS) {
+    let found = false;
+    for (const cells of def.orientations) {
+      let sMinR = Infinity;
+      let sMaxR = -Infinity;
+      let sMinC = Infinity;
+      let sMaxC = -Infinity;
+      for (const [r, c] of cells) {
+        if (r < sMinR) sMinR = r;
+        if (r > sMaxR) sMaxR = r;
+        if (c < sMinC) sMinC = c;
+        if (c > sMaxC) sMaxC = c;
+      }
+      // dr/dc so wählen, dass die verschobene Form innerhalb der Lücken-Box bleibt
+      for (let dr = minR - sMinR; dr <= maxR - sMaxR && !found; dr++) {
+        for (let dc = minC - sMinC; dc <= maxC - sMaxC && !found; dc++) {
+          if (cells.every(([r, c]) => set.has(`${r + dr},${c + dc}`))) found = true;
+        }
+      }
+      if (found) break;
+    }
+    if (found) fits.push(def.name);
+  }
+  return fits;
+}
+
+/**
  * Weighted random pick, biased toward small pieces as the board fills up
  * (`crowdedFrac` 0..1) so a nearly-full board still has an easy out.
  * `favorStraight` boosts straight bars (duo/trio-i/quad-i/I-pentomino) —
