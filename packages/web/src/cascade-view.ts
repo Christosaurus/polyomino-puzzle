@@ -213,6 +213,12 @@ export class CascadeView {
       // schneller Ruck statt Dauerwackeln: von voller Stärke in ~0,3s wieder ruhig
       this.shakeMag = Math.max(0, this.shakeMag - dt * 24);
     }
+    // Wackler bewegt das ganze lila Feld (Panel + Canvas als Einheit), nicht
+    // nur den Zeicheninhalt — sonst wandert das Brett relativ zum Rahmen.
+    this.wrap.style.transform =
+      this.shakeMag > 0.05
+        ? `translate(${(Math.random() - 0.5) * 2 * this.shakeMag}px, ${(Math.random() - 0.5) * 2 * this.shakeMag}px)`
+        : "";
     if (this.comboPop && (this.comboPop.t += dt) > COMBO_LIFE_S) this.comboPop = null;
     if (this.tierFlashT >= 0) {
       this.tierFlashT += dt;
@@ -653,12 +659,6 @@ export class CascadeView {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, L.cssW, L.cssH);
 
-    // Kamera-Wackler — rein optisch, verschiebt nur die Zeichnung, nicht das
-    // Koordinatensystem fürs Pointer-Hit-Testing (das rechnet über layout, nicht ctx)
-    if (this.shakeMag > 0.05) {
-      ctx.translate((Math.random() - 0.5) * 2 * this.shakeMag, (Math.random() - 0.5) * 2 * this.shakeMag);
-    }
-
     // leeres Brett-Raster: einmal gebaut, danach nur noch als Bild geblittet
     const grid = boardGrid(this.gridCells, L.cell, dpr, cssVar("--cell"));
     ctx.drawImage(grid.canvas, L.boardX, L.boardY, grid.w, grid.h);
@@ -893,7 +893,85 @@ export class CascadeView {
       ctx.textBaseline = "alphabetic";
     }
 
-    if (this.drag) this.drawDrag(L);
+    // Vorschau: Reihen/Spalten, die die gezogene Figur *jetzt* räumen würde,
+    // schimmern schon vorm Loslassen weiß — man sieht das Ergebnis, bevor man
+    // sich festlegt, statt es erst danach zu erfahren.
+    if (this.drag) {
+      const snap = this.snappedFor(this.drag, L);
+      if (this.overBoard(this.drag.px, this.drag.py, L) && this.game.canPlace(this.drag.shard, snap)) {
+        const preview = this.previewLines(this.drag.shard, snap);
+        if (preview.rows.length || preview.cols.length) this.drawLinePreview(preview, L);
+      }
+      this.drawDrag(L);
+    }
+  }
+
+  /** Reihen/Spalten, die durch `shard` an `pos` vollständig gefüllt würden. */
+  private previewLines(shard: Shard, pos: Pos): { rows: number[]; cols: number[] } {
+    const dragCells = new Set<number>();
+    for (const [dr, dc] of this.game.cells(shard)) {
+      dragCells.add((pos.row + dr) * this.game.cols + (pos.col + dc));
+    }
+    const rows: number[] = [];
+    for (let r = 0; r < this.game.rows; r++) {
+      let full = true;
+      for (let c = 0; c < this.game.cols; c++) {
+        if (!this.game.filled(r, c) && !dragCells.has(r * this.game.cols + c)) {
+          full = false;
+          break;
+        }
+      }
+      if (full) rows.push(r);
+    }
+    // Spalten räumen nur im Free Play (siehe clearFullRows in cascade.ts) —
+    // die Vorschau muss dieselbe Regel befolgen, sonst verspricht sie im
+    // Level-Modus etwas, das beim Ablegen gar nicht passiert.
+    const cols: number[] = [];
+    if (!this.game.level) {
+      for (let c = 0; c < this.game.cols; c++) {
+        let full = true;
+        for (let r = 0; r < this.game.rows; r++) {
+          if (!this.game.filled(r, c) && !dragCells.has(r * this.game.cols + c)) {
+            full = false;
+            break;
+          }
+        }
+        if (full) cols.push(c);
+      }
+    }
+    return { rows, cols };
+  }
+
+  /** Weißes Schimmern über jeder Reihe/Spalte aus `previewLines` — pulsiert,
+   *  solange man drüber hält, und ist sofort wieder weg, sobald man wegzieht. */
+  private drawLinePreview(lines: { rows: number[]; cols: number[] }, L: Layout): void {
+    const ctx = this.ctx;
+    const shimmer = 0.55 + 0.35 * Math.sin(this.nowMs / 140);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const r of lines.rows) {
+      const y = L.boardY + r * L.cell;
+      const w = this.game.cols * L.cell;
+      const g = ctx.createLinearGradient(L.boardX, y, L.boardX + w, y);
+      g.addColorStop(0, "rgba(255,255,255,0)");
+      g.addColorStop(0.5, `rgba(255,255,255,${shimmer})`);
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      roundRect(ctx, L.boardX, y, w, L.cell, 6);
+      ctx.fill();
+    }
+    for (const c of lines.cols) {
+      const x = L.boardX + c * L.cell;
+      const h = this.game.rows * L.cell;
+      const g = ctx.createLinearGradient(x, L.boardY, x, L.boardY + h);
+      g.addColorStop(0, "rgba(255,255,255,0)");
+      g.addColorStop(0.5, `rgba(255,255,255,${shimmer})`);
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = g;
+      roundRect(ctx, x, L.boardY, L.cell, h, 6);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   private drawShard(shard: Shard, cx: number, cy: number, cell: number, selected = false): void {
@@ -1067,7 +1145,7 @@ export class CascadeView {
         sfx.vibrate(8);
         // Winziger Wackler bei jeder Platzierung — nur ein kurzer Ruck, spürbar
         // wenn man draufachtet, aber weit unter den Clear-/Combo-Wacklern.
-        this.shake(2.5);
+        this.shake(3.5);
         this.placePop = { r: snap.row, c: snap.col, t: 0 };
         // Staub rings um die ganze Form, nicht nur an einem Punkt
         const cellsAbs = this.game

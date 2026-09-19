@@ -1088,6 +1088,7 @@
       /* Multiplikator eskaliert sichtbar in Farbe, je heißer die Serie läuft */
       #k-mult {
         display: inline-block;
+        transform-origin: center;
         font-size: 24px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 12px color-mix(in srgb, var(--lumen) 45%, transparent);
@@ -1097,11 +1098,17 @@
       #k-mult.tier-3 { color: var(--mango); }
       #k-mult.tier-4 { color: var(--pink); text-shadow: 0 0 8px rgba(255, 95, 168, 0.6); }
       #k-mult.tier-5 { color: var(--sky); text-shadow: 0 0 10px rgba(69, 193, 255, 0.7); }
+      /* neue Stufe: deutlich größer aufblitzen UND wackeln, nicht nur sanft bumpen */
       #k-mult.bump {
-        animation: mult-bump 0.3s var(--tap);
+        animation: mult-bump 0.45s var(--tap);
       }
       @keyframes mult-bump {
-        30% { transform: scale(1.35); }
+        0% { transform: scale(1) rotate(0deg); }
+        22% { transform: scale(1.75) rotate(-7deg); }
+        40% { transform: scale(1.45) rotate(6deg); }
+        58% { transform: scale(1.55) rotate(-4deg); }
+        76% { transform: scale(1.4) rotate(2deg); }
+        100% { transform: scale(1) rotate(0deg); }
       }
       /* ── Kaskade lives — a little cluster of hearts, centre one bigger ── */
       .k-lives {
