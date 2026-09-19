@@ -1499,6 +1499,7 @@ function startCascade(): void {
   cascadeQuit = () => setTab("home");
   $("rs-scene").hidden = true;
   $("k-hud2").hidden = false;
+  $("k-best-wrap").hidden = false;
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
@@ -1650,6 +1651,7 @@ function startRescueLevel(level: RescueLevel): void {
   // verschwinden (siehe onHud) — das *ist* jetzt die Fortschrittsanzeige.
   $("rs-scene").hidden = false;
   $("k-hud2").hidden = true;
+  $("k-best-wrap").hidden = true;
   $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
   $("rs-blurb").textContent = level.blurb;
   const rubble = $("rs-rubble");

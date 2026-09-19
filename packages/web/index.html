@@ -1068,6 +1068,16 @@
         font-size: 16px;
         text-shadow: 0 2px 0 var(--stroke);
       }
+      /* Score & Best stehen beieinander — Best trägt die Krone, bleibt aber
+         klein, damit Score der klare Blickfang bleibt. */
+      .score-group {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+      }
+      .metric.best {
+        color: var(--gold);
+      }
       /* Score & Multiplikator sind die wichtigsten Zahlen im Spiel — größer und
          mit einem sanften Leuchten, damit sie im Blick bleiben. */
       #k-score-txt {
@@ -2774,7 +2784,10 @@
           <p class="rescue-blurb" id="rs-blurb"></p>
         </div>
         <div class="hud">
-          <span class="metric" id="k-score"><small>Score</small><span id="k-score-txt">0</span></span>
+          <span class="score-group">
+            <span class="metric" id="k-score"><small>Score</small><span id="k-score-txt">0</span></span>
+            <span class="metric best" id="k-best-wrap"><small>👑 Best</small><span id="k-best">0</span></span>
+          </span>
           <div class="clock" id="k-clock">3:00</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
@@ -2783,10 +2796,9 @@
           <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
           <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
         </div>
-        <div class="hud" id="k-hud2" style="grid-template-columns:1fr 1fr 1fr;margin-top:-6px">
+        <div class="hud" id="k-hud2" style="grid-template-columns:1fr 1fr;margin-top:-6px">
           <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
-          <span class="metric"><small>Lines</small><span id="k-cleared">0</span></span>
-          <span class="metric right"><small>Best</small><span id="k-best">0</span></span>
+          <span class="metric right"><small>Lines</small><span id="k-cleared">0</span></span>
         </div>
         <div class="k-streak" id="k-streak"></div>
         <div class="board-wrap" id="k-wrap">
