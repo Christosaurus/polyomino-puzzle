@@ -39,10 +39,10 @@ const fmt = (ms: number): string => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
-/** Zahlen im Spiel immer mit Tausenderpunkt — "12.345" statt "12345". */
-const nf = (n: number): string => Math.round(n).toLocaleString("de-DE");
-/** Multiplikator deutsch — "×1,5" statt "×1.5" (nicht runden!). */
-const xf = (n: number | string): string => String(n).replace(".", ",");
+/** Numbers in the game always with a thousands separator — "12,345" not "12345". */
+const nf = (n: number): string => Math.round(n).toLocaleString("en-US");
+/** Multiplier as-is — "×1.5" (don't round!). */
+const xf = (n: number | string): string => String(n);
 const CHALLENGE_ICON: Record<ChallengeKind, string> = {
   straight: "📏",
   rows: "🧱",
@@ -106,7 +106,7 @@ function nextRegionNudge(): string | null {
   if (!next) return null;
   const left = next.panesToUnlock - panes;
   if (left > 8) return null;
-  return `🔒 Noch ${left} Fenster bis ${next.name}`;
+  return `🔒 ${left} more windows to ${next.name}`;
 }
 
 const REGION_THEME: Record<string, SceneTheme> = {
@@ -148,24 +148,24 @@ function livesGate(onBuy: () => void): boolean {
   const canPay = store.load().shards >= 30;
   showScreen("play");
   showOverlay({
-    title: "Keine Herzen",
-    sub: `Ein Herz kommt in <b>${fmt(l.msToNext)}</b> zurück.`,
+    title: "No Hearts",
+    sub: `A heart returns in <b>${fmt(l.msToNext)}</b>.`,
     rewards: [
-      "📺 Werbe-Block ansehen → +1 Herz  (bald)",
-      canPay ? "✦ 30 Splitter → Herzen voll" : `✦ ${nf(store.load().shards)} / 30 Splitter`,
+      "📺 Watch ad → +1 heart  (soon)",
+      canPay ? "✦ 30 shards → hearts full" : `✦ ${nf(store.load().shards)} / 30 shards`,
     ],
-    nextLabel: canPay ? "Herzen kaufen (30 ✦)" : "Zurück",
+    nextLabel: canPay ? "Buy hearts (30 ✦)" : "Back",
     onNext: () => {
       if (store.spendShards(30)) {
         store.refillLives();
-        toast("Herzen aufgefüllt");
+        toast("Hearts refilled");
         renderTopPills();
         onBuy();
       } else {
         setTab("home");
       }
     },
-    quitLabel: "Zurück",
+    quitLabel: "Back",
     onQuit: () => setTab("home"),
   });
   return false;
@@ -199,9 +199,9 @@ saveSettings(settings);
 
 function renderSettingsToggles(host: HTMLElement): void {
   const rows: Array<[keyof Settings, string, string]> = [
-    ["sound", "🔊", "Ton"],
-    ["music", "🎵", "Musik"],
-    ["haptics", "📳", "Haptik"],
+    ["sound", "🔊", "Sound"],
+    ["music", "🎵", "Music"],
+    ["haptics", "📳", "Haptics"],
   ];
   host.replaceChildren(
     ...rows.map(([key, icon, label]) => {
@@ -220,9 +220,9 @@ function renderSettingsToggles(host: HTMLElement): void {
       seg.setAttribute("aria-label", label);
       seg.setAttribute("aria-checked", String(settings[key]));
       const off = document.createElement("span");
-      off.textContent = "Aus";
+      off.textContent = "Off";
       const on = document.createElement("span");
-      on.textContent = "An";
+      on.textContent = "On";
       seg.append(off, on);
       seg.addEventListener("click", () => {
         const next = !settings[key];
@@ -250,13 +250,13 @@ let activeGame: GameState | null = null;
 /** Short bursts of praise for the between-levels moment, rotated (never RNG). */
 const HYPE_WORDS = [
   "Wow!",
-  "Wahnsinn!",
-  "Stark!",
-  "Grandios!",
-  "Weiter so!",
-  "Unaufhaltsam!",
-  "Fantastisch!",
-  "Bärenstark!",
+  "Amazing!",
+  "Awesome!",
+  "Incredible!",
+  "Keep it up!",
+  "Unstoppable!",
+  "Fantastic!",
+  "Superb!",
 ];
 
 function hideAllOverlays(): void {
@@ -389,10 +389,10 @@ function openRegion(index: number): void {
     const locked = i > cleared;
     const el = document.createElement("button");
     el.className = `lvl${stars > 0 ? " done" : ""}${locked ? " locked" : ""}`;
-    el.title = locked ? "Erst das Fenster davor erhellen" : name;
+    el.title = locked ? "Light up the window before this one first" : name;
     el.setAttribute(
       "aria-label",
-      locked ? `${name} — gesperrt` : `${name} — ${stars} von 3 Sternen`,
+      locked ? `${name} — locked` : `${name} — ${stars} of 3 stars`,
     );
     el.innerHTML = locked
       ? `<span class="lock">🔒</span>`
@@ -402,7 +402,7 @@ function openRegion(index: number): void {
           .join("")}</span>`;
     el.addEventListener("click", () => {
       if (locked) {
-        toast("🔒 Erst das Fenster davor erhellen.");
+        toast("🔒 Light up the window before this one first.");
         return;
       }
       void playCampaign(r, i);
@@ -821,7 +821,7 @@ function showOverlay(o: OverlayOpts): void {
   const next = $<HTMLButtonElement>("ov-next");
   const quit = $<HTMLButtonElement>("ov-quit");
   next.textContent = o.nextLabel;
-  quit.textContent = o.quitLabel ?? "Übersicht";
+  quit.textContent = o.quitLabel ?? "Overview";
   next.onclick = o.onNext;
   quit.onclick = o.onQuit;
   $("pause-overlay").classList.remove("show");
@@ -857,7 +857,7 @@ function startClock(game: GameState): void {
     renderGoalStrip(game); // Ruß-Zähler läuft im selben Takt mit
     if (game.hasMoveBudget) {
       const left = game.movesLeft;
-      txt.innerHTML = `${left}<i>Züge</i>`;
+      txt.innerHTML = `${left}<i>moves</i>`;
       el.classList.toggle("warn", !game.isWon() && left <= 3);
       return;
     }
@@ -874,7 +874,7 @@ function renderJokers(): void {
   ($("jk-hint-c").textContent = nf(j.hint));
   ($("jk-time-c").textContent = nf(j.time));
   ($("jk-solvent-c").textContent = nf(j.solvent));
-  $("jk-time-l").textContent = activeGame?.hasMoveBudget ? "+3 Züge" : "+20s";
+  $("jk-time-l").textContent = activeGame?.hasMoveBudget ? "+3 moves" : "+20s";
   $<HTMLButtonElement>("jk-hint").disabled = j.hint <= 0;
   $<HTMLButtonElement>("jk-time").disabled = j.time <= 0;
   $<HTMLButtonElement>("jk-solvent").disabled = j.solvent <= 0;
@@ -892,7 +892,7 @@ function useJoker(kind: JokerKind): void {
   if (store.load().jokers[kind] <= 0) return; // nichts im Vorrat
   // erst prüfen, ob es überhaupt was zu verraten gibt — *dann* abbuchen
   if (kind === "hint" && !activeGame.firstUnsolved()) {
-    toast("Nichts mehr zu verraten");
+    toast("Nothing more to reveal");
     return;
   }
   if (!store.spendJoker(kind)) return;
@@ -900,18 +900,18 @@ function useJoker(kind: JokerKind): void {
   fireJokerButton(kind);
   sfx.pickUp();
   if (kind === "time") {
-    // derselbe Joker, die passende Währung: Züge, wo es ein Budget gibt
+    // same joker, whichever currency applies: moves, where there's a budget
     if (activeGame.hasMoveBudget) {
       activeGame.extendMoves(3);
-      toast("+3 Züge");
+      toast("+3 moves");
     } else {
       activeGame.extendLimit(20_000);
-      toast("+20 Sekunden");
+      toast("+20 seconds");
     }
   }
   if (kind === "solvent") {
     const n = activeGame.returnAllToTray();
-    toast(n > 0 ? "Brett geleert — neu anordnen" : "Das Brett ist schon leer");
+    toast(n > 0 ? "Board cleared — rearrange" : "The board is already empty");
   }
   renderJokers();
 }
@@ -961,7 +961,7 @@ function armGrace(game: GameState, onStart?: () => void): void {
 }
 
 function celebrate(freshly: ReturnType<typeof syncAchievements>): void {
-  for (const a of freshly) toast(`Erfolg freigeschaltet: ${a.name}`);
+  for (const a of freshly) toast(`Achievement unlocked: ${a.name}`);
 }
 
 /** Collect the reward lines for a story-level win, applying side effects. */
@@ -970,18 +970,18 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   const panesBefore = store.panes();
   const multBefore = store.winMultiplier(store.winStreak());
   const r = store.recordLevel(levelId, stars, ms, usedUndo);
-  if (store.panes() > panesBefore) lines.push("🏮 +1 Fenster erhellt");
+  if (store.panes() > panesBefore) lines.push("🏮 +1 window lit");
   lines.push(
     r.mult > 1
-      ? `✦ +${nf(r.shards)} Lichtsplitter · Serie ×${xf(r.mult)}`
-      : `✦ +${nf(r.shards)} Lichtsplitter`,
+      ? `✦ +${nf(r.shards)} light shards · streak ×${xf(r.mult)}`
+      : `✦ +${nf(r.shards)} light shards`,
   );
-  if (r.mult > multBefore) sfx.streak(Math.round(r.mult)); // Multiplikator gestiegen
-  // schaltet dieses Fenster eine Region auf? dann sagen, sonst wie weit noch
+  if (r.mult > multBefore) sfx.streak(Math.round(r.mult)); // multiplier went up
+  // does this window unlock a region? say so, otherwise how far there's left
   const nextLocked = regions.find((rg) => store.panes() >= rg.panesToUnlock && panesBefore < rg.panesToUnlock);
   let big = false;
   if (nextLocked) {
-    lines.push(`✨ ${nextLocked.name} — die Laterne ist an!`);
+    lines.push(`✨ ${nextLocked.name} — the lantern is lit!`);
     big = true;
   } else {
     const nudge = nextRegionNudge();
@@ -991,14 +991,14 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
   scenery.pulse(0.3 + 0.1 * stars); // the world visibly brightens a touch with every win
   celebrate(syncAchievements());
   for (const m of store.claimMilestones()) {
-    lines.push(`🏆 Meilenstein ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}`);
+    lines.push(`🏆 Milestone ${nf(m.threshold)}★ · ✦ +${nf(m.shards)}`);
     scenery.pulse();
     big = true;
   }
   if (region) {
     const { got, max } = regionStars(region);
     if (got >= max && store.grantRegionReward(region.id)) {
-      lines.push(`✨ ${region.name} erwacht! ✦ +60, Herzen voll`);
+      lines.push(`✨ ${region.name} awakens! ✦ +60, hearts full`);
       scenery.pulse();
       big = true;
     }
@@ -1014,7 +1014,7 @@ function collectStoryRewards(levelId: string, stars: number, ms: number, usedUnd
 // Campaign
 async function playCampaign(region: Region, index: number): Promise<void> {
   if (!isLevelUnlocked(region, index)) {
-    toast("🔒 Dieses Fenster ist noch gesperrt.");
+    toast("🔒 This window is still locked.");
     return;
   }
   mode = "campaign";
@@ -1029,7 +1029,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
   const mult = store.winMultiplier(streak);
   $("play-title-txt").innerHTML =
     windowName(region.id, index, entry.id) +
-    (mult > 1 ? ` <span class="serie">Serie ×${xf(mult)}</span>` : "");
+    (mult > 1 ? ` <span class="serie">Streak ×${xf(mult)}</span>` : "");
   let level: Level;
   try {
     level = parseLevel(await (await fetch(`levels/${entry.id}.json`)).text());
@@ -1045,16 +1045,16 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     const p = store.panes();
     const scale = p === 0 ? 8 : p <= 2 ? 1.6 : p <= 5 ? 1.25 : 1;
     if (scale > 1) game.extendLimit(Math.round(game.limitMs * (scale - 1)));
-    if (p === 0) toast("Nimm dir Zeit — beim ersten Fenster drängt nichts.");
+    if (p === 0) toast("Take your time — nothing's rushing you on the first window.");
   }
 
   const assisted = store.pity(entry.id);
   // vor dem Sieg lesen — `recordLevel` setzt den Zähler zurück
   const struggled = (store.load().levels[entry.id]?.fails ?? 0) > 0;
   if (entry.id === "boss_01")
-    toast("🕯 Das letzte Fenster. Geschnitten wie in der Werkstatt — und die Kerze ganz zum Schluss.");
+    toast("🕯 The last window. Cut like in the workshop — and the candle right at the end.");
   else if (entry.id === "boss_02")
-    toast("❖✦🕯 Doppelscheibe, Wanderscherbe und die Kerze — alles auf einmal. Plan die Reihenfolge.");
+    toast("❖✦🕯 Double pane, wandering shard, and the candle — all at once. Plan your order.");
   else introduceMechanic(game);
   mountGame(game, {
     onStart: () => store.beginAttempt(entry.id),
@@ -1076,7 +1076,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
         void (hasNext ? playCampaign(region, index + 1) : openRegion(regions.indexOf(region)));
       const goBack = (): void => openRegion(regions.indexOf(region));
       showOverlay({
-        title: stars === 3 ? "Makellos!" : "Erhellt!",
+        title: stars === 3 ? "Flawless!" : "Lit!",
         stars,
         sub: `${windowName(region.id, index, entry.id)} · <b>${fmt(ms)}</b>`,
         rewards,
@@ -1089,7 +1089,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
               stars,
               struggled,
             }),
-        nextLabel: hasNext ? "Weiter ›" : "Region ✓",
+        nextLabel: hasNext ? "Next ›" : "Region ✓",
         onNext: throughBeat(goNext),
         onQuit: throughBeat(goBack),
       });
@@ -1101,20 +1101,20 @@ async function playCampaign(region: Region, index: number): Promise<void> {
       const fails = store.recordFail(entry.id); // setzt auch die Serie zurück
       renderTopPills();
       const l = store.lives();
-      const streakNote = lostStreak >= 2 ? ` Serie ×${xf(store.winMultiplier(lostStreak))} weg.` : "";
+      const streakNote = lostStreak >= 2 ? ` Streak ×${xf(store.winMultiplier(lostStreak))} lost.` : "";
       const candleOut = game.candleOut;
       showOverlay({
-        title: candleOut ? "Die Flamme ist aus" : "Das Licht flackert aus",
+        title: candleOut ? "The Flame Is Out" : "The Light Flickers Out",
         sub:
-          (candleOut ? "Die Kerze muss ganz zum Schluss gedeckt werden. " : "") +
+          (candleOut ? "The candle must be covered right at the end. " : "") +
           (l.count > 0
-            ? `Noch <b>${l.count}</b> ${l.count === 1 ? "Herz" : "Herzen"}.` +
-              (fails >= 2 ? " Beim nächsten Versuch hilft dir Mira." : "")
-            : `Keine Herzen mehr — nächstes in <b>${fmt(l.msToNext)}</b>.`) + streakNote,
-        nextLabel: l.count > 0 ? "Nochmal" : "Übersicht",
+            ? `<b>${l.count}</b> ${l.count === 1 ? "heart" : "hearts"} left.` +
+              (fails >= 2 ? " Mira will help on your next attempt." : "")
+            : `No hearts left — next in <b>${fmt(l.msToNext)}</b>.`) + streakNote,
+        nextLabel: l.count > 0 ? "Try Again" : "Overview",
         onNext: () =>
           l.count > 0 ? playCampaign(region, index) : openRegion(regions.indexOf(region)),
-        quitLabel: "Übersicht",
+        quitLabel: "Overview",
         onQuit: () => openRegion(regions.indexOf(region)),
       });
     },
@@ -1125,7 +1125,7 @@ async function playCampaign(region: Region, index: number): Promise<void> {
     store.clearPity(entry.id);
     game.extendLimit(Math.round(game.limitMs * 0.3));
     gameView?.showHint();
-    toast("Diese Stelle ist knifflig — mehr Zeit & ein Tipp gratis 💡");
+    toast("This spot is tricky — extra time & a free hint 💡");
   }
 }
 
@@ -1154,31 +1154,31 @@ function renderDaily(): void {
   $("daily-best").textContent = nf(s.daily.bestStreak);
   const done = s.daily.lastDayDone === store.todayKey();
   const playBtn = $<HTMLButtonElement>("daily-play");
-  playBtn.textContent = done ? "Heute erledigt ✓" : "Heute spielen";
+  playBtn.textContent = done ? "Done Today ✓" : "Play Today";
   playBtn.disabled = done;
   $("daily-note").textContent = done
-    ? "Geschafft — komm morgen für das nächste Fenster wieder."
+    ? "Done — come back tomorrow for the next window."
     : isWeeklyChallengeDay()
-    ? "🔒 Wochen-Herausforderung: ein Teil des Fensters startet gesperrt."
-    : "Ein neues Fenster jeden Tag — für alle gleich.";
+    ? "🔒 Weekly challenge: part of the window starts locked."
+    : "A new window every day — the same for everyone.";
 }
 async function playDaily(): Promise<void> {
   mode = "daily";
   playMusic("play");
   const day = store.todayKey();
-  toast("Fenster wird gebaut …");
+  toast("Building window …");
   await yieldPaint();
   const level = dailyLevel(day);
   if (!level) {
-    toast("Konnte kein Tagesrätsel erzeugen");
+    toast("Couldn't generate today's puzzle");
     return;
   }
   scenery.setTheme("garden");
   $("screen-play").dataset.region = "daily";
-  $("play-title-txt").textContent = isWeeklyChallengeDay() ? "Tägliche Scherbe · 🔒 Woche" : "Tägliche Scherbe";
+  $("play-title-txt").textContent = isWeeklyChallengeDay() ? "Daily Shard · 🔒 Week" : "Daily Shard";
   const game = new GameState(level);
   if (isWeeklyChallengeDay() && maybeFreeze(game, `daily:${day}:frozen`)) {
-    toast("🔒 Wochen-Herausforderung: löse zuerst den offenen Teil!");
+    toast("🔒 Weekly challenge: solve the open part first!");
   }
   mountGame(game, {
     onWin: (stars, ms) => {
@@ -1194,16 +1194,16 @@ async function playDaily(): Promise<void> {
       celebrate(syncAchievements());
       renderTopPills();
       showOverlay({
-        title: stars === 3 ? "Makellos!" : "Gelöst!",
+        title: stars === 3 ? "Flawless!" : "Solved!",
         stars,
-        sub: `Das Tagesfenster · <b>${fmt(ms)}</b>`,
+        sub: `The daily window · <b>${fmt(ms)}</b>`,
         rewards: [
-          `✦ +${nf(r.shards + 5)} Lichtsplitter`,
-          after > before ? `🔥 Streak ${nf(after)} Tage` : `🔥 Streak ${nf(after)}`,
-          ...(milestone ? [`🏆 ${nf(milestone.days)}-Tage-Serie · ✦ +${nf(milestone.shards)}`] : []),
+          `✦ +${nf(r.shards + 5)} light shards`,
+          after > before ? `🔥 Streak ${nf(after)} days` : `🔥 Streak ${nf(after)}`,
+          ...(milestone ? [`🏆 ${nf(milestone.days)}-day streak · ✦ +${nf(milestone.shards)}`] : []),
         ],
         mira: miraLine({ solved: store.load().stats.solved, place: "daily", stars }),
-        nextLabel: "Fertig",
+        nextLabel: "Done",
         onNext: () => setTab("daily"),
         onQuit: () => setTab("daily"),
       });
@@ -1211,13 +1211,13 @@ async function playDaily(): Promise<void> {
     },
     onTimeout: () =>
       showOverlay({
-        title: "Das Licht flackert aus",
-        sub: "Das Tagesrätsel bleibt — versuch es nochmal.",
-        nextLabel: "Nochmal",
+        title: "The Light Flickers Out",
+        sub: "Today's puzzle stays the same — try again.",
+        nextLabel: "Try Again",
         onNext: playDaily,
         onQuit: () => setTab("daily"),
       }),
-    onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
+    onUnlock: () => toast("🔓 Area unlocked!"),
   });
 }
 
@@ -1225,7 +1225,7 @@ async function playDaily(): Promise<void> {
 function renderDescent(): void {
   scenery.setTheme("workshop");
   const s = store.load();
-  $("descent-best").textContent = `Ebene ${nf(s.descent.bestDepth)}`;
+  $("descent-best").textContent = `Level ${nf(s.descent.bestDepth)}`;
   $("descent-runs").textContent = nf(s.descent.runs);
 }
 function startDescent(): void {
@@ -1254,28 +1254,28 @@ function introduceMechanic(game: GameState): void {
   const seen = store.beatsSeen();
   if (game.hasCandle && !seen.includes("tut-candle")) {
     store.markBeatSeen("tut-candle");
-    toast("🕯 Die Kerze muss zuletzt gedeckt werden — halt ein Teil bis zum Schluss zurück.");
+    toast("🕯 The candle must be covered last — hold one piece back until the end.");
   } else if (game.hasIce && !seen.includes("tut-ice")) {
     store.markBeatSeen("tut-ice");
-    toast("❄ Vereiste Scheiben tauen erst, wenn Licht sie erreicht — bau von außen nach innen.");
+    toast("❄ Frosted panes only thaw once light reaches them — build from the outside in.");
   } else if (game.hasDouble && !seen.includes("tut-double")) {
     store.markBeatSeen("tut-double");
-    toast("❖ Doppelscheibe: die hintere Lage geht erst, wenn die vordere bedeckt ist.");
+    toast("❖ Double pane: the back layer only opens once the front is covered.");
   } else if (game.hasStuck && !seen.includes("tut-stuck")) {
     store.markBeatSeen("tut-stuck");
-    toast("✦ Ein Splitter steckt fest — den deckst du nie. Bau drumherum.");
+    toast("✦ One shard is stuck — you'll never cover it. Build around it.");
   } else if (game.hasSeals && !seen.includes("tut-seal")) {
     store.markBeatSeen("tut-seal");
-    toast("◆ Ein Farbsiegel: diese Scheibe nimmt nur das Teil in ihrer Farbe.");
+    toast("◆ A color seal: this pane only accepts the piece in its color.");
   } else if (game.hasWander && !seen.includes("tut-wander")) {
     store.markBeatSeen("tut-wander");
-    toast("✦ Eine Scherbe wandert übers Brett — bau drumherum, bis sie weg ist.");
+    toast("✦ A shard wanders across the board — build around it until it's gone.");
   } else if (game.hasChains && !seen.includes("tut-chain")) {
     store.markBeatSeen("tut-chain");
-    toast("⛓ Verkettete Scheiben: ein und dasselbe Teil muss beide decken.");
+    toast("⛓ Chained panes: one and the same piece must cover both.");
   } else if (game.hasCracks && !seen.includes("tut-cracks")) {
     store.markBeatSeen("tut-cracks");
-    toast("✂ Risse im Glas: kein Teil darf über eine Bruchkante liegen.");
+    toast("✂ Cracks in the glass: no piece may lie across a break line.");
   }
 }
 
@@ -1289,12 +1289,12 @@ function renderGoalStrip(game: GameState): boolean {
   // kriecht der Ruß und ist noch offen → Warnlampe an
   const creeping = game.sootSpreads && done < total;
   bar.classList.toggle("hot", creeping);
-  const label = moth ? "Motten 🦋" : `Ruß${game.sootSpreads ? " 🕯" : ""}`;
+  const label = moth ? "Moths 🦋" : `Soot${game.sootSpreads ? " 🕯" : ""}`;
   bar.innerHTML =
     `<span class="ps-lvl">${label}</span>` +
     `<span class="ps-bar"><i style="width:${Math.round((done / total) * 100)}%"></i></span>` +
     `<span class="ps-note">${nf(done)} / ${nf(total)}${
-      moth ? " frei" : creeping ? " · kriecht" : ""
+      moth ? " free" : creeping ? " · creeping" : ""
     }</span>`;
   return true;
 }
@@ -1308,9 +1308,9 @@ function renderDescentStage(depth: number, streak: number): void {
   const hot = streak >= 3 && streak % 3 === 0;
   bar.classList.toggle("hot", hot);
   bar.innerHTML =
-    `<span class="ps-lvl">Ebene ${depth}</span>` +
+    `<span class="ps-lvl">Level ${depth}</span>` +
     `<span class="ps-pips">${pips}</span>` +
-    `<span class="ps-note">${hot ? `${streak}× in Folge 🔥` : `Stufe ${stage}`}</span>`;
+    `<span class="ps-note">${hot ? `${streak}× in a row 🔥` : `Stage ${stage}`}</span>`;
 }
 
 async function playDescentLevel(): Promise<void> {
@@ -1318,7 +1318,7 @@ async function playDescentLevel(): Promise<void> {
   if (!descentState) return;
   const { variant, depth, streak, recent } = descentState;
   scenery.setTheme("workshop");
-  toast("Fenster wird gebaut …");
+  toast("Building window …");
   await yieldPaint();
   const level = descentLevel(depth, variant, new Set(recent));
   if (!level) {
@@ -1332,8 +1332,8 @@ async function playDescentLevel(): Promise<void> {
   const best = store.load().descent.bestDepth;
   $("play-title-txt").textContent =
     depth > best && best > 0
-      ? `Abstieg · Ebene ${depth} · 🏆 neue Bestmarke!`
-      : `Abstieg · Ebene ${depth} · Rekord ${best}`;
+      ? `Descent · Level ${depth} · 🏆 new record!`
+      : `Descent · Level ${depth} · Record ${best}`;
   renderDescentStage(depth, streak);
   // Der Abstieg läuft auf Zügen statt auf der Uhr: Nachdenken darf nichts
   // kosten, Fehlversuche schon. Der Spielraum über der Teilezahl schrumpft mit
@@ -1345,7 +1345,7 @@ async function playDescentLevel(): Promise<void> {
   // the open part first to free it, one extra beat of tension on a run
   const isFrozenLevel = depth >= 4 && depth % 4 === 0;
   if (isFrozenLevel && maybeFreeze(game, `descent:v${variant}:d${depth}:frozen`)) {
-    toast("🔒 Ein Teil des Fensters ist gesperrt — löse zuerst den Rest!");
+    toast("🔒 Part of the window is locked — solve the rest first!");
   }
   mountGame(game, {
     onWin: (stars, ms) => {
@@ -1367,7 +1367,7 @@ async function playDescentLevel(): Promise<void> {
       const brokeRecord = depth > best && best > 0;
       if (brokeRecord && !st.sawRecord) {
         st.sawRecord = true;
-        hype = "NEUER REKORD!";
+        hype = "NEW RECORD!";
         hypeStrong = true;
       } else if (st.streak >= 3 && st.streak % 3 === 0) {
         hype = HYPE_WORDS[(depth + variant) % HYPE_WORDS.length];
@@ -1376,12 +1376,12 @@ async function playDescentLevel(): Promise<void> {
       }
 
       showOverlay({
-        title: `Ebene ${depth} geschafft`,
+        title: `Level ${depth} Cleared`,
         stars,
-        sub: `Anselms Stollen · <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in Folge` : ""}`,
+        sub: `Anselm's Mine · <b>${fmt(ms)}</b>${st.streak >= 2 ? ` · ${st.streak} in a row` : ""}`,
         rewards: [
-          `✦ +${nf(depth)} Lichtsplitter`,
-          ...(freshAch.length ? [`🏅 ${freshAch[0]!.name} freigeschaltet`] : []),
+          `✦ +${nf(depth)} light shards`,
+          ...(freshAch.length ? [`🏅 ${freshAch[0]!.name} unlocked`] : []),
         ],
         mira: hype
           ? null
@@ -1392,14 +1392,14 @@ async function playDescentLevel(): Promise<void> {
               streak: st.streak,
               depth,
             }),
-        nextLabel: "Tiefer ›",
+        nextLabel: "Deeper ›",
         onNext: () => void playDescentLevel(),
-        quitLabel: "Aufhören",
+        quitLabel: "Stop",
         onQuit: () => endDescent(depth),
         ...(hype ? { hype, hypeStrong } : {}),
       });
     },
-    onUnlock: () => toast("🔓 Bereich freigeschaltet!"),
+    onUnlock: () => toast("🔓 Area unlocked!"),
     onTimeout: () => {
       descentState!.streak = 0;
       store.recordDescent(depth);
@@ -1415,10 +1415,10 @@ function endDescent(reachedDepth?: number): void {
   const best = store.load().descent.bestDepth;
   descentState = null;
   showOverlay({
-    title: depth > 0 ? "Züge alle" : "Abstieg beendet",
-    sub: `Ebene <b>${nf(depth)}</b>${depth >= best && depth > 0 ? " — neue Bestmarke! 🏆" : ""}`,
-    rewards: runShards > 0 ? [`✦ +${nf(runShards)} Lichtsplitter aus diesem Lauf`] : [],
-    nextLabel: "Neuer Lauf",
+    title: depth > 0 ? "Out of Moves" : "Descent Ended",
+    sub: `Level <b>${nf(depth)}</b>${depth >= best && depth > 0 ? " — new record! 🏆" : ""}`,
+    rewards: runShards > 0 ? [`✦ +${nf(runShards)} light shards from this run`] : [],
+    nextLabel: "New Run",
     onNext: startDescent,
     onQuit: () => setTab("descent"),
   });
@@ -1439,7 +1439,7 @@ function lbRowEl(r: LeaderRow, rank: number, me: string, myName: string): HTMLLI
     `<span class="lb-rank">${medal}</span>` +
     `<span class="lb-who"><span class="lb-flag">${flag(r.country)}</span><span class="lb-name"></span></span>` +
     `<span class="lb-score">${nf(r.score)} 🏆</span>`;
-  li.querySelector(".lb-name")!.textContent = r.player_id === me ? myName || r.name || "Du" : r.name || "Glaser";
+  li.querySelector(".lb-name")!.textContent = r.player_id === me ? myName || r.name || "You" : r.name || "Glazier";
   return li;
 }
 
@@ -1453,17 +1453,17 @@ async function renderLeaderboard(): Promise<void> {
   $("lb-tab-country").classList.toggle("on", lbScope === "country");
   $("lb-tab-global").classList.toggle("on", lbScope === "global");
   sub.textContent =
-    `Woche · KW ${isoWeek().split("-W")[1]}` +
-    (lbScope === "country" ? ` · ${cc === "XX" ? "dein Land" : `${flag(cc)} ${countryName(cc)}`}` : " · weltweit");
+    `Week ${isoWeek().split("-W")[1]}` +
+    (lbScope === "country" ? ` · ${cc === "XX" ? "your country" : `${flag(cc)} ${countryName(cc)}`}` : " · worldwide");
 
   const data = await topCascade({ scope: lbScope, country: cc, limit: 100 });
-  if (seq !== lbSeq) return; // ein neuer Tab-Wechsel war schneller
+  if (seq !== lbSeq) return; // a newer tab switch was faster
 
   if (data.length === 0 && !navigator.onLine) {
     rows.replaceChildren();
     const p = document.createElement("li");
     p.className = "lb-offline";
-    p.textContent = "Keine Verbindung — die Bestenliste braucht Internet.";
+    p.textContent = "No connection — the leaderboard needs internet.";
     rows.append(p);
     self.hidden = true;
     return;
@@ -1479,7 +1479,7 @@ async function renderLeaderboard(): Promise<void> {
     self.replaceChildren(lbRowEl(data[myIdx]!, myIdx + 1, me, myName));
   } else if (myIdx === -1 && data.length > 0) {
     self.hidden = false;
-    self.innerHTML = `<p class="muted" style="text-align:center;margin:0">Spiel eine Runde, um in die Liste zu kommen.</p>`;
+    self.innerHTML = `<p class="muted" style="text-align:center;margin:0">Play a round to get on the list.</p>`;
   } else {
     self.hidden = true;
   }
@@ -1575,21 +1575,21 @@ function startCascade(): void {
           if (ok && $("lb-overlay").classList.contains("show")) void renderLeaderboard();
         },
       );
-      $("k-overlay-title").textContent = r.livesLeft <= 0 ? "Keine Leben mehr!" : "Zeit um!";
+      $("k-overlay-title").textContent = r.livesLeft <= 0 ? "No Lives Left!" : "Time's Up!";
       $("k-result").innerHTML =
-        `<b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Linien` +
+        `<b>${nf(r.score)}</b> points · ${nf(r.cleared)} lines` +
         ` · ✦ +${nf(shards)}` +
-        (r.perfectClears ? ` · ${r.perfectClears}× perfekt` : "") +
-        (r.bestChain >= 3 ? ` · 🔥 Kette ×${r.bestChain}` : "") +
-        (newRecord ? ` · 🏆 neue Bestmarke!` : "") +
-        (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} freigeschaltet</small>` : "");
+        (r.perfectClears ? ` · ${r.perfectClears}× perfect` : "") +
+        (r.bestChain >= 3 ? ` · 🔥 Chain ×${r.bestChain}` : "") +
+        (newRecord ? ` · 🏆 new record!` : "") +
+        (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "");
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
       ov.classList.add("show");
       $<HTMLButtonElement>("k-quit").onclick = () => setTab("home");
       $<HTMLButtonElement>("k-again").onclick = startCascade;
-      $("k-again").textContent = "Nochmal";
+      $("k-again").textContent = "Play Again";
     },
   });
   $("k-best").textContent = nf(bestScore);
@@ -1605,7 +1605,7 @@ function maybeHintRotate(): void {
   if (!store.markHintSeen("rotate-tip")) return;
   // erst nachdem ein eventueller Ziel-Toast (Story-Level, ~7s) durch ist —
   // sonst überschreiben sich die beiden auf dem allerersten Level
-  window.setTimeout(() => toast("💡 Tippen dreht eine Figur"), 7300);
+  window.setTimeout(() => toast("💡 Tap rotates a piece"), 7300);
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
@@ -1668,7 +1668,7 @@ function startRescueLevel(level: RescueLevel): void {
   goalEl.classList.remove("done");
   $("rs-goal-num").textContent = nf(level.config.targetRows);
   let lastGoalLeft = level.config.targetRows;
-  window.setTimeout(() => toast(`🎯 Ziel: ${nf(level.config.targetRows)} Reihen räumen!`), 500);
+  window.setTimeout(() => toast(`🎯 Goal: clear ${nf(level.config.targetRows)} lines!`), 500);
 
   const game = new CascadeState(`rescue-${level.id}-${Date.now()}`, level.config);
   cascadeGame = game;
@@ -1734,15 +1734,15 @@ function startRescueLevel(level: RescueLevel): void {
       renderTopPills();
 
       $("k-overlay-title").textContent = r.won
-        ? "Befreit!"
+        ? "Freed!"
         : r.livesLeft <= 0
-          ? "Keine Leben mehr!"
-          : "Keine Scherben mehr!";
+          ? "No Lives Left!"
+          : "Out of Pieces!";
       $("k-result").innerHTML = r.won
-        ? `${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}<br><b>${nf(r.score)}</b> Punkte · ${nf(r.cleared)} Reihen` +
+        ? `${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}<br><b>${nf(r.score)}</b> points · ${nf(r.cleared)} rows` +
           (shards ? ` · ✦ +${nf(shards)}` : "") +
-          (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} freigeschaltet</small>` : "")
-        : `<b>${nf(r.cleared)}</b> von ${nf(level.config.targetRows)} Reihen geschafft — nochmal?`;
+          (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "")
+        : `<b>${nf(r.cleared)}</b> of ${nf(level.config.targetRows)} rows cleared — try again?`;
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
@@ -1751,7 +1751,7 @@ function startRescueLevel(level: RescueLevel): void {
       $<HTMLButtonElement>("k-quit").onclick = openRescue;
       const goNext = r.won && nextLevel;
       $<HTMLButtonElement>("k-again").onclick = goNext ? () => startRescueLevel(nextLevel) : () => startRescueLevel(level);
-      $("k-again").textContent = goNext ? "Weiter ›" : "Nochmal";
+      $("k-again").textContent = goNext ? "Next ›" : "Play Again";
     },
   });
   if (import.meta.env.DEV) (window as unknown as { __cascadeView: CascadeView }).__cascadeView = cascadeView;
@@ -1770,10 +1770,10 @@ function renderCollection(): void {
   const allBeats = [...INTRO, ...BEATS];
   const memSeen = store.beatsSeen().filter((id) => allBeats.some((b) => b.id === id)).length;
   const stats: [string, string][] = [
-    ["Licht gesammelt", nf(s.shards)],
-    ["Erinnerungen", `${nf(memSeen)} / ${nf(allBeats.length)}`],
-    ["Scherbenregen", nf(s.cascade.bestScore)],
-    ["Erfolge", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
+    ["Light Collected", nf(s.shards)],
+    ["Memories", `${nf(memSeen)} / ${nf(allBeats.length)}`],
+    ["Shard Storm", nf(s.cascade.bestScore)],
+    ["Achievements", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
   $("stats").replaceChildren(
     ...stats.map(([label, val]) => {
@@ -1794,7 +1794,7 @@ function renderCollection(): void {
       d.className = `ach${has ? " done" : " locked"}`;
       const body = has
         ? `<div class="t">${b.title}</div><div class="h">${b.lines.join(" ")}</div>`
-        : `<div class="t">???</div><div class="h">Spiele weiter, um diese Erinnerung zu wecken.</div>`;
+        : `<div class="t">???</div><div class="h">Keep playing to unlock this memory.</div>`;
       const icon = has ? SPEAKERS[b.speaker]?.emoji || "🕯" : "·";
       d.innerHTML = `<div class="ic">${icon}</div><div>${body}</div>`;
       return d;
@@ -1815,11 +1815,11 @@ function renderCollection(): void {
 const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void; soon?: boolean }> = [
   // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
   // (kommt später). Preise fallen mit der Stärke: Tipp > Zeit > Neu ordnen.
-  { icon: "ui/hint.webp", label: "Tipp ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
-  { icon: "ui/hint.webp", label: "📺 Video ansehen → Tipp", cost: 0, soon: true, buy: () => {} },
-  { icon: "ui/time.webp", label: "Mehr Zeit ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
-  { icon: "ui/solvent.webp", label: "Neu ordnen ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
-  { icon: "ui/life.webp", label: "Herzen auffüllen", cost: 30, buy: () => store.refillLives() },
+  { icon: "ui/hint.webp", label: "Hint ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
+  { icon: "ui/hint.webp", label: "📺 Watch video → Hint", cost: 0, soon: true, buy: () => {} },
+  { icon: "ui/time.webp", label: "More Time ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
+  { icon: "ui/solvent.webp", label: "Shuffle ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+  { icon: "ui/life.webp", label: "Refill Hearts", cost: 30, buy: () => store.refillLives() },
 ];
 
 function renderShop(): void {
@@ -1831,7 +1831,7 @@ function renderShop(): void {
       row.className = "item";
       const btn = document.createElement("button");
       btn.className = "gold";
-      btn.textContent = item.soon ? "bald" : `${item.cost} ✦`;
+      btn.textContent = item.soon ? "soon" : `${item.cost} ✦`;
       btn.disabled =
         item.soon ||
         s.shards < item.cost ||
@@ -1840,7 +1840,7 @@ function renderShop(): void {
         if (item.soon) return;
         if (store.spendShards(item.cost)) {
           item.buy();
-          toast("Gekauft");
+          toast("Purchased");
           renderShop();
           renderTopPills();
         }
@@ -1897,15 +1897,15 @@ function openProfile(): void {
   const allB = [...INTRO, ...BEATS];
   const memSeen = store.beatsSeen().filter((id) => allB.some((b) => b.id === id)).length;
   const rows: Array<[string, string, string]> = [
-    ["ui/collection.webp", "Fenster erhellt", nf(store.panes(s))],
-    ["ui/star.webp", "Sterne gesammelt", nf(store.totalStars(s))],
-    ["ui/shard.webp", "Licht gesammelt", nf(s.shards)],
-    ["ui/hint.webp", "Erinnerungen", `${nf(memSeen)} / ${nf(allB.length)}`],
-    ["ui/solvent.webp", "Ohne Zurücknehmen", nf(s.stats.bestNoUndoStreak)],
-    ["ui/descent.webp", "Anselms Stollen — tiefste Ebene", nf(s.descent.bestDepth)],
-    ["ui/cascade.webp", "Scherbenregen — Rekord", nf(s.cascade.bestScore)],
-    ["ui/daily.webp", "Längster Tages-Streak", nf(s.daily.bestStreak)],
-    ["ui/hint.webp", "Erfolge", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
+    ["ui/collection.webp", "Windows lit", nf(store.panes(s))],
+    ["ui/star.webp", "Stars collected", nf(store.totalStars(s))],
+    ["ui/shard.webp", "Light collected", nf(s.shards)],
+    ["ui/hint.webp", "Memories", `${nf(memSeen)} / ${nf(allB.length)}`],
+    ["ui/solvent.webp", "No-undo streak", nf(s.stats.bestNoUndoStreak)],
+    ["ui/descent.webp", "Anselm's Mine — deepest level", nf(s.descent.bestDepth)],
+    ["ui/cascade.webp", "Shard Storm — record", nf(s.cascade.bestScore)],
+    ["ui/daily.webp", "Longest daily streak", nf(s.daily.bestStreak)],
+    ["ui/hint.webp", "Achievements", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
   $("pf-stats").replaceChildren(
     ...rows.map(([icon, label, value]) => {
@@ -1969,7 +1969,7 @@ $("pf-edit").addEventListener("click", () => {
   p.hidden = !p.hidden;
 });
 $("pf-name").addEventListener("click", () => {
-  const next = window.prompt("Dein Name:", store.playerName());
+  const next = window.prompt("Your name:", store.playerName());
   if (next && next.trim()) {
     store.setPlayerName(next);
     $("pf-name").textContent = store.playerName();
@@ -2013,17 +2013,17 @@ function leavePlay(): void {
     activeGame?.pause();
     const lostStreak = store.winStreak();
     showOverlay({
-      title: "Fenster verlassen?",
+      title: "Leave Window?",
       sub:
-        "Zählt wie ein Fehlversuch: <b>1 Herz</b> weg" +
-        (lostStreak >= 2 ? `, Serie ×${xf(store.winMultiplier(lostStreak))} weg` : "") +
+        "Counts as a failed attempt: <b>1 heart</b> lost" +
+        (lostStreak >= 2 ? `, streak ×${xf(store.winMultiplier(lostStreak))} lost` : "") +
         ".",
-      nextLabel: "Trotzdem raus",
+      nextLabel: "Leave Anyway",
       onNext: () => {
         abandonCampaignLevel();
         doLeave();
       },
-      quitLabel: "Weiterspielen",
+      quitLabel: "Keep Playing",
       onQuit: resume,
     });
     return;
@@ -2031,11 +2031,11 @@ function leavePlay(): void {
   if (inProgress && mode === "descent") {
     activeGame?.pause();
     showOverlay({
-      title: "Abstieg abbrechen?",
-      sub: "Der Lauf endet hier.",
-      nextLabel: "Abbrechen",
+      title: "Abort Descent?",
+      sub: "The run ends here.",
+      nextLabel: "Abort",
       onNext: doLeave,
-      quitLabel: "Weiterspielen",
+      quitLabel: "Keep Playing",
       onQuit: resume,
     });
     return;
@@ -2051,17 +2051,17 @@ function restartLevel(): void {
       g.pause();
       const lostStreak = store.winStreak();
       showOverlay({
-        title: "Neu starten?",
+        title: "Restart?",
         sub:
-          "Zählt wie ein Fehlversuch: <b>1 Herz</b> weg" +
-          (lostStreak >= 2 ? `, Serie ×${xf(store.winMultiplier(lostStreak))} weg` : "") +
+          "Counts as a failed attempt: <b>1 heart</b> lost" +
+          (lostStreak >= 2 ? `, streak ×${xf(store.winMultiplier(lostStreak))} lost` : "") +
           ".",
-        nextLabel: "Neu starten",
+        nextLabel: "Restart",
         onNext: () => {
           abandonCampaignLevel();
           void playCampaign(at.region, at.index);
         },
-        quitLabel: "Weiterspielen",
+        quitLabel: "Keep Playing",
         onQuit: () => {
           hideOverlay();
           activeGame?.resume();
@@ -2079,7 +2079,7 @@ function restorePauseButtons(): void {
   $("ps-restart").hidden = false;
   $("ps-quit").hidden = false;
   $("ps-title").textContent = "Pause";
-  $<HTMLButtonElement>("ps-resume").textContent = "Weiter spielen";
+  $<HTMLButtonElement>("ps-resume").textContent = "Resume";
 }
 function openPause(): void {
   restorePauseButtons();
@@ -2100,8 +2100,8 @@ $("home-settings").addEventListener("click", () => {
   $("pause-overlay").classList.add("show");
   $("ps-restart").hidden = true;
   $("ps-quit").hidden = true;
-  $("ps-title").textContent = "Einstellungen";
-  $<HTMLButtonElement>("ps-resume").textContent = "Schließen";
+  $("ps-title").textContent = "Settings";
+  $<HTMLButtonElement>("ps-resume").textContent = "Close";
 });
 $("ps-restart").addEventListener("click", () => {
   $("pause-overlay").classList.remove("show");
@@ -2189,7 +2189,7 @@ async function boot(): Promise<void> {
     if (abandoned) {
       store.recordFail(abandoned);
       store.spendLife();
-      window.setTimeout(() => toast("Ein Fenster blieb offen — 1 Herz und die Serie weg."), 800);
+      window.setTimeout(() => toast("A window was left open — 1 heart and your streak lost."), 800);
     }
 
     refreshLight();
@@ -2199,7 +2199,7 @@ async function boot(): Promise<void> {
       /* Home steht schon; die Cutscene lag nur davor */
     });
   } catch (err) {
-    toast(`Level-Daten konnten nicht geladen werden (${(err as Error).message}).`);
+    toast(`Level data couldn't be loaded (${(err as Error).message}).`);
   }
 }
 void boot();

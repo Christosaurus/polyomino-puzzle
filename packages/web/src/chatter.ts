@@ -28,22 +28,22 @@ interface Line {
 }
 
 const LINES: Line[] = [
-  // ── Mira, früh ──────────────────────────────────────────────────────────
-  { who: "mira", text: "Noch dunkel hier oben. Aber weniger als gestern.", ok: (c) => c.region === 0 },
-  { who: "mira", text: "Ich zähl die Scherben im Boden nach. Werden weniger — und das nicht durch uns.", ok: (c) => c.region === 0 && c.panes >= 4 },
-  { who: "mira", text: "Ein Fenster nach dem anderen. Genau so hat's der alte Meister immer gesagt.", ok: (c) => c.region === 0 },
-  // ── Mira, Werkstatt ────────────────────────────────────────────────────
-  { who: "mira", text: "In der Werkstatt riecht's noch nach heißem Blei. Als wär Anselm nur kurz raus.", ok: (c) => c.region === 1 && !c.sawTwist },
-  { who: "mira", text: "Diese sauberen Schnitte an der Bleifuge. Kein Sturm macht das — das macht eine Hand.", ok: (c) => c.region === 1 && !c.sawTwist },
-  { who: "mira", text: "Ich weiß jetzt, wer der Sammler ist. Ich will's nur nicht glauben.", ok: (c) => c.region >= 1 && c.sawTwist },
-  // ── Anselm, nach der Wendung ──────────────────────────────────────────
-  { who: "anselm", text: "Du arbeitest schnell, Kind. Sauberer als ich in deinem Alter.", ok: (c) => c.sawTwist && c.region >= 1 },
-  { who: "anselm", text: "Jede Scheibe, die du setzt, fehlt mir in meinem Bogen. Das ist … in Ordnung.", ok: (c) => c.sawTwist },
-  { who: "anselm", text: "Der Farbhof ist der schwerste Teil. Große Scheiben, wenig Halt. Nimm dir Zeit.", ok: (c) => c.sawTwist && c.region >= 2 },
-  // ── später / Ende ─────────────────────────────────────────────────────
-  { who: "mira", text: "Schau mal ins Tal runter. Fast überall Licht. Fast.", ok: (c) => c.panes >= 30 },
-  { who: "anselm", text: "Nur noch der letzte Bogen. Ich halte den Rahmen, wenn's soweit ist.", ok: (c) => c.sawTwist && c.panes >= 40 },
-  { who: "mira", text: "Das Tal ist hell. Wir haben's tatsächlich geschafft.", ok: (c) => c.finished },
+  // ── Mira, early ──────────────────────────────────────────────────────────
+  { who: "mira", text: "Still dark up here. But less than yesterday.", ok: (c) => c.region === 0 },
+  { who: "mira", text: "I'm counting the shards in the ground. There are fewer — and not because of us.", ok: (c) => c.region === 0 && c.panes >= 4 },
+  { who: "mira", text: "One window after another. That's exactly what the old master always said.", ok: (c) => c.region === 0 },
+  // ── Mira, workshop ────────────────────────────────────────────────────
+  { who: "mira", text: "The workshop still smells of hot lead. As if Anselm just stepped out for a moment.", ok: (c) => c.region === 1 && !c.sawTwist },
+  { who: "mira", text: "These clean cuts at the lead joints. No storm does that — a hand does.", ok: (c) => c.region === 1 && !c.sawTwist },
+  { who: "mira", text: "I know now who the Collector is. I just don't want to believe it.", ok: (c) => c.region >= 1 && c.sawTwist },
+  // ── Anselm, after the twist ──────────────────────────────────────────
+  { who: "anselm", text: "You work fast, child. Cleaner than I did at your age.", ok: (c) => c.sawTwist && c.region >= 1 },
+  { who: "anselm", text: "Every pane you set is one missing from my arch. That's … fine.", ok: (c) => c.sawTwist },
+  { who: "anselm", text: "The Color Court is the hardest part. Big panes, little support. Take your time.", ok: (c) => c.sawTwist && c.region >= 2 },
+  // ── later / ending ─────────────────────────────────────────────────────
+  { who: "mira", text: "Look down into the valley. Light almost everywhere. Almost.", ok: (c) => c.panes >= 30 },
+  { who: "anselm", text: "Just the last arch left. I'll hold the frame when it's time.", ok: (c) => c.sawTwist && c.panes >= 40 },
+  { who: "mira", text: "The valley is bright. We actually did it.", ok: (c) => c.finished },
 ];
 
 /**

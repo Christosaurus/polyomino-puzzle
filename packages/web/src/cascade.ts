@@ -80,10 +80,10 @@ export interface Challenge {
   label: string;
 }
 const CHALLENGE_KINDS: ReadonlyArray<{ kind: ChallengeKind; target: number; label: string }> = [
-  { kind: "straight", target: 1, label: "Reihe nur aus geraden Linien (2·3·4)" },
-  { kind: "rows", target: 2, label: "Räume 2 Reihen" },
-  { kind: "mono", target: 1, label: "Reihe nur in einer Farbe" },
-  { kind: "combo", target: 3, label: "Baue eine Kette ×3" },
+  { kind: "straight", target: 1, label: "Row of straight pieces only (2·3·4)" },
+  { kind: "rows", target: 2, label: "Clear 2 rows" },
+  { kind: "mono", target: 1, label: "Row in a single color" },
+  { kind: "combo", target: 3, label: "Build a ×3 chain" },
 ];
 const CHALLENGE_COOLDOWN_MIN = 12_000;
 const CHALLENGE_COOLDOWN_JITTER = 8_000;

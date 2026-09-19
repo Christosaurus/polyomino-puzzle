@@ -125,11 +125,11 @@ export function flag(cc: string): string {
   return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 }
 
-/** Landesname in der Sprache des Spielers, z. B. „Deutschland". */
+/** Country name in the player's language, e.g. "Germany". */
 export function countryName(cc: string): string {
-  if (!CC_RE.test(cc)) return "Unbekannt";
+  if (!CC_RE.test(cc)) return "Unknown";
   try {
-    return new Intl.DisplayNames(navigator.languages?.slice() ?? ["de"], { type: "region" }).of(cc) ?? cc;
+    return new Intl.DisplayNames(navigator.languages?.slice() ?? ["en"], { type: "region" }).of(cc) ?? cc;
   } catch {
     return cc;
   }

@@ -15,25 +15,25 @@ function collect(fn: (n: number) => string | null, upTo = 900): Set<string> {
 describe("miraLine — B4: alle geschriebenen Zeilen sind erreichbar", () => {
   const PLACE_LINES: Record<string, string[]> = {
     garden: [
-      "Der Garten wird wieder wach. Riechst du das?",
-      "Da hinten wächst was, wo jahrelang nichts war.",
-      "Hier hat das Licht zuerst gehalten. Hier kommt es zuerst zurück.",
+      "The garden's waking up again. Can you smell that?",
+      "Something's growing back there, where nothing grew for years.",
+      "This is where the light held out first. This is where it comes back first.",
     ],
     workshop: [
-      "Anselms Werkstatt. Jeder Schnitt hier trägt seine Hand.",
-      "Hier hat er gearbeitet, bevor er ging.",
-      "Diese Scheiben wurden gelöst, nicht zerschlagen. Das ändert alles.",
-      "Das Blei ist frisch nachgezogen. Er war nicht vor Jahren hier — er ist es dauernd.",
+      "Anselm's workshop. Every cut here carries his hand.",
+      "This is where he worked, before he left.",
+      "These panes were cut loose, not smashed. That changes everything.",
+      "The lead's been freshly redrawn. He wasn't here years ago — he's here constantly.",
     ],
     courtyard: [
-      "Der Farbhof. Die größten Fenster im Tal, und die schwersten.",
-      "Hier war das Licht am buntesten. Stück für Stück kommt es zurück.",
-      "Jede Scheibe, die du hier setzt, fehlt ihm in seinem großen Bogen.",
+      "The Color Court. The biggest windows in the valley, and the hardest.",
+      "This is where the light was most colorful. Piece by piece, it's coming back.",
+      "Every pane you set here is one he's missing from his great arc.",
     ],
     daily: [
-      "Ein Fenster am Tag. So hat es das Tal früher gehalten.",
-      "Das Tal hat gefragt. Du hast geantwortet.",
-      "Komm morgen wieder — es wartet schon das nächste.",
+      "One window a day. That's how the valley used to keep going.",
+      "The valley asked. You answered.",
+      "Come back tomorrow — the next one's already waiting.",
     ],
   };
 
@@ -48,21 +48,21 @@ describe("miraLine — B4: alle geschriebenen Zeilen sind erreichbar", () => {
     // aus jedem Ort fällt „jedes zweite Mal" eine generische Zeile
     const seen = collect((n) => miraLine({ solved: n, place: "garden" }));
     const generic = [
-      "Wieder eins. Das Tal wird ein Stück heller.",
-      "Noch ein Fenster zurück auf unserer Seite.",
-      "Ein Speicher mehr, der wieder Licht hält.",
-      "Von hier oben seh ich es leuchten.",
-      "Das Tal merkt sich so etwas.",
-      "Gut. Nächstes.",
+      "Another one. The valley gets a little brighter.",
+      "One more window back on our side.",
+      "One more house that holds light again.",
+      "From up here, I can see it glow.",
+      "The valley remembers things like this.",
+      "Good. Next.",
     ];
     for (const line of generic) expect(seen.has(line)).toBe(true);
   });
 
   it("der Makellos-Pool (3 Zeilen) kommt vollständig dran", () => {
     const perfect = [
-      "Keine Scheibe zu viel, keine schief. Anselm hätte genickt.",
-      "Sauber gesetzt. Ich hab Meister gesehen, die das schlechter hinkriegen.",
-      "Makellos. Und nein, das hab ich nicht gesagt.",
+      "Not one pane too many, not one crooked. Anselm would have nodded.",
+      "Cleanly set. I've seen masters do worse.",
+      "Flawless. And no, I didn't just say that.",
     ];
     const seen = collect((n) => miraLine({ solved: n, place: "garden", stars: 3 }));
     for (const line of perfect) expect(seen.has(line)).toBe(true);

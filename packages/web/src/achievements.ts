@@ -11,12 +11,12 @@ export interface Achievement {
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: "streak-3", name: "Tagesritual", hint: "3 Tage in Folge ein Tagesfenster", icon: "☀", done: (d) => d.daily.bestStreak >= 3 },
-  { id: "streak-7", name: "Woche im Licht", hint: "7 Tage Streak", icon: "🗓", done: (d) => d.daily.bestStreak >= 7 },
-  { id: "streak-30", name: "Ein Monat Glaserarbeit", hint: "30 Tage Streak", icon: "📅", done: (d) => d.daily.bestStreak >= 30 },
-  { id: "cascade-500", name: "Im Scherbenregen", hint: "500 Punkte, bevor die Splitter weg sind", icon: "⚡", done: (d) => d.cascade.bestScore >= 500 },
-  { id: "cascade-2000", name: "Kein Splitter für ihn", hint: "2000 Punkte im Scherbenregen", icon: "🌊", done: (d) => d.cascade.bestScore >= 2000 },
-  { id: "cascade-5000", name: "Flut", hint: "5000 Punkte im Scherbenregen", icon: "💧", done: (d) => d.cascade.bestScore >= 5000 },
+  { id: "streak-3", name: "Daily Ritual", hint: "3 days in a row, one daily window", icon: "☀", done: (d) => d.daily.bestStreak >= 3 },
+  { id: "streak-7", name: "Week in the Light", hint: "7-day streak", icon: "🗓", done: (d) => d.daily.bestStreak >= 7 },
+  { id: "streak-30", name: "A Month of Glasswork", hint: "30-day streak", icon: "📅", done: (d) => d.daily.bestStreak >= 30 },
+  { id: "cascade-500", name: "In the Shard Storm", hint: "500 points before you run out of shards", icon: "⚡", done: (d) => d.cascade.bestScore >= 500 },
+  { id: "cascade-2000", name: "Not a Shard for Him", hint: "2000 points in the Shard Storm", icon: "🌊", done: (d) => d.cascade.bestScore >= 2000 },
+  { id: "cascade-5000", name: "Flood", hint: "5000 points in the Shard Storm", icon: "💧", done: (d) => d.cascade.bestScore >= 5000 },
 ];
 
 export function unlockedCount(d: SaveData): number {

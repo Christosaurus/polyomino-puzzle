@@ -111,11 +111,21 @@ export class CascadeView {
   /** Kamera-Wackler bei fetten Momenten (Mehrfach-Clear, Tier-Sprung, perfektes Brett). */
   private shakeT = 0;
   private shakeMag = 0;
-  /** Große Einblendung übers Brett — Kette oder neue Multiplikator-Stufe. */
-  /** `fontScale` skaliert die Schriftgröße relativ zur Zellgröße — kürzere
-   *  Rufe (KETTE ×3, PERFEKT!) dürfen groß sein, längere Sätze (Aufgabe
-   *  geschafft!) brauchen eine kleinere Schrift, sonst laufen sie übers Brett. */
-  private comboPop: { text: string; t: number; color: string; fontScale?: number } | null = null;
+  /** Große Einblendung übers Brett — Kette oder neue Multiplikator-Stufe.
+   *  `fontScale` skaliert die Schriftgröße relativ zur Zellgröße — kürzere
+   *  Rufe (KETTE ×3, PERFEKT!) dürfen groß sein, längere Sätze brauchen eine
+   *  kleinere Schrift, sonst laufen sie übers Brett. `noOutline` lässt den
+   *  dunklen Rand weg (nur die reine Farbe). `growOnFade` wächst durchgehend
+   *  bis zum Verschwinden statt nur kurz zu "atmen" — das klassische
+   *  Reward-Popup-Wachstum. */
+  private comboPop: {
+    text: string;
+    t: number;
+    color: string;
+    fontScale?: number;
+    noOutline?: boolean;
+    growOnFade?: boolean;
+  } | null = null;
   /** Kurzer goldener Blitz übers ganze Brett bei einer neuen Multiplikator-Stufe. */
   private tierFlashT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
@@ -259,7 +269,7 @@ export class CascadeView {
       // immer dieselbe Zeile. Mehrfach-Clear ist seltener/größer, geht vor.
       let comboShown = false;
       if (lineCount >= 2) {
-        const MULTI_ROW_NAMES: Record<number, string> = { 2: "DOPPEL-CLEAR!", 3: "TRIPLE-CLEAR!" };
+        const MULTI_ROW_NAMES: Record<number, string> = { 2: "DOUBLE CLEAR!", 3: "TRIPLE CLEAR!" };
         this.comboPop = {
           text: MULTI_ROW_NAMES[lineCount] ?? "MEGA-CLEAR!",
           t: 0,
@@ -274,7 +284,7 @@ export class CascadeView {
         if (!comboShown) {
           const tierColors = ["", "", cssVar("--gold"), cssVar("--mango"), cssVar("--pink"), cssVar("--sky")];
           this.comboPop = {
-            text: `KETTE ×${clear.chain}`,
+            text: `CHAIN ×${clear.chain}`,
             t: 0,
             color: tierColors[Math.min(clear.chain, tierColors.length - 1)] || cssVar("--gold"),
           };
@@ -299,18 +309,25 @@ export class CascadeView {
     if (this.game.consumePerfectClear() && this.layout) {
       const L = this.layout;
       // Zeitbonus gibt's nur im Free Play — im Level läuft keine Uhr
-      this.comboPop = { text: this.game.level ? "PERFEKT!" : "PERFEKT! +5S", t: 0, color: cssVar("--go") };
+      this.comboPop = { text: this.game.level ? "PERFECT!" : "PERFECT! +5S", t: 0, color: cssVar("--go") };
       sfx.milestone();
       this.shake(9);
       this.spawnBigBurst(L);
     }
-    // Mini-Aufgabe gelöst: kein Kasten, nur ein großer, weißer Text übers
-    // Brett, der kurz steht und dann wegfadet — dieselbe Feier-Mechanik wie
-    // Ketten/Tier-Sprünge, nur in Weiß statt Akzentfarbe.
+    // Mini-Aufgabe gelöst: kein Kasten, nur ein großer, reinweißer Text ohne
+    // Rand, der wächst und dabei wegfadet — das klassische Reward-Popup, wie
+    // in den meisten Match-Spielen.
     if (this.game.consumeChallengeWin()) {
       sfx.win();
       if (!this.comboPop) {
-        this.comboPop = { text: "Aufgabe geschafft! +15s", t: 0, color: "#ffffff", fontScale: 0.34 };
+        this.comboPop = {
+          text: "Task Done! +15s",
+          t: 0,
+          color: "#ffffff",
+          fontScale: 0.55,
+          noOutline: true,
+          growOnFade: true,
+        };
       }
     }
     if (this.game.isOver && !this.ended) {
@@ -802,25 +819,37 @@ export class CascadeView {
 
     // Kette / Multiplikator-Sprung: eine große Einblendung über der Mitte des Bretts
     if (this.comboPop) {
-      const p = this.comboPop.t / COMBO_LIFE_S;
-      const pop = p < 0.1 ? p / 0.1 : 1; // schnell rein
-      const fade = p > 0.78 ? 1 - (p - 0.78) / 0.22 : 1; // lange stehen, dann sanft raus
-      const drop = p > 0.78 ? ((p - 0.78) / 0.22) ** 2 * L.cell * 0.5 : 0; // setzt sich beim Ausklingen ab
-      const scale = 0.7 + 0.3 * pop + 0.08 * Math.sin(p * Math.PI * 2) * (1 - p);
+      const pop = this.comboPop;
+      const p = pop.t / COMBO_LIFE_S;
+      const growing = pop.growOnFade ?? false;
+      const popIn = p < 0.1 ? p / 0.1 : 1; // schnell rein
+      // growOnFade: wächst und fadet durchgehend ab dem Einstieg (klassisches
+      // Reward-Popup); sonst: kurz "atmen", lange stehen, erst spät ausklingen.
+      const fade = growing
+        ? Math.max(0, 1 - Math.max(0, p - 0.08) / 0.92)
+        : p > 0.78
+          ? 1 - (p - 0.78) / 0.22
+          : 1;
+      const drop = !growing && p > 0.78 ? ((p - 0.78) / 0.22) ** 2 * L.cell * 0.5 : 0;
+      const scale = growing
+        ? 0.8 + 0.7 * Math.min(1, p / 0.9)
+        : 0.7 + 0.3 * popIn + 0.08 * Math.sin(p * Math.PI * 2) * (1 - p);
       const cx = L.boardX + (this.game.cols * L.cell) / 2;
       const cy = L.boardY + (this.game.rows * L.cell) / 2 + drop;
       ctx.save();
       ctx.globalAlpha = Math.max(0, fade);
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
-      ctx.font = `900 ${Math.round(L.cell * (this.comboPop.fontScale ?? 0.85))}px "Baloo 2", sans-serif`;
+      ctx.font = `900 ${Math.round(L.cell * (pop.fontScale ?? 0.85))}px "Baloo 2", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = "rgba(20, 10, 40, 0.55)";
-      ctx.strokeText(this.comboPop.text, 0, 0);
-      ctx.fillStyle = this.comboPop.color;
-      ctx.fillText(this.comboPop.text, 0, 0);
+      if (!pop.noOutline) {
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "rgba(20, 10, 40, 0.55)";
+        ctx.strokeText(pop.text, 0, 0);
+      }
+      ctx.fillStyle = pop.color;
+      ctx.fillText(pop.text, 0, 0);
       ctx.restore();
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
@@ -859,7 +888,7 @@ export class CascadeView {
       ctx.font = `700 ${Math.round(L.holdSize * 0.15)}px "Hanken Grotesk", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("Halten", L.beltX + L.holdSize / 2, L.holdY + L.holdSize / 2);
+      ctx.fillText("Hold", L.beltX + L.holdSize / 2, L.holdY + L.holdSize / 2);
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
     }

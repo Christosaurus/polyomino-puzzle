@@ -7,68 +7,68 @@
  */
 
 const GARDEN = [
-  "Das Küchenfenster",
-  "Die Veranda",
-  "Miras Laterne",
-  "Das Beet hinterm Haus",
-  "Die alte Scheune",
-  "Das Giebelfenster",
-  "Der Brunnen im Hof",
-  "Das Treibhaus",
-  "Die Bienenkörbe",
-  "Das Fenster zur Straße",
-  "Der Taubenschlag",
-  "Das Dachluk",
-  "Die Gartentür",
-  "Das Efeufenster",
-  "Der Geräteschuppen",
-  "Das Fenster über der Bank",
-  "Die Sommerküche",
-  "Das runde Fenster",
-  "Der letzte Garten",
+  "The Kitchen Window",
+  "The Veranda",
+  "Mira's Lantern",
+  "The Flowerbed Behind the House",
+  "The Old Barn",
+  "The Gable Window",
+  "The Well in the Yard",
+  "The Greenhouse",
+  "The Beehives",
+  "The Window to the Street",
+  "The Dovecote",
+  "The Skylight",
+  "The Garden Door",
+  "The Ivy Window",
+  "The Tool Shed",
+  "The Window Above the Bench",
+  "The Summer Kitchen",
+  "The Round Window",
+  "The Last Garden",
 ];
 
 const WORKSHOP = [
-  "Die Werkbank",
-  "Der Bogen über der Esse",
-  "Anselms Zeichentisch",
-  "Das Oberlicht",
-  "Die Bleiglas-Kammer",
-  "Das Fenster mit dem Sprung",
-  "Der Werkzeugschrank",
-  "Das Fenster zum Stollen",
-  "Die Schleifkammer",
-  "Das geteilte Fenster",
-  "Der Musterrahmen",
-  "Das Fenster hinter der Tür",
-  "Die Farbküche",
-  "Das Fenster ohne Namen",
-  "Der zweite Zeichentisch",
-  "Das Fenster mit dem Zettel",
-  "Die kalte Esse",
-  "Das schmale Fenster",
-  "Anselms letzte Arbeit",
+  "The Workbench",
+  "The Arch Above the Forge",
+  "Anselm's Drafting Table",
+  "The Transom",
+  "The Leaded Glass Chamber",
+  "The Window with the Crack",
+  "The Tool Cabinet",
+  "The Window to the Mine",
+  "The Grinding Chamber",
+  "The Divided Window",
+  "The Pattern Frame",
+  "The Window Behind the Door",
+  "The Color Kitchen",
+  "The Nameless Window",
+  "The Second Drafting Table",
+  "The Window with the Note",
+  "The Cold Forge",
+  "The Narrow Window",
+  "Anselm's Last Work",
 ];
 
 const COURTYARD = [
-  "Der erste Bogen",
-  "Die Rosette",
-  "Das hohe Fenster",
-  "Der Doppelbogen",
-  "Das Fenster im Nebel",
-  "Die zwölf Scheiben",
-  "Der kalte Bogen",
-  "Lys’ Fenster",
-  "Das Fenster, das er baute",
-  "Der Bogen ohne Licht",
-  "Die letzte Rosette",
-  "Das Fenster über dem Tor",
-  "Der Chorbogen",
-  "Das Fenster aus Scherben",
-  "Der westliche Bogen",
-  "Das Colossus-Fenster",
-  "Anselms Prüfstück",
-  "Das letzte Fenster",
+  "The First Arch",
+  "The Rosette",
+  "The Tall Window",
+  "The Double Arch",
+  "The Window in the Fog",
+  "The Twelve Panes",
+  "The Cold Arch",
+  "Lys's Window",
+  "The Window He Built",
+  "The Arch Without Light",
+  "The Last Rosette",
+  "The Window Above the Gate",
+  "The Choir Arch",
+  "The Window Made of Shards",
+  "The Western Arch",
+  "The Colossus Window",
+  "Anselm's Masterwork",
+  "The Last Window",
 ];
 
 const POOLS: Record<string, string[]> = {
@@ -77,16 +77,16 @@ const POOLS: Record<string, string[]> = {
   courtyard: COURTYARD,
 };
 
-/** Fenster mit festem Namen, egal wo sie in der Region landen. */
+/** Windows with a fixed name, no matter where they land in the region. */
 const BY_ID: Record<string, string> = {
-  boss_01: "Das letzte Fenster",
-  boss_02: "Anselms Prüfstück",
+  boss_01: "The Last Window",
+  boss_02: "Anselm's Masterwork",
 };
 
-/** Der Name des `index`-ten Fensters einer Region, oder ein sanfter Fallback. */
+/** The name of the `index`-th window in a region, or a gentle fallback. */
 export function windowName(regionId: string, index: number, levelId?: string): string {
   if (levelId && BY_ID[levelId]) return BY_ID[levelId]!;
   const pool = POOLS[regionId];
   if (pool && pool[index]) return pool[index]!;
-  return `Fenster ${index + 1}`;
+  return `Window ${index + 1}`;
 }

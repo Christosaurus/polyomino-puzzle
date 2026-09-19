@@ -20,9 +20,9 @@ export interface Region {
 }
 
 const META = [
-  { id: "garden", name: "Der Garten", subtitle: "Wo das Licht zuerst zurückkehrt", panesToUnlock: 0 },
-  { id: "workshop", name: "Die Werkstatt", subtitle: "Enger, kantiger, knäuliger", panesToUnlock: 8 },
-  { id: "courtyard", name: "Der Farbhof", subtitle: "Große Fenster, wenig Zeit", panesToUnlock: 22 },
+  { id: "garden", name: "The Garden", subtitle: "Where the light returns first", panesToUnlock: 0 },
+  { id: "workshop", name: "The Workshop", subtitle: "Tighter, sharper, gnarlier", panesToUnlock: 8 },
+  { id: "courtyard", name: "The Color Court", subtitle: "Big windows, little time", panesToUnlock: 22 },
 ];
 
 /**

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -572,7 +572,7 @@
         color: var(--aqua);
       }
       .lb-rows:empty::after {
-        content: "Noch keine Einträge diese Woche.";
+        content: "No entries yet this week.";
         align-self: center;
         margin-top: 40px;
         color: var(--ink-dim);
@@ -2637,7 +2637,7 @@
           <canvas class="talkarte-fx"></canvas>
         </div>
         <div class="topbar">
-          <button class="icon" id="lb-open" aria-label="Bestenliste">🏆</button>
+          <button class="icon" id="lb-open" aria-label="Leaderboard">🏆</button>
           <span class="pill" id="home-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <span class="pill" id="home-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
           <span class="grow"></span>
@@ -2649,14 +2649,14 @@
         </div>
         <div class="card mode-card" id="home-cascade-card">
           <div class="row">
-            <div><div class="big" id="cascade-best">0</div><div class="muted">Höchste Punktzahl</div></div>
-            <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Meiste Linien</div></div>
+            <div><div class="big" id="cascade-best">0</div><div class="muted">Best Score</div></div>
+            <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Most Lines</div></div>
           </div>
-          <button class="go big" id="cascade-play">Kaskade starten</button>
+          <button class="go big" id="cascade-play">Start Cascade</button>
         </div>
         <div class="card mode-card" id="home-story-card">
-          <p class="muted" style="margin:0">Kaskade mit einem Ziel statt einer Uhr — befrei die Figur aus dem Schutt.</p>
-          <button id="rescue-open">🏰 Story-Modus</button>
+          <p class="muted" style="margin:0">Cascade with a goal instead of a clock — free the figure from the rubble.</p>
+          <button id="rescue-open">🏰 Story Mode</button>
         </div>
       </section>
 
@@ -2679,45 +2679,45 @@
 
       <section class="screen mode-screen" id="screen-daily" hidden>
         <div class="mode-icon"><img class="icon-img" src="ui/daily.webp" alt="" /></div>
-        <h1>Tägliche Scherbe</h1>
+        <h1>Daily Shard</h1>
         <div class="card mode-card" id="daily-card">
           <div class="row">
-            <div><div class="big" id="daily-streak">🔥 0</div><div class="muted">Tage in Folge</div></div>
-            <div style="text-align:right"><div class="big" id="daily-best">0</div><div class="muted">Bester Streak</div></div>
+            <div><div class="big" id="daily-streak">🔥 0</div><div class="muted">Day Streak</div></div>
+            <div style="text-align:right"><div class="big" id="daily-best">0</div><div class="muted">Best Streak</div></div>
           </div>
-          <p class="muted" id="daily-note">Ein neues Fenster jeden Tag — für alle gleich.</p>
-          <button class="go big" id="daily-play">Heute spielen</button>
+          <p class="muted" id="daily-note">A new window every day — the same for everyone.</p>
+          <button class="go big" id="daily-play">Play Today</button>
         </div>
       </section>
 
       <section class="screen mode-screen" id="screen-descent" hidden>
         <div class="mode-icon"><img class="icon-img" src="ui/descent.webp" alt="" /></div>
-        <h1>Abstieg</h1>
+        <h1>Descent</h1>
         <div class="card mode-card">
           <div class="row">
-            <div><div class="big" id="descent-best">Ebene 0</div><div class="muted">Bestmarke</div></div>
-            <div style="text-align:right"><div class="big" id="descent-runs">0</div><div class="muted">Läufe</div></div>
+            <div><div class="big" id="descent-best">Level 0</div><div class="muted">Best</div></div>
+            <div style="text-align:right"><div class="big" id="descent-runs">0</div><div class="muted">Runs</div></div>
           </div>
-          <p class="muted">Fenster für Fenster hinab in Anselms Stollen. Jedes schwerer. Zu viele Fehlzüge und der Lauf endet.</p>
-          <p class="muted" id="descent-lantern">✦ Lichtsplitter mit jeder Ebene — und Erfolge für die Tiefe.</p>
-          <button class="go big" id="descent-play">Abstieg beginnen</button>
+          <p class="muted">Window by window down into Anselm's mine. Each one harder. Too many mistakes and the run ends.</p>
+          <p class="muted" id="descent-lantern">✦ Light shards with every level — and achievements for depth.</p>
+          <button class="go big" id="descent-play">Begin Descent</button>
         </div>
       </section>
 
       <section class="screen" id="screen-rescue" hidden>
-        <h1>Story-Modus</h1>
-        <p class="muted">Kaskade mit einem Ziel statt einer Uhr: Räum genug Reihen, bevor die Scherben ausgehen, und befrei die Figur aus dem Schutt.</p>
+        <h1>Story Mode</h1>
+        <p class="muted">Cascade with a goal instead of a clock: clear enough rows before you run out of pieces, and free the figure from the rubble.</p>
         <div class="rescue-list" id="rescue-list"></div>
       </section>
 
       <section class="screen" id="screen-collection" hidden>
-        <h1>Sammlung</h1>
+        <h1>Collection</h1>
         <div class="statgrid" id="stats"></div>
-        <h2 style="margin-top:6px">Vorrat <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
+        <h2 style="margin-top:6px">Supplies <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
         <div class="shop" id="shop"></div>
-        <h2 style="margin-top:6px">Erinnerungen</h2>
+        <h2 style="margin-top:6px">Memories</h2>
         <div id="memories"></div>
-        <h2 style="margin-top:6px">Erfolge</h2>
+        <h2 style="margin-top:6px">Achievements</h2>
         <div id="achievements"></div>
       </section>
 
@@ -2735,9 +2735,9 @@
         </div>
         <div class="play-foot">
           <div class="jokers">
-            <button class="joker" id="jk-hint"><span class="ji"><img class="icon-img" src="ui/hint.webp" alt="" /></span><span class="jl">Tipp</span><span class="c" id="jk-hint-c">0</span></button>
+            <button class="joker" id="jk-hint"><span class="ji"><img class="icon-img" src="ui/hint.webp" alt="" /></span><span class="jl">Hint</span><span class="c" id="jk-hint-c">0</span></button>
             <button class="joker" id="jk-time"><span class="ji"><img class="icon-img" src="ui/time.webp" alt="" /></span><span class="jl" id="jk-time-l">+20s</span><span class="c" id="jk-time-c">0</span></button>
-            <button class="joker" id="jk-solvent"><span class="ji"><img class="icon-img" src="ui/solvent.webp" alt="" /></span><span class="jl">Neu ordnen</span><span class="c" id="jk-solvent-c">0</span></button>
+            <button class="joker" id="jk-solvent"><span class="ji"><img class="icon-img" src="ui/solvent.webp" alt="" /></span><span class="jl">Shuffle</span><span class="c" id="jk-solvent-c">0</span></button>
           </div>
         </div>
       </section>
@@ -2757,7 +2757,7 @@
           <p class="rescue-blurb" id="rs-blurb"></p>
         </div>
         <div class="hud">
-          <span class="metric" id="k-score"><small>Punkte</small><span id="k-score-txt">0</span></span>
+          <span class="metric" id="k-score"><small>Score</small><span id="k-score-txt">0</span></span>
           <div class="clock" id="k-clock">3:00</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
@@ -2767,9 +2767,9 @@
           <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
         </div>
         <div class="hud" id="k-hud2" style="grid-template-columns:1fr 1fr 1fr;margin-top:-6px">
-          <span class="metric"><small>Multiplikator</small><span id="k-mult">×1,0</span></span>
-          <span class="metric"><small>Linien</small><span id="k-cleared">0</span></span>
-          <span class="metric right"><small>Rekord</small><span id="k-best">0</span></span>
+          <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
+          <span class="metric"><small>Lines</small><span id="k-cleared">0</span></span>
+          <span class="metric right"><small>Best</small><span id="k-best">0</span></span>
         </div>
         <div class="k-streak" id="k-streak"></div>
         <div class="board-wrap" id="k-wrap">
@@ -2788,13 +2788,13 @@
       <!-- overlays (global) -->
       <div class="overlay cutscene" id="cutscene" hidden>
         <div class="cs-scene" id="cs-scene"></div>
-        <button class="cs-skip" id="cs-skip">überspringen ›</button>
+        <button class="cs-skip" id="cs-skip">skip ›</button>
         <div class="cs-box">
           <div class="cs-portrait" id="cs-portrait"></div>
           <div class="cs-bubble">
             <div class="cs-name" id="cs-name"></div>
             <div class="cs-lines" id="cs-lines"></div>
-            <div class="cs-tap" id="cs-tap">tippen</div>
+            <div class="cs-tap" id="cs-tap">tap</div>
           </div>
         </div>
       </div>
@@ -2803,7 +2803,7 @@
         <div class="ocard">
           <div class="burst" id="ov-burst"></div>
           <div class="ohype" id="ov-hype" hidden></div>
-          <h3 id="ov-title">Gelöst!</h3>
+          <h3 id="ov-title">Solved!</h3>
           <div class="ostars" id="ov-stars"></div>
           <div class="ostar-num" id="ov-stars-num"></div>
           <div class="sub" id="ov-sub"></div>
@@ -2813,29 +2813,29 @@
             <div class="mira-say" id="ov-mira-say"></div>
           </div>
           <div class="btns">
-            <button id="ov-quit">Übersicht</button>
-            <button class="go" id="ov-next">Weiter</button>
+            <button id="ov-quit">Overview</button>
+            <button class="go" id="ov-next">Next</button>
           </div>
         </div>
       </div>
 
       <div class="overlay" id="profile-overlay">
         <div class="ocard sheet">
-          <h3>Profil</h3>
+          <h3>Profile</h3>
           <button class="close" id="pf-x">✕</button>
           <div class="pf-top">
             <div class="pf-id">
               <div class="pf-frame" id="pf-avatar"></div>
-              <button class="pf-edit" id="pf-edit" aria-label="Avatar ändern">✎</button>
+              <button class="pf-edit" id="pf-edit" aria-label="Change avatar">✎</button>
             </div>
             <button class="pf-name" id="pf-name">player</button>
             <div class="pf-level">
-              <small>Stufe</small>
+              <small>Level</small>
               <b id="pf-level">1</b>
             </div>
           </div>
           <div class="pf-picker" id="pf-picker" hidden></div>
-          <h2 class="pf-h2">Allgemeine Statistiken</h2>
+          <h2 class="pf-h2">General Stats</h2>
           <div class="pf-grid" id="pf-stats"></div>
         </div>
       </div>
@@ -2843,9 +2843,9 @@
       <div class="overlay" id="lb-overlay">
         <div class="ocard sheet lb-sheet">
           <button class="close" id="lb-x">✕</button>
-          <div class="lb-title">🏆 Bestenliste</div>
+          <div class="lb-title">🏆 Leaderboard</div>
           <div class="lb-tabs">
-            <button class="lb-tab on" id="lb-tab-country" data-scope="country">Mein Land</button>
+            <button class="lb-tab on" id="lb-tab-country" data-scope="country">My Country</button>
             <button class="lb-tab" id="lb-tab-global" data-scope="global">Global</button>
           </div>
           <div class="lb-sub" id="lb-sub"></div>
@@ -2860,20 +2860,20 @@
           <button class="close" id="ps-x">✕</button>
           <div class="toggles" id="settings-toggles"></div>
           <div class="btns" style="flex-direction:column">
-            <button class="go big" id="ps-resume">Weiter spielen</button>
-            <button id="ps-restart">Neu starten</button>
-            <button class="stop" id="ps-quit">Beenden</button>
+            <button class="go big" id="ps-resume">Resume</button>
+            <button id="ps-restart">Restart</button>
+            <button class="stop" id="ps-quit">Quit</button>
           </div>
         </div>
       </div>
 
       <div class="overlay" id="k-overlay">
         <div class="ocard">
-          <h3 id="k-overlay-title">Zeit um!</h3>
+          <h3 id="k-overlay-title">Time's Up!</h3>
           <div class="sub" id="k-result"></div>
           <div class="btns">
-            <button id="k-quit">Übersicht</button>
-            <button class="go" id="k-again">Nochmal</button>
+            <button id="k-quit">Overview</button>
+            <button class="go" id="k-again">Play Again</button>
           </div>
         </div>
       </div>
@@ -2883,17 +2883,17 @@
           <h3>Pause</h3>
           <button class="close" id="kp-x">✕</button>
           <div class="btns" style="flex-direction:column">
-            <button class="go big" id="kp-resume">Weiter</button>
-            <button id="kp-restart">Neu starten</button>
-            <button class="stop" id="kp-quit">Beenden</button>
+            <button class="go big" id="kp-resume">Resume</button>
+            <button id="kp-restart">Restart</button>
+            <button class="stop" id="kp-quit">Quit</button>
           </div>
         </div>
       </div>
 
       <nav id="tabbar">
-        <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Täglich</button>
-        <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Kaskade!</button>
-        <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span>Sammlung</button>
+        <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Daily</button>
+        <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Cascade!</button>
+        <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span>Collection</button>
       </nav>
 
       <div class="toast" id="toast"></div>
