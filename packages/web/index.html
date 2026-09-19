@@ -1068,6 +1068,13 @@
         font-size: 16px;
         text-shadow: 0 2px 0 var(--stroke);
       }
+      /* Score & Multiplikator sind die wichtigsten Zahlen im Spiel — größer und
+         mit einem sanften Leuchten, damit sie im Blick bleiben. */
+      #k-score-txt {
+        font-size: 26px;
+        font-weight: 900;
+        text-shadow: 0 2px 0 var(--stroke), 0 0 14px color-mix(in srgb, var(--lumen) 55%, transparent);
+      }
       #k-score-txt.new-record {
         color: var(--gold);
         text-shadow: 0 0 10px rgba(255, 194, 59, 0.8);
@@ -1081,6 +1088,9 @@
       /* Multiplikator eskaliert sichtbar in Farbe, je heißer die Serie läuft */
       #k-mult {
         display: inline-block;
+        font-size: 24px;
+        font-weight: 900;
+        text-shadow: 0 2px 0 var(--stroke), 0 0 12px color-mix(in srgb, var(--lumen) 45%, transparent);
         transition: color 0.25s ease;
       }
       #k-mult.tier-2 { color: var(--gold); }

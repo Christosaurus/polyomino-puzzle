@@ -1065,6 +1065,9 @@ export class CascadeView {
         else this.game.hold = null;
         sfx.place();
         sfx.vibrate(8);
+        // Winziger Wackler bei jeder Platzierung — nur ein kurzer Ruck, spürbar
+        // wenn man draufachtet, aber weit unter den Clear-/Combo-Wacklern.
+        this.shake(2.5);
         this.placePop = { r: snap.row, c: snap.col, t: 0 };
         // Staub rings um die ganze Form, nicht nur an einem Punkt
         const cellsAbs = this.game
