@@ -1637,11 +1637,18 @@ function startCascade(): void {
         cEl.hidden = false;
         $("k-challenge-icon").textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
         $("k-challenge-txt").textContent = game.challenge.label;
+        const previewMs = game.challengePreviewRemainingMs();
+        cEl.classList.toggle("preview", previewMs > 0);
         const remain = game.challengeRemainingMs();
-        $("k-challenge-clock").textContent = fmt(remain);
-        const pct = Math.max(0, Math.min(100, (remain / CHALLENGE_WINDOW_MS) * 100));
-        bar.style.width = `${pct}%`;
-        bar.classList.toggle("low", remain < 5000);
+        if (previewMs > 0) {
+          // Ankündigung: großer Countdown statt Uhrzeit-Format, keine Leiste
+          $("k-challenge-clock").textContent = String(Math.ceil(previewMs / 1000));
+        } else {
+          $("k-challenge-clock").textContent = fmt(remain);
+          const pct = Math.max(0, Math.min(100, (remain / CHALLENGE_WINDOW_MS) * 100));
+          bar.style.width = `${pct}%`;
+          bar.classList.toggle("low", remain < 5000);
+        }
       } else {
         cEl.hidden = true;
       }

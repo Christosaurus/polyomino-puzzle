@@ -1212,19 +1212,16 @@
         opacity: 0.3;
         filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
       }
-      /* Reservierter Streifen für die Challenge-Karte — IMMER da, ob eine
-         Aufgabe gerade läuft oder nicht. Früher nur bei .has-challenge, aber
-         dann sprang das Brett beim Erscheinen/Verschwinden der Karte sichtbar
-         größer/kleiner. Die Spielfläche darf sich nie verändern. */
-      #k-wrap {
-        padding-top: 58px;
+      /* Eigene, feste Zeile für die Challenge-Karte — IMMER da, ob eine
+         Aufgabe gerade läuft oder nicht, damit das Feld darunter beim
+         Erscheinen/Verschwinden nicht springt. Nicht mehr Overlay übers
+         Brett, sondern echter Platz im Layout. */
+      .challenge-slot {
+        min-height: 54px;
+        margin: 4px 0;
       }
       .challenge {
-        position: absolute;
-        top: 6px;
-        left: 6px;
-        right: 6px;
-        z-index: 3;
+        position: relative;
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -1237,15 +1234,31 @@
         line-height: 1.15;
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
         animation: chal-in 0.3s var(--tap) both;
-        /* rein informativ — darf nie Taps aufs Brett darunter schlucken, auch
-           nicht wenn die Box (z. B. mit langem Aufgabentext) mal knapp in die
-           Spielfläche hineinragt */
-        pointer-events: none;
       }
       .chal-top {
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+      /* Vorschau: 6s bevor die Aufgabe "scharf" ist — größer, mit eigenem
+         Countdown statt der schmalen Leiste, damit man sie wirklich bemerkt,
+         bevor sie in die kompakte Verlaufsanzeige übergeht. */
+      .challenge.preview {
+        border-color: var(--sky);
+        padding: 10px 14px;
+      }
+      .challenge.preview .cic {
+        font-size: 24px;
+      }
+      .challenge.preview .ctxt {
+        font-size: 14px;
+      }
+      .challenge.preview .cclock {
+        font-size: 20px;
+        color: var(--sky);
+      }
+      .challenge.preview .chal-bar {
+        display: none;
       }
       /* Countdown-Leiste: läuft normal ab, die laufende Spitze glüht hell —
          mehr Druckgefühl als die reine Zahl */
@@ -2891,7 +2904,7 @@
           <span class="metric right"><small>Lines</small><span id="k-cleared">0</span></span>
         </div>
         <div class="k-streak" id="k-streak"></div>
-        <div class="board-wrap" id="k-wrap">
+        <div class="challenge-slot">
           <div class="challenge" id="k-challenge" hidden>
             <div class="chal-top">
               <span class="cic" id="k-challenge-icon">🎯</span>
@@ -2900,6 +2913,8 @@
             </div>
             <div class="chal-bar"><div class="chal-fill" id="k-challenge-bar"></div></div>
           </div>
+        </div>
+        <div class="board-wrap" id="k-wrap">
           <canvas id="k-canvas"></canvas>
         </div>
       </section>

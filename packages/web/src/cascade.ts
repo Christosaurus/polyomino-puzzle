@@ -77,6 +77,9 @@ export interface Challenge {
   progress: number;
   /** `elapsedMs()` value at which the challenge expires. */
   deadline: number;
+  /** `elapsedMs()` value at which the challenge was created — für die
+   *  Vorschau-Phase (siehe `challengePreviewRemainingMs`). */
+  createdAt: number;
   label: string;
 }
 const CHALLENGE_KINDS: ReadonlyArray<{ kind: ChallengeKind; target: number; label: string }> = [
@@ -90,6 +93,9 @@ const CHALLENGE_COOLDOWN_JITTER = 8_000;
 /** Wie lange ein Fenster offen ist — exportiert, damit die View den Balken
  *  (Countdown-Leiste über dem Brett) als Anteil davon füllen kann. */
 export const CHALLENGE_WINDOW_MS = 22_000;
+/** Wie lange die neue Aufgabe erst nur "angekündigt" wird, bevor sie normal
+ *  weiterläuft — zählt vom bestehenden Fenster ab, verlängert es nicht. */
+export const CHALLENGE_PREVIEW_MS = 6_000;
 const CHALLENGE_FIRST_AT = 12_000;
 /** Bonuszeit für eine gelöste Aufgabe — Runden werden länger, wenn man sie löst. */
 const CHALLENGE_TIME_BONUS_MS = 15_000;
@@ -433,9 +439,18 @@ export class CascadeState {
         target: pick.target,
         progress: 0,
         deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
+        createdAt: this.elapsedMs(),
         label: pick.label,
       };
     }
+  }
+
+  /** >0, solange die aktuelle Aufgabe noch in der Ankündigungs-Phase steckt —
+   *  zählt vom bestehenden Lösungsfenster ab, verlängert es nicht. */
+  challengePreviewRemainingMs(): number {
+    return this.challenge
+      ? Math.max(0, this.challenge.createdAt + CHALLENGE_PREVIEW_MS - this.elapsedMs())
+      : 0;
   }
 
   challengeRemainingMs(): number {
