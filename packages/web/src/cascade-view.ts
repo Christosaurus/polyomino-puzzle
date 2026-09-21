@@ -441,16 +441,34 @@ export class CascadeView {
     this.lastMeasuredW = wrapW;
     this.lastMeasuredTop = rawTop;
 
-    // narrower and with a smaller hold slot than before — a leaner, more
-    // elongated conveyor with a longer visible travel path
-    const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
-    const boardAreaW = cssW - beltW - pad * 3;
     // Platz für den Ad-Banner unter dem Brett reservieren (siehe .ad-slot in
     // index.html: 56px Höhe + 8px margin-top) — sonst rechnet sich das Feld
     // zu groß und schiebt den Banner aus dem sichtbaren Bereich.
     const AD_SLOT_H = 64;
     const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H);
+    // topRowH schwankt so oder so nur zwischen 60-84px (siehe Clamp unten) —
+    // für die Höhen-Rechnung reicht ein Schätzwert aus der Mitte, die paar
+    // Pixel Unterschied ändern die Zellgröße nicht spürbar.
+    const availH = Math.max(200, maxH - 72 - 10);
 
+    // Zellgröße = das Engere von "Höhe reicht für 8 Reihen" und "Breite
+    // reicht fürs Brett, wenn der Gürtel nur seine Mindestbreite bekommt".
+    // Auf einem Hochkant-Handy mit 8 Reihen ist meist die Höhe der engere
+    // Faktor — vorher blieb dann der Rest der Breite als Lücke zwischen
+    // Feld und Gürtel einfach ungenutzt liegen.
+    const MIN_BELT_W = 62;
+    const MAX_BELT_W = 150;
+    const heightCell = Math.floor(availH / this.game.rows);
+    const widthCellAtMinBelt = Math.floor((cssW - MIN_BELT_W - pad * 3) / this.game.cols);
+    const cell = Math.max(22, Math.min(heightCell, widthCellAtMinBelt));
+    const boardW = cell * this.game.cols;
+    const boardH = cell * this.game.rows;
+    const boardX = pad;
+
+    // Der Gürtel bekommt den kompletten Rest der Breite, statt einer festen
+    // Quote — kein toter Platz mehr zwischen Feld und Gürtel, egal ob gerade
+    // Höhe oder Breite bindet.
+    const beltW = Math.round(Math.max(MIN_BELT_W, Math.min(MAX_BELT_W, cssW - boardW - pad * 3)));
     // Gemeinsame obere Zeile: links die Challenge-Karte (DOM, siehe index.html
     // .challenge — folgt --top-row-h/--belt-w unten), rechts Hold, genauso
     // breit wie der Gürtel und etwas höher als frühers Hold-Quadrat.
@@ -459,15 +477,6 @@ export class CascadeView {
     const holdW = beltW;
     const holdH = topRowH;
     const beltX = cssW - beltW - pad;
-
-    // Brett + Gürtel teilen sich den Rest der Höhe, beginnen auf gleicher
-    // Höhe unter der Challenge/Hold-Zeile — der Gürtel jetzt fast so hoch wie
-    // das Brett, weil Hold ihm oben keinen Platz mehr wegnimmt.
-    const availH = Math.max(200, maxH - topRowH - 10);
-    const cell = Math.max(22, Math.floor(Math.min(boardAreaW / this.game.cols, availH / this.game.rows)));
-    const boardW = cell * this.game.cols;
-    const boardH = cell * this.game.rows;
-    const boardX = pad + (boardAreaW - boardW) / 2;
     const boardY = pad + topRowH + 10;
 
     const beltTop = boardY;
