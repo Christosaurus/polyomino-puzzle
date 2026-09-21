@@ -1014,8 +1014,14 @@
       .hud .right {
         justify-self: end;
       }
+      .k-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
       .clock {
         justify-self: center;
+        align-self: center;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1076,13 +1082,23 @@
         font-size: 16px;
         text-shadow: 0 2px 0 var(--stroke);
       }
-      /* Score & Highscore stehen beieinander, gleich groß — erst wenn man den
-         Highscore knackt, tritt Highscore ab und Score übernimmt als "New
-         Highscore" (siehe .burst unten + app.ts). */
-      .score-group {
+      /* Highscore steht über dem Score, beide gleich groß — erst wenn man den
+         Highscore knackt, tritt Highscore ab (Burst) und die Krone bleibt
+         neben dem Score (siehe .burst unten + app.ts). */
+      #k-hud2 {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+      }
+      .score-col {
         display: flex;
-        align-items: baseline;
-        gap: 16px;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .mult-col {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
       }
       .metric.best {
         display: inline-block;
@@ -1090,7 +1106,7 @@
         color: var(--gold);
       }
       #k-best {
-        font-size: 26px;
+        font-size: 32px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px rgba(255, 194, 59, 0.5);
       }
@@ -1107,7 +1123,7 @@
       /* Score & Multiplikator sind die wichtigsten Zahlen im Spiel — größer und
          mit einem sanften Leuchten, damit sie im Blick bleiben. */
       #k-score-txt {
-        font-size: 26px;
+        font-size: 32px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px color-mix(in srgb, var(--lumen) 55%, transparent);
       }
@@ -1126,7 +1142,7 @@
       .crown-badge {
         display: inline-block;
         margin-left: 5px;
-        font-size: 26px;
+        font-size: 32px;
         vertical-align: -2px;
         filter: drop-shadow(0 0 8px rgba(255, 194, 59, 0.7));
       }
@@ -1143,7 +1159,7 @@
         display: inline-block;
         position: relative;
         transform-origin: center;
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 12px color-mix(in srgb, var(--lumen) 45%, transparent);
         transition: color 0.25s ease;
@@ -1198,43 +1214,37 @@
         margin-top: -4px;
       }
       .k-life {
-        width: 24px;
-        height: 24px;
+        width: 48px;
+        height: 48px;
         filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
         transition: opacity 0.25s ease, filter 0.25s ease;
       }
       .k-life:first-child {
         transform: rotate(-12deg);
-        margin-right: -5px;
+        margin-right: -10px;
       }
       .k-life:last-child {
         transform: rotate(12deg);
-        margin-left: -5px;
+        margin-left: -10px;
       }
       .k-life-mid {
-        width: 32px;
-        height: 32px;
+        width: 64px;
+        height: 64px;
         z-index: 1;
       }
       .k-life.lost {
         opacity: 0.3;
         filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
       }
-      /* Eigene, feste Zeile für die Challenge-Karte — IMMER da, ob eine
-         Aufgabe gerade läuft oder nicht, damit das Feld darunter beim
-         Erscheinen/Verschwinden nicht springt. Nicht mehr Overlay übers
-         Brett, sondern echter Platz im Layout. */
-      .challenge-slot {
-        min-height: 54px;
-        margin: 4px 0;
-      }
       /* Feste Reserve für einen Banner-Ad — noch kein echtes Ad-SDK
          angebunden, nur der Platz dafür. AD_SLOT_H in cascade-view.ts muss
-         zu dieser Höhe passen, sonst rechnet sich das Brett zu groß. */
+         zu dieser Höhe passen, sonst rechnet sich das Brett zu groß. Rückt
+         bewusst dicht ans Feld heran (negativer Versatz gegen den normalen
+         Zeilenabstand), nicht mit großem Luftraum dazwischen. */
       .ad-slot {
         flex: none;
         height: 56px;
-        margin-top: 8px;
+        margin-top: -10px;
         display: grid;
         place-items: center;
         border-radius: 12px;
@@ -1245,10 +1255,20 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
       }
+      /* Challenge-Karte liegt wieder im lila Panel, oben links — rechts davon
+         auf gleicher Höhe Hold (Canvas). Größe folgt den CSS-Variablen, die
+         `computeLayout()` in cascade-view.ts bei jedem Layout-Pass auf
+         `#k-wrap` setzt, damit DOM- und Canvas-Geometrie exakt zusammenpassen. */
       .challenge {
-        position: relative;
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        right: calc(var(--belt-w, 80px) + 18px);
+        height: var(--top-row-h, 64px);
+        z-index: 2;
         display: flex;
         flex-direction: column;
+        justify-content: center;
         gap: 6px;
         padding: 7px 12px;
         border-radius: 12px;
@@ -1259,6 +1279,7 @@
         line-height: 1.15;
         box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12);
         animation: chal-in 0.3s var(--tap) both;
+        box-sizing: border-box;
       }
       .chal-top {
         display: flex;
@@ -1325,6 +1346,10 @@
           transform: translateY(-6px);
           opacity: 0;
         }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
       }
       /* Warnlampen-Glühen als eigene Ebene: statisches box-shadow, nur die
          Deckkraft pulst (composited, kein Repaint pro Frame) */
@@ -1368,7 +1393,6 @@
         width: fit-content;
         min-height: 27px;
         box-sizing: border-box;
-        margin: 0 auto 4px;
         padding: 4px 16px;
         border-radius: 999px;
         font-weight: 900;
@@ -2895,7 +2919,10 @@
       </section>
 
       <section class="screen play" id="screen-kaskade" hidden>
-        <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
+        <div class="k-topbar">
+          <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
+          <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
+        </div>
         <div class="rescue-scene" id="rs-scene" hidden>
           <div class="rescue-goal" id="rs-goal">
             <span class="rg-icon">🪨</span>
@@ -2908,28 +2935,26 @@
           <div class="rescue-rubble" id="rs-rubble"></div>
           <p class="rescue-blurb" id="rs-blurb"></p>
         </div>
-        <div class="hud">
-          <span class="score-group">
-            <span class="metric" id="k-score">
-              <small id="k-score-label">Score</small>
-              <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
-            </span>
-            <span class="metric best" id="k-best-wrap"><small id="k-best-label">👑 Highscore</small><span id="k-best">0</span></span>
-          </span>
-          <div class="clock" id="k-clock">3:00</div>
-          <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
-        </div>
+        <div class="clock" id="k-clock">3:00</div>
         <div class="k-lives" id="k-lives">
           <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
           <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
           <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
         </div>
-        <div class="hud" id="k-hud2" style="grid-template-columns:1fr 1fr;margin-top:-6px">
-          <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
-          <span class="metric right"><small>Lines</small><span id="k-cleared">0</span></span>
+        <div class="hud" id="k-hud2">
+          <span class="score-col">
+            <span class="metric best" id="k-best-wrap"><small id="k-best-label">👑 Highscore</small><span id="k-best">0</span></span>
+            <span class="metric" id="k-score">
+              <small id="k-score-label">Score</small>
+              <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
+            </span>
+          </span>
+          <span class="mult-col" id="k-mult-col">
+            <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
+            <div class="k-streak" id="k-streak"></div>
+          </span>
         </div>
-        <div class="k-streak" id="k-streak"></div>
-        <div class="challenge-slot">
+        <div class="board-wrap" id="k-wrap">
           <div class="challenge" id="k-challenge" hidden>
             <div class="chal-top">
               <span class="cic" id="k-challenge-icon">🎯</span>
@@ -2938,8 +2963,6 @@
             </div>
             <div class="chal-bar"><div class="chal-fill" id="k-challenge-bar"></div></div>
           </div>
-        </div>
-        <div class="board-wrap" id="k-wrap">
           <canvas id="k-canvas"></canvas>
         </div>
         <div class="ad-slot" id="k-ad-slot"><span>Ad space</span></div>

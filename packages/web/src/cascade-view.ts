@@ -34,8 +34,12 @@ interface Layout {
   beltW: number;
   beltTop: number;
   beltH: number;
+  /** Gemeinsame Zeile oben im Panel: links die Challenge-Karte (DOM), rechts
+   *  Hold — beide gleich hoch. */
+  topRowH: number;
   holdY: number;
-  holdSize: number;
+  holdW: number;
+  holdH: number;
   bandH: number;
   shardCell: number;
 }
@@ -427,33 +431,37 @@ export class CascadeView {
     const AD_SLOT_H = 64;
     const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H);
 
-    const cell = Math.max(
-      22,
-      Math.floor(Math.min(boardAreaW / this.game.cols, maxH / this.game.rows)),
-    );
+    // Gemeinsame obere Zeile: links die Challenge-Karte (DOM, siehe index.html
+    // .challenge — folgt --top-row-h/--belt-w unten), rechts Hold, genauso
+    // breit wie der Gürtel und etwas höher als frühers Hold-Quadrat.
+    const topRowH = Math.round(Math.max(60, Math.min(84, beltW * 1.05)));
+    const holdY = pad;
+    const holdW = beltW;
+    const holdH = topRowH;
+    const beltX = cssW - beltW - pad;
+
+    // Brett + Gürtel teilen sich den Rest der Höhe, beginnen auf gleicher
+    // Höhe unter der Challenge/Hold-Zeile — der Gürtel jetzt fast so hoch wie
+    // das Brett, weil Hold ihm oben keinen Platz mehr wegnimmt.
+    const availH = Math.max(200, maxH - topRowH - 10);
+    const cell = Math.max(22, Math.floor(Math.min(boardAreaW / this.game.cols, availH / this.game.rows)));
     const boardW = cell * this.game.cols;
     const boardH = cell * this.game.rows;
     const boardX = pad + (boardAreaW - boardW) / 2;
-    const boardY = pad;
+    const boardY = pad + topRowH + 10;
 
-    const beltX = cssW - beltW - pad;
-    const holdSize = Math.round(beltW * 0.8);
-    // Hold sitzt oben, der Gürtel darunter — vertauscht gegenüber früher.
-    const holdY = pad;
-    // Der Gürtel darf sichtbar länger sein als das Brett hoch ist, wenn genug
-    // vertikaler Raum da ist — ein längerer Weg von oben nach unten, wie
-    // gewünscht. Nach unten durch `maxH` begrenzt (nie über den sichtbaren
-    // Bereich hinaus), nach oben nie kürzer als vorher (die alte, ans Brett
-    // gekoppelte Höhe bleibt die Untergrenze).
-    const minBeltH = boardH - holdSize - 10;
-    const desiredBeltH = boardH * 1.55 - holdSize - 10;
-    const maxBeltH = maxH - holdSize - 10;
-    const beltH = Math.max(minBeltH, Math.min(desiredBeltH, maxBeltH));
-    const beltTop = holdY + holdSize + 10;
+    const beltTop = boardY;
+    const beltH = boardH;
 
-    const cssH = Math.max(boardH, beltH + holdSize + 10) + pad * 2;
+    const cssH = boardY + boardH + pad;
     const bandH = beltH / 3.15;
     const shardCell = Math.max(11, Math.min(bandH / 4.2, beltW / 4.2));
+
+    // Die DOM-Challenge-Karte (Kind von `this.wrap`) richtet sich per CSS an
+    // diesen Variablen aus — so bleibt sie exakt neben/so hoch wie Hold, ohne
+    // dass die Canvas-Zahlen doppelt in CSS gepflegt werden müssten.
+    this.wrap.style.setProperty("--belt-w", `${beltW}px`);
+    this.wrap.style.setProperty("--top-row-h", `${topRowH}px`);
 
     return {
       cssW,
@@ -465,8 +473,10 @@ export class CascadeView {
       beltW,
       beltTop,
       beltH,
+      topRowH,
       holdY,
-      holdSize,
+      holdW,
+      holdH,
       bandH,
       shardCell,
     };
@@ -1008,20 +1018,23 @@ export class CascadeView {
       this.drawShard(shard, L.beltX + L.beltW / 2, cy, L.shardCell);
     }
 
-    // hold slot
+    // hold slot — jetzt so breit wie der Gürtel, oben neben der Challenge-Karte
+    const holdCx = L.beltX + L.holdW / 2;
+    const holdCy = L.holdY + L.holdH / 2;
+    const holdMin = Math.min(L.holdW, L.holdH);
     ctx.fillStyle = cssVar("--surface");
-    roundRect(ctx, L.beltX, L.holdY, L.holdSize, L.holdSize, 16);
+    roundRect(ctx, L.beltX, L.holdY, L.holdW, L.holdH, 16);
     ctx.fill();
     ctx.strokeStyle = cssVar("--hairline");
     ctx.stroke();
     if (this.game.hold && !(this.drag && this.drag.from === "hold")) {
-      this.drawShard(this.game.hold, L.beltX + L.holdSize / 2, L.holdY + L.holdSize / 2, L.holdSize * 0.3);
+      this.drawShard(this.game.hold, holdCx, holdCy, holdMin * 0.3);
     } else if (!(this.drag && this.drag.from === "hold")) {
       ctx.fillStyle = cssVar("--ink-dim");
-      ctx.font = `700 ${Math.round(L.holdSize * 0.15)}px "Hanken Grotesk", sans-serif`;
+      ctx.font = `700 ${Math.round(holdMin * 0.15)}px "Hanken Grotesk", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("Hold", L.beltX + L.holdSize / 2, L.holdY + L.holdSize / 2);
+      ctx.fillText("Hold", holdCx, holdCy);
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
     }
@@ -1214,7 +1227,7 @@ export class CascadeView {
       this.game.hold &&
       x >= L.beltX - 20 &&
       y >= L.holdY - 12 &&
-      y <= L.holdY + L.holdSize + 12
+      y <= L.holdY + L.holdH + 12
     ) {
       shard = this.game.hold;
       from = "hold";

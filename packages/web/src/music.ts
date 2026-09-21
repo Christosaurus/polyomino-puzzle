@@ -77,8 +77,13 @@ function onTimeUpdate(e: Event): void {
   const to = tracks[toIdx]!;
   to.currentTime = 0;
   to.volume = 0;
+  // Wenn die zweite Kopie aus irgendeinem Grund nicht anspringt (z. B. iOS
+  // blockt den Autoplay einer noch nie direkt angetippten Kopie), lieber
+  // einen harten Loop auf der auslaufenden Kopie fahren als in Stille zu
+  // enden — das war der eigentliche "Musik loopt nicht"-Bug.
+  let toOk = true;
   void to.play().catch(() => {
-    /* egal — dann bleibt's eben bei der auslaufenden Kopie */
+    toOk = false;
   });
   const target = targetVolume();
   const durMs = CROSSFADE_S * 1000;
@@ -86,14 +91,21 @@ function onTimeUpdate(e: Event): void {
   cancelAnimationFrame(fadeRaf);
   const step = (now: number): void => {
     const t = Math.min(1, (now - start) / durMs);
-    from.volume = Math.max(0, Math.min(1, target * (1 - t)));
-    to.volume = Math.max(0, Math.min(1, target * t));
+    if (toOk) {
+      from.volume = Math.max(0, Math.min(1, target * (1 - t)));
+      to.volume = Math.max(0, Math.min(1, target * t));
+    } else {
+      from.volume = target; // nicht ausblenden — es kommt kein Ersatz
+    }
     if (t < 1) {
       fadeRaf = requestAnimationFrame(step);
-    } else {
+    } else if (toOk) {
       from.pause();
       from.currentTime = 0;
       activeTrack = toIdx;
+      crossfading = false;
+    } else {
+      from.currentTime = 0; // harter Schnitt statt Verstummen
       crossfading = false;
     }
   };
@@ -123,11 +135,23 @@ export function playMusic(id: TrackId): void {
   wanted = id;
   if (!enabled) return;
   window.clearTimeout(stopTimer);
-  const [a] = ensureTracks();
+  const [a, b] = ensureTracks();
   void a.play().catch(() => {
     /* Autoplay evtl. noch gesperrt — onAudioUnlock spielt es nach der ersten Geste */
   });
   fadeTo(targetVolume(), 1200);
+  // Die zweite Kopie einmal kurz anspielen+pausieren, solange wir noch im
+  // selben Geste-Kontext sind — sonst blockt iOS Safari später beim Crossfade
+  // stumm den `.play()` der zweiten Kopie (die ja nie "direkt" angetippt
+  // wurde) und die Musik verstummt beim Loop-Punkt, statt weiterzulaufen.
+  if (b.paused) {
+    void b
+      .play()
+      .then(() => b.pause())
+      .catch(() => {
+        /* auch ok — dann bleibt nur der normale Crossfade-Versuch */
+      });
+  }
 }
 
 /** Musik ganz ausblenden (z. B. beim kompletten Verlassen). */
@@ -154,7 +178,11 @@ export function duckMusic(on: boolean): void {
  *  andere Lautstärkewechsel hier. */
 export function setMusicVolume(value: number): void {
   masterVolume = Math.max(0, Math.min(1, value));
-  if (enabled && active() && !active()!.paused) fadeTo(targetVolume(), 300);
+  // Nicht an `!paused` hängen — sonst wirkt der Regler tot, wenn die aktive
+  // Kopie gerade (z. B. kurz nach dem Loop-Wechsel) pausiert ist. `fadeTo`
+  // ist auch auf einer pausierten Kopie ungefährlich, sie startet nur mit
+  // der richtigen Lautstärke, sobald sie wieder läuft.
+  if (enabled) fadeTo(targetVolume(), 300);
 }
 
 /** „Musik"-Schalter aus den Einstellungen — sanft, nie hart geschnitten. */

@@ -43,6 +43,22 @@ const fmt = (ms: number): string => {
 const nf = (n: number): string => Math.round(n).toLocaleString("en-US");
 /** Multiplier as-is — "×1.5" (don't round!). */
 const xf = (n: number | string): string => String(n);
+
+// iOS ignoriert `user-scalable=no`/`touch-action` als Homescreen-App gern
+// mal weiter und zoomt/springt trotzdem beim schnellen Doppeltippen (das
+// klassische "Doppeltipp zoomt in den Absatz"-Verhalten aus Safari) — macht
+// ein Spiel mit schnellen Taps unspielbar. Fängt den zweiten Tap einer
+// Doppeltipp-Sequenz global ab, bevor der Browser sie als Zoom deutet.
+let lastTouchEndAt = 0;
+window.addEventListener(
+  "touchend",
+  (e) => {
+    const now = Date.now();
+    if (now - lastTouchEndAt <= 350) e.preventDefault();
+    lastTouchEndAt = now;
+  },
+  { passive: false },
+);
 const CHALLENGE_ICON: Record<ChallengeKind, string> = {
   straight: "📏",
   rows: "🧱",
@@ -1546,7 +1562,7 @@ function startCascade(): void {
   cascadeRestart = startCascade;
   cascadeQuit = () => setTab("home");
   $("rs-scene").hidden = true;
-  $("k-hud2").hidden = false;
+  $("k-mult-col").hidden = false;
   $("k-best-wrap").hidden = false;
   $("k-best-wrap").classList.remove("burst");
   $("k-best-label").textContent = "👑 Highscore";
@@ -1590,7 +1606,6 @@ function startCascade(): void {
         window.setTimeout(() => multEl.classList.remove("flame"), 2400);
       }
       lastMultTier = tier;
-      $("k-cleared").textContent = nf(h.cleared);
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
@@ -1750,7 +1765,7 @@ function startRescueLevel(level: RescueLevel): void {
   // pro Reihen-Ziel. Jede geräumte Reihe lässt unten im Turm einen Brocken
   // verschwinden (siehe onHud) — das *ist* jetzt die Fortschrittsanzeige.
   $("rs-scene").hidden = false;
-  $("k-hud2").hidden = true;
+  $("k-mult-col").hidden = true;
   $("k-best-wrap").hidden = true;
   $("k-best-wrap").classList.remove("burst");
   $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
@@ -1794,7 +1809,6 @@ function startRescueLevel(level: RescueLevel): void {
         window.setTimeout(() => multEl.classList.remove("flame"), 2400);
       }
       lastMultTier = tier;
-      $("k-cleared").textContent = `${nf(h.cleared)}/${nf(level.config.targetRows)}`;
       const goalLeft = Math.max(0, level.config.targetRows - h.cleared);
       if (goalLeft !== lastGoalLeft) {
         const numEl = $("rs-goal-num");
