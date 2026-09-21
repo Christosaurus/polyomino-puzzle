@@ -187,6 +187,8 @@ export class CascadeState {
   private pausedTotal = 0;
   private nextChallengeAt = CHALLENGE_FIRST_AT;
   private challengeWon = false;
+  /** True once, wenn die gerade gewonnene Aufgabe ein Herz gebracht hat (statt Punkte). */
+  private challengeWonHeart = false;
 
   constructor(seed: string, level: LevelConfig | null = null) {
     this.rng = rngFromSeed(seed);
@@ -445,6 +447,13 @@ export class CascadeState {
     this.challengeWon = false;
     return v;
   }
+  /** True once, direkt nach einem Aufgaben-Sieg, der ein Herz gebracht hat —
+   *  eigenes Flag, damit die View nur dann die große Herz-Feier zeigt. */
+  consumeChallengeHeart(): boolean {
+    const v = this.challengeWonHeart;
+    this.challengeWonHeart = false;
+    return v;
+  }
 
   cells(shard: Shard): ReadonlyArray<readonly [number, number]> {
     const o = shardDef(shard.name).orientations;
@@ -653,12 +662,16 @@ export class CascadeState {
     this.completeChallenge();
   }
 
-  /** Belohnung für eine gelöste Aufgabe: ein Leben zurück (oder Punkte, wenn
-   *  schon voll) und immer Extrazeit — so werden Runden länger, aber nur
-   *  wenn man die Aufgaben tatsächlich löst. */
+  /** Belohnung für eine gelöste Aufgabe: ein Leben zurück (nur wenn eins
+   *  fehlt — sonst Punkte) und immer Extrazeit — so werden Runden länger,
+   *  aber nur wenn man die Aufgaben tatsächlich löst. */
   private completeChallenge(): void {
-    if (this.lives < CASCADE_LIVES) this.lives += 1;
-    else this.score += 250 * this.multiplier;
+    if (this.lives < CASCADE_LIVES) {
+      this.lives += 1;
+      this.challengeWonHeart = true;
+    } else {
+      this.score += 250 * this.multiplier;
+    }
     this.extraMs += CHALLENGE_TIME_BONUS_MS;
     this.challengeWon = true;
     this.challenge = null;

@@ -21,6 +21,8 @@ const COMBO_LIFE_S = 1.9;
 /** Zeit, die der diagonale Schein bei einem perfekten Brett braucht, um von
  *  links oben nach rechts unten zu laufen. */
 const PERFECT_SHINE_S = 0.9;
+/** Wie lange das große Herz bei einem erspielten Leben zu sehen ist. */
+const HEART_BURST_S = 1.15;
 
 interface Layout {
   cssW: number;
@@ -137,6 +139,9 @@ export class CascadeView {
   /** Perfektes Brett: läuft einmal 0→1, steuert den diagonalen Schein von
    *  links oben nach rechts unten (-1 = inaktiv). */
   private perfectShineT = -1;
+  /** Erspieltes Herz durch eine Aufgabe: großes, halbtransparentes Herz
+   *  wächst einmal auf und verschwindet wieder (-1 = inaktiv). */
+  private heartBurstT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
   private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
@@ -239,6 +244,10 @@ export class CascadeView {
       // Zelle (rechts unten) auch noch sauber ausfadet, statt abzuschneiden
       if (this.perfectShineT > PERFECT_SHINE_S * 1.3) this.perfectShineT = -1;
     }
+    if (this.heartBurstT >= 0) {
+      this.heartBurstT += dt;
+      if (this.heartBurstT > HEART_BURST_S) this.heartBurstT = -1;
+    }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
     this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
     for (const s of this.sparks) {
@@ -340,7 +349,9 @@ export class CascadeView {
     // Rand, der wächst und dabei wegfadet — das klassische Reward-Popup, wie
     // in den meisten Match-Spielen.
     if (this.game.consumeChallengeWin()) {
-      sfx.win();
+      // ein Herz erspielt? Eigene, größere Feier obendrauf — sonst die normale.
+      const wonHeart = this.game.consumeChallengeHeart();
+      sfx.win(wonHeart ? 2 : 1);
       if (!this.comboPop) {
         this.comboPop = {
           text: "Task Done! +15s",
@@ -350,6 +361,10 @@ export class CascadeView {
           noOutline: true,
           growOnFade: true,
         };
+      }
+      if (wonHeart && this.layout) {
+        this.heartBurstT = 0;
+        this.spawnHeartBurst(this.layout);
       }
     }
     if (this.game.isOver && !this.ended) {
@@ -489,6 +504,30 @@ export class CascadeView {
         max: 0.5 + Math.random() * 0.5,
         color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : cssVar("--go"),
         size: 3 + Math.random() * 5,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 14,
+      });
+    }
+  }
+
+  /** Kleiner Funkenkranz aus der Brettmitte — für das erspielte Herz. */
+  private spawnHeartBurst(L: Layout): void {
+    const cx = L.boardX + (this.game.cols * L.cell) / 2;
+    const cy = L.boardY + (this.game.rows * L.cell) / 2;
+    const pink = cssVar("--pink");
+    const n = 20;
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const sp = 80 + Math.random() * 160;
+      this.sparks.push({
+        x: cx,
+        y: cy,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 40,
+        t: 0,
+        max: 0.5 + Math.random() * 0.45,
+        color: i % 2 === 0 ? "#ffffff" : pink,
+        size: 3 + Math.random() * 4,
         rot: Math.random() * Math.PI,
         spin: (Math.random() - 0.5) * 14,
       });
@@ -657,6 +696,19 @@ export class CascadeView {
     }
     ctx.closePath();
     ctx.fill();
+  }
+
+  /** Herz-Umriss, `size` = Breite über die beiden Lappen. Füllt/stroket nicht
+   *  selbst — Aufrufer entscheidet (Glow-Schicht vs. Hauptform). */
+  private heartPath(cx: number, cy: number, size: number): void {
+    const ctx = this.ctx;
+    const s = size / 2;
+    const top = cy - s * 0.35;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + s * 0.85);
+    ctx.bezierCurveTo(cx - s * 1.3, top + s * 0.1, cx - s * 0.55, top - s * 0.85, cx, top - s * 0.15);
+    ctx.bezierCurveTo(cx + s * 0.55, top - s * 0.85, cx + s * 1.3, top + s * 0.1, cx, cy + s * 0.85);
+    ctx.closePath();
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -855,6 +907,42 @@ export class CascadeView {
           ctx.fill();
         }
       }
+      ctx.restore();
+    }
+
+    // Herz erspielt: groß, halbtransparent, wächst einmal auf und verschwindet
+    // wieder — mittig übers Brett gelegt, aber weich genug (Alpha, kein Klick-
+    // Fang), dass es beim Weiterspielen nicht im Weg steht.
+    if (this.heartBurstT >= 0) {
+      const p = this.heartBurstT / HEART_BURST_S;
+      const growP = Math.min(1, p / 0.7);
+      const eased = 1 - (1 - growP) ** 3;
+      const scale = 0.5 + 0.85 * eased;
+      const alpha = p < 0.1 ? (p / 0.1) * 0.8 : p > 0.65 ? Math.max(0, 0.8 * (1 - (p - 0.65) / 0.35)) : 0.8;
+      const cx = L.boardX + (this.game.cols * L.cell) / 2;
+      const cy = L.boardY + (this.game.rows * L.cell) / 2;
+      const size = Math.min(this.game.cols * L.cell, this.game.rows * L.cell) * 0.85 * scale;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      this.heartPath(cx, cy, size * 1.25);
+      ctx.fillStyle = "rgba(255, 90, 130, 0.35)";
+      ctx.fill();
+      ctx.restore();
+      this.heartPath(cx, cy, size);
+      const hg = ctx.createRadialGradient(cx - size * 0.15, cy - size * 0.2, size * 0.05, cx, cy, size * 0.75);
+      hg.addColorStop(0, "#ffb3c6");
+      hg.addColorStop(0.55, "#ff5f85");
+      hg.addColorStop(1, "#e8305c");
+      ctx.fillStyle = hg;
+      ctx.fill();
+      // kleiner Glanzpunkt oben links — macht's "juicy" statt flach
+      ctx.globalAlpha = Math.max(0, alpha) * 0.7;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(cx - size * 0.22, cy - size * 0.28, size * 0.09, size * 0.15, -0.5, 0, 6.28);
+      ctx.fill();
       ctx.restore();
     }
 
