@@ -98,6 +98,14 @@ export class CascadeView {
    *  `visualViewport` kurz eine andere Höhe meldet. Das Brett darf sich
    *  während eines Laufs nie mehr sichtbar verschieben oder umgrößern. */
   private layoutLocked = false;
+  /** Letzte plausible Messung — erst wenn zwei Frames in Folge dieselbe Breite/
+   *  Position liefern, gilt das Layout als wirklich gesetzt und wird gesperrt.
+   *  Auf manchen Geräten (beobachtet auf echtem iOS, nicht im Desktop-Test)
+   *  liefert der erste "plausible" Messwert noch nicht die endgültige Breite —
+   *  ohne diese zweite Prüfung fror `layoutLocked` dann dauerhaft ein zu
+   *  schmales Brett ein, mit sichtbarer Lücke zum Gürtel. */
+  private lastMeasuredW: number | null = null;
+  private lastMeasuredTop: number | null = null;
   private drag: Drag | null = null;
   private running = false;
   private raf = 0;
@@ -418,8 +426,20 @@ export class CascadeView {
     // genau so einen Ausreißer für immer eingefroren — genau der Bug, den
     // Christian als "nur das halbe Feld sichtbar" gemeldet hat.
     const measured = rawTop > 40 && wrapW >= 150;
-    if (!measured) this.layoutDirty = true; // noch nicht verlässlich vermessen → nächsten Frame erneut
-    else this.layoutLocked = true; // Breite UND Position stehen plausibel fest
+    if (!measured) {
+      this.layoutDirty = true; // noch nicht verlässlich vermessen → nächsten Frame erneut
+    } else if (
+      this.lastMeasuredW !== null &&
+      Math.abs(this.lastMeasuredW - wrapW) < 1 &&
+      this.lastMeasuredTop !== null &&
+      Math.abs(this.lastMeasuredTop - rawTop) < 1
+    ) {
+      this.layoutLocked = true; // zwei Frames in Folge identisch — jetzt wirklich fest
+    } else {
+      this.layoutDirty = true; // plausibel, aber evtl. noch ein Zwischenstand — einen Frame gegenprüfen
+    }
+    this.lastMeasuredW = wrapW;
+    this.lastMeasuredTop = rawTop;
 
     // narrower and with a smaller hold slot than before — a leaner, more
     // elongated conveyor with a longer visible travel path
