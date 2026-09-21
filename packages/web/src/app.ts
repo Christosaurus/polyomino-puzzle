@@ -1549,7 +1549,10 @@ function startCascade(): void {
   $("k-hud2").hidden = false;
   $("k-best-wrap").hidden = false;
   $("k-best-wrap").classList.remove("burst");
+  $("k-best-label").textContent = "👑 Highscore";
   $("k-score-label").textContent = "Score";
+  $<HTMLElement>("k-crown-badge").hidden = true;
+  $("k-crown-badge").classList.remove("pop");
   $("k-overlay").classList.remove("show");
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
@@ -1557,6 +1560,13 @@ function startCascade(): void {
   // Runden-Token für die Bestenliste holen (fire-and-forget, hat 3:00 Zeit)
   cascadeToken = null;
   void startCascadeRun().then((t) => (cascadeToken = t));
+  // Platz 1 der Wochenbestenliste — Ziel, auf das der Highscore-Slot umspringt,
+  // sobald man den eigenen Highscore geknackt hat. `null` = noch nicht da
+  // (Netz) oder Liste leer; dann bleibt der Slot nach dem Burst einfach weg.
+  let lbTop1: number | null = null;
+  void topCascade({ scope: "global", limit: 1 }).then((rows) => {
+    lbTop1 = rows[0]?.score ?? null;
+  });
   const game = new CascadeState(`kaskade-${Date.now()}`);
   cascadeGame = game;
   const bestScore = store.load().cascade.bestScore;
@@ -1584,19 +1594,37 @@ function startCascade(): void {
       const el = $("k-clock");
       el.textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
-      if (h.score > bestScore) {
-        if (!newRecord) {
-          // erstes Überholen in dieser Runde: Highscore springt kurz auf und
-          // verschwindet, Score übernimmt seinen Platz als "New Highscore"
+      // Highscore-Slot zeigt nur noch die Differenz, nicht die absolute Zahl —
+      // "wie viel fehlt noch". Ohne eigenen Highscore (ganz erster Lauf) zählt
+      // schon der erste Punkt als neuer Rekord, sonst erst das Erreichen/
+      // Überholen des alten Bestwerts.
+      const hasBest = bestScore > 0;
+      if (!newRecord) {
+        $("k-best").textContent = hasBest ? `−${nf(Math.max(0, bestScore - h.score))}` : "−";
+        const beat = hasBest ? h.score >= bestScore : h.score > 0;
+        if (beat) {
+          newRecord = true;
+          $("k-score-txt").classList.add("new-record");
+          // Highscore-Anzeige springt kurz auf und verschwindet — danach
+          // bleibt die Krone in Score-Größe neben dem Score stehen, und der
+          // Slot zielt fortan auf Platz 1 der Bestenliste statt auf den
+          // eigenen alten Highscore.
           const bestWrap = $("k-best-wrap");
           bestWrap.classList.add("burst");
           window.setTimeout(() => {
-            bestWrap.hidden = true;
-            $("k-score-label").textContent = "New Highscore";
+            bestWrap.classList.remove("burst");
+            const crown = $<HTMLElement>("k-crown-badge");
+            crown.hidden = false;
+            crown.classList.remove("pop");
+            void crown.offsetWidth;
+            crown.classList.add("pop");
+            $("k-best-label").textContent = "🏆 To #1";
+            bestWrap.hidden = lbTop1 === null;
           }, 550);
         }
-        newRecord = true;
-        $("k-score-txt").classList.add("new-record");
+      } else if (lbTop1 !== null) {
+        const toFirst = Math.max(0, lbTop1 - h.score);
+        $("k-best").textContent = toFirst > 0 ? `−${nf(toFirst)}` : "🏆";
       }
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
