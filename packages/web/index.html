@@ -2486,6 +2486,31 @@
         color: #fff;
         text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
       }
+      /* Musik-Zeile: Mute-Knopf links, Regler rechts, statt Aus/An-Schalter */
+      .vol-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        justify-content: flex-end;
+      }
+      .mute-btn {
+        flex: none;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        font-size: 15px;
+        border-radius: 10px;
+        background: var(--panel-inset);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+      }
+      .vol-slider {
+        flex: 1;
+        max-width: 130px;
+        accent-color: var(--gold);
+      }
 
       /* ── Achievements / shop ───────────────────────── */
       .statgrid {
@@ -2956,6 +2981,7 @@
         <div class="ocard">
           <h3>Pause</h3>
           <button class="close" id="kp-x">✕</button>
+          <div class="toggles" id="k-settings-toggles"></div>
           <div class="btns" style="flex-direction:column">
             <button class="go big" id="kp-resume">Resume</button>
             <button id="kp-restart">Restart</button>

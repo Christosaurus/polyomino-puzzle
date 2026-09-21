@@ -27,7 +27,7 @@ import type { JokerKind } from "./progress.js";
 import { buildRegions, type Manifest, type Region } from "./regions.js";
 import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
-import { duckMusic, playMusic, setMusicEnabled } from "./music.js";
+import { duckMusic, playMusic, setMusicEnabled, setMusicVolume } from "./music.js";
 import { miraLine, type StoryPlace } from "./story.js";
 import { mountTalkarteFx } from "./talkarte.js";
 import { pickChatter } from "./chatter.js";
@@ -176,12 +176,15 @@ interface Settings {
   sound: boolean;
   music: boolean;
   haptics: boolean;
+  /** 0..1 — Regler in den Einstellungen, unabhängig vom Music-An/Aus-Schalter. */
+  musicVolume: number;
 }
+const DEFAULT_SETTINGS: Settings = { sound: true, music: true, haptics: true, musicVolume: 0.5 };
 function loadSettings(): Settings {
   try {
-    return { sound: true, music: true, haptics: true, ...JSON.parse(localStorage.getItem("lumen.settings") ?? "{}") };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("lumen.settings") ?? "{}") };
   } catch {
-    return { sound: true, music: true, haptics: true };
+    return { ...DEFAULT_SETTINGS };
   }
 }
 function saveSettings(s: Settings): void {
@@ -193,17 +196,62 @@ function saveSettings(s: Settings): void {
   sfx.setMuted(!s.sound);
   sfx.setHaptics(s.haptics);
   setMusicEnabled(s.music);
+  setMusicVolume(s.musicVolume);
 }
 let settings = loadSettings();
 saveSettings(settings);
 
+/** Musik-Zeile: Mute-Knopf links, Lautstärke-Regler rechts — ersetzt den
+ *  sonst üblichen Aus/An-Schalter, weil Musik eine Lautstärke braucht,
+ *  nicht nur ein Ja/Nein. */
+function buildMusicRow(): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "toggle-row music-row";
+  const span = document.createElement("span");
+  span.textContent = "🎵 Music";
+
+  const control = document.createElement("div");
+  control.className = "vol-control";
+
+  const muteBtn = document.createElement("button");
+  muteBtn.type = "button";
+  muteBtn.className = "mute-btn";
+  const syncMuteIcon = (): void => {
+    muteBtn.textContent = settings.music ? "🔊" : "🔇";
+    muteBtn.setAttribute("aria-label", settings.music ? "Mute music" : "Unmute music");
+  };
+  syncMuteIcon();
+  muteBtn.addEventListener("click", () => {
+    settings = { ...settings, music: !settings.music };
+    saveSettings(settings);
+    syncMuteIcon();
+    if (settings.music) sfx.toggleOn();
+  });
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "vol-slider";
+  slider.min = "0";
+  slider.max = "100";
+  slider.value = String(Math.round(settings.musicVolume * 100));
+  slider.setAttribute("aria-label", "Music volume");
+  slider.addEventListener("input", () => {
+    settings = { ...settings, musicVolume: Number(slider.value) / 100 };
+    saveSettings(settings);
+  });
+
+  control.append(muteBtn, slider);
+  row.append(span, control);
+  return row;
+}
+
 function renderSettingsToggles(host: HTMLElement): void {
   const rows: Array<[keyof Settings, string, string]> = [
     ["sound", "🔊", "Sound"],
-    ["music", "🎵", "Music"],
     ["haptics", "📳", "Haptics"],
   ];
   host.replaceChildren(
+    buildMusicRow(),
     ...rows.map(([key, icon, label]) => {
       const row = document.createElement("div");
       row.className = "toggle-row";
@@ -2159,8 +2207,12 @@ $("k-pause").addEventListener("click", () => {
   const ov = $("k-pause-overlay");
   const show = !ov.classList.contains("show");
   ov.classList.toggle("show", show);
-  if (show) cascadeGame?.pause();
-  else cascadeGame?.resume();
+  if (show) {
+    renderSettingsToggles($("k-settings-toggles"));
+    cascadeGame?.pause();
+  } else {
+    cascadeGame?.resume();
+  }
 });
 function closeKPause(): void {
   $("k-pause-overlay").classList.remove("show");

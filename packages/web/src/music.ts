@@ -22,9 +22,12 @@ import { onAudioUnlock } from "./audio-core.js";
 export type TrackId = "menu" | "play" | "cascade";
 
 const SRC = "audio/theme.mp3";
-const MASTER = 0.35; // Grundlautstärke der Musik (unter den SFX)
 const DUCK = 0.3; // Restlautstärke während einer Cutscene
 const CROSSFADE_S = 1.7; // Überlappung am Loop-Punkt
+
+// Grundlautstärke der Musik (unter den SFX) — per Regler in den Einstellungen
+// einstellbar, startet bei 50 %, nicht bei voller Stärke.
+let masterVolume = 0.5;
 
 let tracks: [HTMLAudioElement, HTMLAudioElement] | null = null;
 let activeTrack = 0; // Index in `tracks` — welche Kopie gerade "vorne" ist
@@ -57,7 +60,7 @@ function active(): HTMLAudioElement | null {
 }
 
 function targetVolume(): number {
-  return ducked ? MASTER * DUCK : MASTER;
+  return ducked ? masterVolume * DUCK : masterVolume;
 }
 
 /** Kurz vorm Ende der aktiven Kopie die andere leise anwerfen und überblenden. */
@@ -145,6 +148,13 @@ export function duckMusic(on: boolean): void {
   ducked = on;
   const a = active();
   if (a && !a.paused) fadeTo(targetVolume(), 500);
+}
+
+/** Lautstärke-Regler aus den Einstellungen (0..1) — läuft weich nach, wie jeder
+ *  andere Lautstärkewechsel hier. */
+export function setMusicVolume(value: number): void {
+  masterVolume = Math.max(0, Math.min(1, value));
+  if (enabled && active() && !active()!.paused) fadeTo(targetVolume(), 300);
 }
 
 /** „Musik"-Schalter aus den Einstellungen — sanft, nie hart geschnitten. */
