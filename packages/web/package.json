@@ -8,9 +8,14 @@
     "build": "npm run build -w @polyomino/puzzle-core && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:android": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@polyomino/puzzle-core": "*"
   },
   "devDependencies": {
