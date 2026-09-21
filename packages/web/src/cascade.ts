@@ -544,14 +544,14 @@ export class CascadeState {
     if (this.challenge?.kind === "combo" && this.chain >= this.challenge.target) {
       this.creditChallenge(this.challenge.target);
     }
-    if (this.coveredCells() === 0 && (rows > 0 || this.board.every((v) => v === 0))) {
-      // perfect clear (only counts if we actually cleared something)
-      if (rows > 0) {
-        this.perfectClears += 1;
-        this.score += 200 * this.multiplier;
-        this.extraMs += 5000;
-        this.perfectFlag = true;
-      }
+    // Perfekt zählt bei JEDER Kombination aus Reihen/Spalten, die das Brett
+    // leer macht — vorher zählten nur Reihen, ein reiner Spalten-Clear ins
+    // leere Brett (im Free Play ganz normal möglich) wurde übersehen.
+    if (this.coveredCells() === 0 && lines > 0) {
+      this.perfectClears += 1;
+      this.score += 200 * this.multiplier;
+      this.extraMs += 5000;
+      this.perfectFlag = true;
     }
     return rows;
   }
