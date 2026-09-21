@@ -1220,6 +1220,23 @@
         min-height: 54px;
         margin: 4px 0;
       }
+      /* Feste Reserve für einen Banner-Ad — noch kein echtes Ad-SDK
+         angebunden, nur der Platz dafür. AD_SLOT_H in cascade-view.ts muss
+         zu dieser Höhe passen, sonst rechnet sich das Brett zu groß. */
+      .ad-slot {
+        flex: none;
+        height: 56px;
+        margin-top: 8px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        border: 1px dashed var(--hairline);
+        color: var(--ink-dim);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
       .challenge {
         position: relative;
         display: flex;
@@ -2917,6 +2934,7 @@
         <div class="board-wrap" id="k-wrap">
           <canvas id="k-canvas"></canvas>
         </div>
+        <div class="ad-slot" id="k-ad-slot"><span>Ad space</span></div>
       </section>
 
       <!-- overlays (global) -->

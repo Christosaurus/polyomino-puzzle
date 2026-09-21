@@ -421,7 +421,11 @@ export class CascadeView {
     // elongated conveyor with a longer visible travel path
     const beltW = Math.round(Math.max(62, Math.min(90, cssW * 0.21)));
     const boardAreaW = cssW - beltW - pad * 3;
-    const maxH = Math.max(280, viewportH - canvasTop - 24);
+    // Platz für den Ad-Banner unter dem Brett reservieren (siehe .ad-slot in
+    // index.html: 56px Höhe + 8px margin-top) — sonst rechnet sich das Feld
+    // zu groß und schiebt den Banner aus dem sichtbaren Bereich.
+    const AD_SLOT_H = 64;
+    const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H);
 
     const cell = Math.max(
       22,
