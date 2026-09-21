@@ -11,6 +11,9 @@ import { shardByColorIndex, shardDef } from "./shards.js";
 
 const TAP_MOVE_PX = 10;
 const TAP_TIME_MS = 300;
+/** Eine gezogene Figur schwebt so viele Zellhöhen über dem echten Touchpoint —
+ *  sonst sitzt der Daumen genau auf der Figur und man erkennt sie nicht. */
+const DRAG_LIFT_CELLS = 1.2;
 /** "+N"-Pops und die große Kette/Tier-Einblendung bleiben spürbar länger stehen,
  *  bevor sie wegfallen/-faden — sonst wirkt der Erfolg zu flüchtig. */
 const POP_LIFE_S = 1.8;
@@ -415,8 +418,9 @@ export class CascadeView {
     const boardY = pad;
 
     const beltX = cssW - beltW - pad;
-    const beltTop = pad;
     const holdSize = Math.round(beltW * 0.8);
+    // Hold sitzt oben, der Gürtel darunter — vertauscht gegenüber früher.
+    const holdY = pad;
     // Der Gürtel darf sichtbar länger sein als das Brett hoch ist, wenn genug
     // vertikaler Raum da ist — ein längerer Weg von oben nach unten, wie
     // gewünscht. Nach unten durch `maxH` begrenzt (nie über den sichtbaren
@@ -426,7 +430,7 @@ export class CascadeView {
     const desiredBeltH = boardH * 1.55 - holdSize - 10;
     const maxBeltH = maxH - holdSize - 10;
     const beltH = Math.max(minBeltH, Math.min(desiredBeltH, maxBeltH));
-    const holdY = beltTop + beltH + 10;
+    const beltTop = holdY + holdSize + 10;
 
     const cssH = Math.max(boardH, beltH + holdSize + 10) + pad * 2;
     const bandH = beltH / 3.15;
@@ -1060,8 +1064,9 @@ export class CascadeView {
       });
       ctx.restore();
     } else {
-      // big, follows the finger
-      this.drawShard(d.shard, d.px, d.py - L.cell * 0.3, L.cell * 1.05, true);
+      // big, follows the finger — deutlich über dem Touchpoint, sonst sitzt
+      // der Daumen genau auf der Figur und man erkennt sie gar nicht
+      this.drawShard(d.shard, d.px, d.py - L.cell * DRAG_LIFT_CELLS, L.cell * 1.05, true);
     }
   }
 
@@ -1085,7 +1090,10 @@ export class CascadeView {
     };
   }
   private snappedFor(d: Drag, L: Layout): Pos {
-    const t = this.boardCell(d.px, d.py, L);
+    // dieselbe Anhebung wie beim frei schwebenden Teil (DRAG_LIFT_CELLS) —
+    // die Figur "landet" dort, wo sie sichtbar über dem Daumen schwebt, nicht
+    // exakt unter der echten Fingerposition
+    const t = this.boardCell(d.px, d.py - L.cell * DRAG_LIFT_CELLS, L);
     return { row: t.row - d.grabR, col: t.col - d.grabC };
   }
 
