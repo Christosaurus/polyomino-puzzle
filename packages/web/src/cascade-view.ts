@@ -15,6 +15,9 @@ const TAP_TIME_MS = 300;
  *  bevor sie wegfallen/-faden — sonst wirkt der Erfolg zu flüchtig. */
 const POP_LIFE_S = 1.8;
 const COMBO_LIFE_S = 1.9;
+/** Zeit, die der diagonale Schein bei einem perfekten Brett braucht, um von
+ *  links oben nach rechts unten zu laufen. */
+const PERFECT_SHINE_S = 0.9;
 
 interface Layout {
   cssW: number;
@@ -128,6 +131,9 @@ export class CascadeView {
   } | null = null;
   /** Kurzer goldener Blitz übers ganze Brett bei einer neuen Multiplikator-Stufe. */
   private tierFlashT = -1;
+  /** Perfektes Brett: läuft einmal 0→1, steuert den diagonalen Schein von
+   *  links oben nach rechts unten (-1 = inaktiv). */
+  private perfectShineT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
   private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
@@ -224,6 +230,12 @@ export class CascadeView {
       this.tierFlashT += dt;
       if (this.tierFlashT > 0.5) this.tierFlashT = -1;
     }
+    if (this.perfectShineT >= 0) {
+      this.perfectShineT += dt;
+      // etwas länger laufen lassen als die reine Lauf-Dauer, damit die letzte
+      // Zelle (rechts unten) auch noch sauber ausfadet, statt abzuschneiden
+      if (this.perfectShineT > PERFECT_SHINE_S * 1.3) this.perfectShineT = -1;
+    }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
     this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
     for (const s of this.sparks) {
@@ -319,6 +331,7 @@ export class CascadeView {
       sfx.milestone();
       this.shake(9);
       this.spawnBigBurst(L);
+      this.perfectShineT = 0;
     }
     // Mini-Aufgabe gelöst: kein Kasten, nur ein großer, reinweißer Text ohne
     // Rand, der wächst und dabei wegfadet — das klassische Reward-Popup, wie
@@ -814,6 +827,30 @@ export class CascadeView {
       ctx.fillStyle = cssVar("--gold");
       roundRect(ctx, L.boardX - 3, L.boardY - 3, this.game.cols * L.cell + 6, this.game.rows * L.cell + 6, 12);
       ctx.fill();
+      ctx.restore();
+    }
+
+    // Perfektes Brett: ein weißer Schein läuft einmal diagonal von links oben
+    // nach rechts unten übers (jetzt leere) Feld — jede Zelle blitzt kurz auf,
+    // sobald die Welle sie erreicht.
+    if (this.perfectShineT >= 0) {
+      const p = this.perfectShineT / PERFECT_SHINE_S;
+      const band = 0.22;
+      const rows = this.game.rows;
+      const cols = this.game.cols;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dCell = (rows <= 1 ? 0 : r / (rows - 1)) * 0.5 + (cols <= 1 ? 0 : c / (cols - 1)) * 0.5;
+          const dist = Math.abs(dCell - p);
+          if (dist > band) continue;
+          ctx.globalAlpha = (1 - dist / band) * 0.9;
+          ctx.fillStyle = "#ffffff";
+          roundRect(ctx, L.boardX + c * L.cell + 2, L.boardY + r * L.cell + 2, L.cell - 4, L.cell - 4, 6);
+          ctx.fill();
+        }
+      }
       ctx.restore();
     }
 
