@@ -1280,14 +1280,17 @@
         text-transform: uppercase;
       }
       /* Challenge-Karte liegt wieder im lila Panel, oben links — rechts davon
-         auf gleicher Höhe Hold (Canvas). Größe folgt den CSS-Variablen, die
-         `computeLayout()` in cascade-view.ts bei jedem Layout-Pass auf
-         `#k-wrap` setzt, damit DOM- und Canvas-Geometrie exakt zusammenpassen. */
+         auf gleicher Höhe Hold (Canvas). Position/Größe folgen den
+         CSS-Variablen, die `computeLayout()` in cascade-view.ts bei jedem
+         Layout-Pass auf `#k-wrap` setzt -- top/left MÜSSEN exakt `--k-pad`
+         sein (derselbe `pad`-Wert, mit dem Hold auf dem Canvas gezeichnet
+         wird), sonst hängt die Karte sichtbar tiefer/weiter als Hold, obwohl
+         beide "gleich hoch" aussehen sollen. */
       .challenge {
         position: absolute;
-        top: 18px;
-        left: 18px;
-        right: calc(var(--belt-w, 80px) + 18px);
+        top: var(--k-pad, 8px);
+        left: var(--k-pad, 8px);
+        right: calc(var(--belt-w, 80px) + var(--k-pad, 8px));
         height: var(--top-row-h, 64px);
         z-index: 2;
         display: flex;

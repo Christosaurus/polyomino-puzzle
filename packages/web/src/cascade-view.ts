@@ -491,6 +491,7 @@ export class CascadeView {
     // dass die Canvas-Zahlen doppelt in CSS gepflegt werden müssten.
     this.wrap.style.setProperty("--belt-w", `${beltW}px`);
     this.wrap.style.setProperty("--top-row-h", `${topRowH}px`);
+    this.wrap.style.setProperty("--k-pad", `${pad}px`);
 
     return {
       cssW,
@@ -1228,7 +1229,29 @@ export class CascadeView {
     // die Figur "landet" dort, wo sie sichtbar über dem Daumen schwebt, nicht
     // exakt unter der echten Fingerposition
     const t = this.boardCell(d.px, d.py - L.cell * DRAG_LIFT_CELLS, L);
-    return { row: t.row - d.grabR, col: t.col - d.grabC };
+    const raw: Pos = { row: t.row - d.grabR, col: t.col - d.grabC };
+    if (this.game.canPlace(d.shard, raw)) return raw;
+    // Die exakt getroffene Zelle passt nicht (Rand, schon belegt, knapp
+    // daneben getippt) — vor dem "ungültig"-Feedback erst die unmittelbaren
+    // Nachbarzellen probieren und sanft dorthin einrasten ("Magnet"). Das
+    // verzeiht kleine Wackler beim Loslassen, die sonst als Fehlwurf zählen
+    // würden. Orthogonale Nachbarn zuerst, dann diagonale; nichts gefunden →
+    // beim rohen Treffer bleiben (dann greift wie gehabt die Ungültig-Anzeige).
+    const neighbors: Array<[number, number]> = [
+      [0, -1],
+      [0, 1],
+      [-1, 0],
+      [1, 0],
+      [-1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
+    ];
+    for (const [dr, dc] of neighbors) {
+      const cand: Pos = { row: raw.row + dr, col: raw.col + dc };
+      if (this.game.canPlace(d.shard, cand)) return cand;
+    }
+    return raw;
   }
 
   private centroid(shard: Shard): { r: number; c: number } {

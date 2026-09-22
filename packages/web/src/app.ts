@@ -8,7 +8,7 @@
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
 import { BEATS, type Beat, beatAfter, INTRO, SPEAKERS } from "./beats.js";
-import { type ChallengeKind, CHALLENGE_WINDOW_MS, CascadeState } from "./cascade.js";
+import { type ChallengeKind, CHALLENGE_PREVIEW_MS, CHALLENGE_WINDOW_MS, CascadeState } from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
@@ -1665,7 +1665,13 @@ function startCascade(): void {
           $("k-challenge-clock").textContent = String(Math.ceil(previewMs / 1000));
         } else {
           $("k-challenge-clock").textContent = fmt(remain);
-          const pct = Math.max(0, Math.min(100, (remain / CHALLENGE_WINDOW_MS) * 100));
+          // Die Vorschau-Phase zehrt vom selben Fenster (siehe CHALLENGE_PREVIEW_MS
+          // in cascade.ts) — der Balken wird aber erst NACH der Vorschau
+          // überhaupt sichtbar. Ohne diesen Abzug würde er gleich beim ersten
+          // Anzeigen schon bei ~73% starten statt bei 100%, also "in der Mitte"
+          // statt ganz links.
+          const visibleWindowMs = CHALLENGE_WINDOW_MS - CHALLENGE_PREVIEW_MS;
+          const pct = Math.max(0, Math.min(100, (remain / visibleWindowMs) * 100));
           bar.style.width = `${pct}%`;
           bar.classList.toggle("low", remain < 5000);
         }
