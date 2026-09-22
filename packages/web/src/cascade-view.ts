@@ -13,7 +13,12 @@ const TAP_MOVE_PX = 10;
 const TAP_TIME_MS = 300;
 /** Eine gezogene Figur schwebt so viele Zellhöhen über dem echten Touchpoint —
  *  sonst sitzt der Daumen genau auf der Figur und man erkennt sie nicht. */
-const DRAG_LIFT_CELLS = 1.2;
+// Wie weit die gezogene Figur über dem tatsächlichen Berührungspunkt
+// schwebt — gilt für die frei schwebende Vorschau UND (über `snappedFor`)
+// für das an den Rastern einschnappende Ziel selbst, damit der Daumen nicht
+// genau die Zielzellen verdeckt und man den Rest des Spielfelds im Blick
+// behält.
+const DRAG_LIFT_CELLS = 1.6;
 /** "+N"-Pops und die große Kette/Tier-Einblendung bleiben spürbar länger stehen,
  *  bevor sie wegfallen/-faden — sonst wirkt der Erfolg zu flüchtig. */
 const POP_LIFE_S = 1.8;
@@ -375,6 +380,26 @@ export class CascadeView {
         };
       }
       if (wonHeart && this.layout) {
+        this.heartBurstT = 0;
+        this.spawnHeartBurst(this.layout);
+      }
+    }
+    // Kombi-Angebot angenommen und erfüllt — dieselbe Art Feier, aber mit der
+    // Belohnung, die schon bei der Anfrage stand (nicht immer +15s).
+    const comboWin = this.game.consumeComboWin();
+    if (comboWin) {
+      sfx.win(comboWin.heart ? 2 : 1);
+      if (!this.comboPop) {
+        this.comboPop = {
+          text: `Combo Done! ${comboWin.rewardLabel}`,
+          t: 0,
+          color: "#ffffff",
+          fontScale: 0.55,
+          noOutline: true,
+          growOnFade: true,
+        };
+      }
+      if (comboWin.heart && this.layout) {
         this.heartBurstT = 0;
         this.spawnHeartBurst(this.layout);
       }

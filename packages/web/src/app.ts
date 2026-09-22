@@ -34,6 +34,8 @@ import { mountTalkarteFx } from "./talkarte.js";
 import { pickChatter } from "./chatter.js";
 import { windowName } from "./windows.js";
 import { GameView } from "./view.js";
+import { shardDef } from "./shards.js";
+import { drawPieceBody } from "./render.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const fmt = (ms: number): string => {
@@ -66,6 +68,44 @@ const CHALLENGE_ICON: Record<ChallengeKind, string> = {
   mono: "🎨",
   combo: "🔥",
 };
+
+/** Zeichnet die Zielfigur eines Kombi-Angebots klein auf eine eigene Canvas —
+ *  Spieler müssen die Form erkennen, um zu entscheiden, ob sie annehmen. */
+function drawPieceIcon(canvas: HTMLCanvasElement, name: string): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const def = shardDef(name);
+  const cells = def.orientations[0]!;
+  let maxR = 0;
+  let maxC = 0;
+  let minR = 9;
+  let minC = 9;
+  for (const [r, c] of cells) {
+    maxR = Math.max(maxR, r);
+    maxC = Math.max(maxC, c);
+    minR = Math.min(minR, r);
+    minC = Math.min(minC, c);
+  }
+  const w = maxC - minC + 1;
+  const h = maxR - minR + 1;
+  const size = canvas.clientWidth || canvas.width;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(size * dpr);
+  canvas.height = Math.round(size * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+  const cell = Math.floor((size - 6) / Math.max(w, h));
+  const ox = (size - w * cell) / 2;
+  const oy = (size - h * cell) / 2;
+  drawPieceBody(
+    ctx,
+    cells.map(([r, c]) => [r - minR, c - minC] as [number, number]),
+    ox,
+    oy,
+    cell,
+    def.color,
+  );
+}
 
 type Tab = "home" | "daily" | "descent" | "collection";
 const SCREENS = [
@@ -1593,7 +1633,18 @@ function startCascade(): void {
   const bestScore = store.load().cascade.bestScore;
   let newRecord = false;
   let lastMultTier = 1;
+  // Nur neu zeichnen, wenn sich die Zielfigur ändert — nicht jeden Frame.
+  let lastComboOfferIcon: string | null = null;
+  let lastComboCardIcon: string | null = null;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
+  $<HTMLButtonElement>("k-combo-accept").onclick = () => {
+    game.acceptCombo();
+    sfx.toggleOn();
+  };
+  $<HTMLButtonElement>("k-combo-decline").onclick = () => {
+    game.declineCombo();
+    sfx.tap();
+  };
   cascadeView = new CascadeView($<HTMLCanvasElement>("k-canvas"), $("k-wrap"), game, {
     onHud: (h) => {
       $("k-score-txt").textContent = nf(h.score);
@@ -1653,9 +1704,14 @@ function startCascade(): void {
       // Aufgabe an und verschwindet sofort wieder, sobald keine mehr aktiv ist.
       const cEl = $("k-challenge");
       const bar = $("k-challenge-bar");
+      const cicEmoji = $("k-challenge-icon");
+      const cicPiece = $<HTMLCanvasElement>("k-challenge-piece");
       if (game.challenge) {
         cEl.hidden = false;
-        $("k-challenge-icon").textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
+        cicEmoji.hidden = false;
+        cicPiece.hidden = true;
+        lastComboCardIcon = null;
+        cicEmoji.textContent = CHALLENGE_ICON[game.challenge.kind] ?? "🎯";
         $("k-challenge-txt").textContent = game.challenge.label;
         const previewMs = game.challengePreviewRemainingMs();
         cEl.classList.toggle("preview", previewMs > 0);
@@ -1675,8 +1731,44 @@ function startCascade(): void {
           bar.style.width = `${pct}%`;
           bar.classList.toggle("low", remain < 5000);
         }
+      } else if (game.comboOffer?.accepted) {
+        // Angenommenes Kombi-Angebot: dieselbe Karte wie eine Challenge, nur
+        // mit der Zielfigur statt Emoji und einem Stückzähler statt Text.
+        const offer = game.comboOffer;
+        cEl.hidden = false;
+        cEl.classList.remove("preview");
+        cicEmoji.hidden = true;
+        cicPiece.hidden = false;
+        if (lastComboCardIcon !== offer.shardName) {
+          drawPieceIcon(cicPiece, offer.shardName);
+          lastComboCardIcon = offer.shardName;
+        }
+        $("k-challenge-txt").textContent = `${offer.progress}/${offer.target} placed`;
+        const remain = game.comboRemainingMs();
+        $("k-challenge-clock").textContent = fmt(remain);
+        const pct = Math.max(0, Math.min(100, (remain / Math.max(1, offer.windowMs)) * 100));
+        bar.style.width = `${pct}%`;
+        bar.classList.toggle("low", remain < 5000);
       } else {
         cEl.hidden = true;
+        lastComboCardIcon = null;
+      }
+
+      // Kombi-Angebot, das noch unbeantwortet ist: eigene Karte mit Annehmen/
+      // Ablehnen — läuft nebenher weiter, keine Pause fürs Spiel.
+      const offerEl = $("k-combo-offer");
+      if (game.comboOffer && !game.comboOffer.accepted) {
+        const offer = game.comboOffer;
+        offerEl.hidden = false;
+        if (lastComboOfferIcon !== offer.shardName) {
+          drawPieceIcon($<HTMLCanvasElement>("k-combo-icon"), offer.shardName);
+          lastComboOfferIcon = offer.shardName;
+        }
+        $("k-combo-txt").textContent = `Place ${offer.target}× this piece`;
+        $("k-combo-reward").textContent = offer.rewardLabel;
+      } else {
+        offerEl.hidden = true;
+        lastComboOfferIcon = null;
       }
 
       // Serie: solange die Kette läuft, bleibt oben ein flackerndes Abzeichen
@@ -1771,6 +1863,9 @@ function startRescueLevel(level: RescueLevel): void {
   $("k-pause-overlay").classList.remove("show");
   $("k-score-txt").classList.remove("new-record");
   $("k-score-label").textContent = "Score";
+  // Kombi-Angebote/-Karten gibt's nur im Free Play — falls eins vom letzten
+  // Lauf noch offen/sichtbar war, hier sauber wegräumen.
+  $("k-combo-offer").hidden = true;
 
   // Szene oben statt der Multiplikator-Zeile: Bedrohung + Held + ein Brocken
   // pro Reihen-Ziel. Jede geräumte Reihe lässt unten im Turm einen Brocken

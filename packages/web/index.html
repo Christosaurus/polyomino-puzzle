@@ -1411,6 +1411,98 @@
         font-variant-numeric: tabular-nums;
         font-size: 14px;
       }
+      /* Kleine Vorschau der Zielfigur statt Emoji — sobald ein angenommenes
+         Kombi-Angebot läuft (siehe app.ts drawPieceIcon). Gleicher Platz wie
+         .cic, damit die Zeile sich nicht verschiebt. */
+      .cic-piece {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        border-radius: 5px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+      /* Kombi-Angebot: liegt an derselben Stelle wie .challenge (gleiches
+         --k-pad), aber über die volle Breite -- die Karte ersetzt Challenge
+         UND Hold kurzzeitig, solange der Spieler noch entscheidet. Das Brett
+         selbst bleibt darunter frei bedienbar, es läuft also weiter. */
+      .combo-offer {
+        position: absolute;
+        top: var(--k-pad, 8px);
+        left: var(--k-pad, 8px);
+        right: var(--k-pad, 8px);
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 14px;
+        background: linear-gradient(165deg, rgba(58, 43, 158, 0.97), rgba(28, 20, 80, 0.97));
+        border: 2px solid var(--gold);
+        box-shadow:
+          0 10px 26px -8px rgba(0, 0, 0, 0.6),
+          inset 0 2px 0 rgba(255, 255, 255, 0.15);
+        animation: chal-in 0.25s var(--tap) both;
+        box-sizing: border-box;
+      }
+      .combo-offer-icon {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--panel-inset);
+        border: 2px solid var(--hairline);
+      }
+      .combo-offer-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .combo-offer-title {
+        font-size: 13px;
+        font-weight: 900;
+        color: var(--gold);
+        text-shadow: 0 1px 0 var(--stroke);
+      }
+      .combo-offer-txt {
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1.2;
+      }
+      .combo-offer-reward {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--go);
+      }
+      .combo-offer-actions {
+        flex: none;
+        display: flex;
+        gap: 6px;
+      }
+      .combo-btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 900;
+        display: grid;
+        place-items: center;
+      }
+      .combo-btn.accept {
+        background: linear-gradient(180deg, var(--go), var(--go-lo));
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.35),
+          0 3px 0 -1px var(--go-lo);
+      }
+      .combo-btn.decline {
+        background: linear-gradient(180deg, #8b7fc4, #5e5296);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.2),
+          0 3px 0 -1px #463b78;
+      }
       /* Serie: solange sie läuft, ein flackerndes, wackelndes Abzeichen —
          "gehyped bleiben", nicht nur der kurze Einblend-Moment auf dem Brett.
          Bleibt IMMER im Layout (min-height reserviert) und wird nur über
@@ -2993,10 +3085,26 @@
             <div class="challenge" id="k-challenge" hidden>
               <div class="chal-top">
                 <span class="cic" id="k-challenge-icon">🎯</span>
+                <canvas class="cic-piece" id="k-challenge-piece" width="28" height="28" hidden></canvas>
                 <span class="ctxt" id="k-challenge-txt"></span>
                 <span class="cclock" id="k-challenge-clock"></span>
               </div>
               <div class="chal-bar"><div class="chal-fill" id="k-challenge-bar"></div></div>
+            </div>
+            <!-- Kombi-Angebot: eigene Karte, weil sie (anders als die
+                 Challenge) eine echte Entscheidung braucht — Ziel-Figur +
+                 Belohnung stehen schon hier, bevor zugesagt wird. -->
+            <div class="combo-offer" id="k-combo-offer" hidden>
+              <canvas class="combo-offer-icon" id="k-combo-icon" width="56" height="56"></canvas>
+              <div class="combo-offer-body">
+                <div class="combo-offer-title">Combo!</div>
+                <div class="combo-offer-txt" id="k-combo-txt"></div>
+                <div class="combo-offer-reward" id="k-combo-reward"></div>
+              </div>
+              <div class="combo-offer-actions">
+                <button class="combo-btn decline" id="k-combo-decline" aria-label="Decline combo">✕</button>
+                <button class="combo-btn accept" id="k-combo-accept" aria-label="Accept combo">✓</button>
+              </div>
             </div>
             <canvas id="k-canvas"></canvas>
           </div>

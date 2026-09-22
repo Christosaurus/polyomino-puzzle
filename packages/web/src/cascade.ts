@@ -9,7 +9,14 @@
  */
 
 import { type Rng, rngFromSeed } from "@polyomino/puzzle-core";
-import { pickShardName, shardByColorIndex, shardColorIndex, shardDef, shardsFittingGap } from "./shards.js";
+import {
+  pickShardName,
+  SHARD_NAMES,
+  shardByColorIndex,
+  shardColorIndex,
+  shardDef,
+  shardsFittingGap,
+} from "./shards.js";
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
@@ -100,6 +107,53 @@ const CHALLENGE_FIRST_AT = 12_000;
 /** Bonuszeit für eine gelöste Aufgabe — Runden werden länger, wenn man sie löst. */
 const CHALLENGE_TIME_BONUS_MS = 15_000;
 
+/**
+ * Kombi-Angebot: eine ANDERE Art Gelegenheit als die normale Challenge, an
+ * derselben Zeitschiene (`nextChallengeAt`) — mal kommt das eine, mal das
+ * andere. Anders als eine Challenge startet ein Kombi-Angebot nicht von
+ * selbst: der Spieler sieht Ziel-Figur + Belohnung schon VOR der Zusage und
+ * muss aktiv annehmen (oder es einfach verfallen lassen = ablehnen). Erst
+ * nach der Annahme zählt jede Platzierung dieser Figur aufs Ziel — und erst
+ * dann bevorzugt das Band diese Figur auch spürbar (siehe `pickPlaceableName`).
+ */
+export type ComboReward = "time" | "heart" | "mult";
+export interface ComboOffer {
+  /** Welche Form gebaut werden muss — derselbe `name` wie in `shards.ts`. */
+  shardName: string;
+  /** Wie viele Stück dieser Form platziert werden müssen. */
+  target: number;
+  progress: number;
+  reward: ComboReward;
+  /** Fertiger Anzeigetext für die Belohnung ("+15s", "+1 ❤", "+2.0×") —
+   *  steht schon in der Anfrage, bevor der Spieler zusagt. */
+  rewardLabel: string;
+  /** `elapsedMs()` beim Anbieten — für den Annahme-Countdown. */
+  createdAt: number;
+  accepted: boolean;
+  /** Nur gültig, sobald `accepted` — `elapsedMs()`-Wert, an dem die Zeit abläuft. */
+  deadline: number;
+  /** Nur gültig, sobald `accepted` — die volle Fensterdauer, für die Balkenanzeige. */
+  windowMs: number;
+}
+/** Anteil der Gelegenheiten, die ein Kombi-Angebot statt einer normalen
+ *  Challenge sind. */
+const COMBO_CHANCE = 0.35;
+/** Zeit zum Annehmen, bevor ein Angebot von selbst verfällt (= ablehnen). */
+const COMBO_DECISION_MS = 8_000;
+const COMBO_TIME_BONUS_MS = 15_000;
+const COMBO_MULT_BOOST = 2;
+const COMBO_TIERS: ReadonlyArray<{ target: number; reward: ComboReward; rewardLabel: string }> = [
+  { target: 3, reward: "time", rewardLabel: "+15s" },
+  { target: 4, reward: "heart", rewardLabel: "+1 ❤" },
+  { target: 5, reward: "mult", rewardLabel: `+${COMBO_MULT_BOOST.toFixed(1)}×` },
+];
+/** Größtmögliches Zeitfenster eines Kombi-Angebots (härteste Stufe) — bevor
+ *  eins angeboten wird, muss noch genug Rundenzeit übrig sein, es überhaupt
+ *  zu Ende zu spielen. */
+const COMBO_MAX_WINDOW_MS = 9_000 + 5 * 7_000;
+/** "mono" (1x1) passt überall — als Kombi-Ziel kein echter Auftrag. */
+const COMBO_SHARD_POOL = SHARD_NAMES.filter((n) => n !== "mono");
+
 export class CascadeState {
   readonly rows: number;
   readonly cols: number;
@@ -180,6 +234,9 @@ export class CascadeState {
   }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
+  /** Aktuelles Kombi-Angebot — erst nur eine Anfrage (`accepted: false`),
+   *  nach Zusage ein laufendes Ziel wie eine Challenge. */
+  comboOffer: ComboOffer | null = null;
 
   private rng: Rng;
   private nextId = 1;
@@ -195,6 +252,9 @@ export class CascadeState {
   private challengeWon = false;
   /** True once, wenn die gerade gewonnene Aufgabe ein Herz gebracht hat (statt Punkte). */
   private challengeWonHeart = false;
+  private comboWon = false;
+  private comboWonHeart = false;
+  private comboWonLabel = "";
 
   constructor(seed: string, level: LevelConfig | null = null) {
     this.rng = rngFromSeed(seed);
@@ -228,6 +288,9 @@ export class CascadeState {
     // bevor das Zeitfenster zu ist. Nicht ausschließlich, sonst wäre es
     // trivial statt einer echten Aufgabe.
     const favorStraight = this.challenge?.kind === "straight";
+    // Angenommenes Kombi-Angebot: die Zielfigur muss zuverlässig auftauchen,
+    // sonst ist die Zusage ein leeres Versprechen.
+    const favorName = this.comboOffer?.accepted ? this.comboOffer.shardName : undefined;
     // Steht ein Ultra-Clear kurz bevor (mehrere Reihen/Spalten brauchen
     // zusammen nur noch eine Handvoll Zellen), kommt mit erhöhter statt
     // garantierter Chance ein Teil, das genau in die Lücke passt — der
@@ -237,11 +300,18 @@ export class CascadeState {
     let name: string;
     if (gap && this.rng.next() < 0.65) {
       const fitting = shardsFittingGap(gap);
-      name = fitting.length
-        ? fitting[Math.floor(this.rng.next() * fitting.length)]!
-        : pickShardName(this.rng, crowdedFrac, favorStraight);
+      if (fitting.length) {
+        // passt die gesuchte Kombi-Figur zufällig auch in diese Lücke, nimm
+        // die — sonst bleibt's bei der zufälligen Passform wie bisher.
+        name =
+          favorName && fitting.includes(favorName)
+            ? favorName
+            : fitting[Math.floor(this.rng.next() * fitting.length)]!;
+      } else {
+        name = pickShardName(this.rng, crowdedFrac, favorStraight, favorName);
+      }
     } else {
-      name = pickShardName(this.rng, crowdedFrac, favorStraight);
+      name = pickShardName(this.rng, crowdedFrac, favorStraight, favorName);
     }
     const others = this.hold ? [...this.belt, this.hold] : this.belt;
     const somethingFits = this.canPlaceAnywhere(name) || others.some((s) => this.canPlaceAnywhere(s.name));
@@ -430,19 +500,65 @@ export class CascadeState {
     if (this.challenge) {
       if (this.elapsedMs() >= this.challenge.deadline) {
         this.challenge = null;
-        this.nextChallengeAt = this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
+        this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
+      }
+    } else if (this.comboOffer) {
+      if (!this.comboOffer.accepted) {
+        // Angebot nicht innerhalb der Bedenkzeit angetippt → gilt als abgelehnt
+        if (this.elapsedMs() - this.comboOffer.createdAt >= COMBO_DECISION_MS) this.declineCombo();
+      } else if (this.elapsedMs() >= this.comboOffer.deadline) {
+        this.comboOffer = null;
+        this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
       }
     } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 5000) {
-      const pick = CHALLENGE_KINDS[Math.floor(this.rng.next() * CHALLENGE_KINDS.length)]!;
-      this.challenge = {
-        kind: pick.kind,
-        target: pick.target,
-        progress: 0,
-        deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
-        createdAt: this.elapsedMs(),
-        label: pick.label,
-      };
+      const wantsCombo =
+        this.rng.next() < COMBO_CHANCE && this.remainingMs() > COMBO_MAX_WINDOW_MS + 5000;
+      const combo = wantsCombo ? this.buildComboOffer() : null;
+      if (combo) {
+        this.comboOffer = combo;
+      } else {
+        const pick = CHALLENGE_KINDS[Math.floor(this.rng.next() * CHALLENGE_KINDS.length)]!;
+        this.challenge = {
+          kind: pick.kind,
+          target: pick.target,
+          progress: 0,
+          deadline: this.elapsedMs() + CHALLENGE_WINDOW_MS,
+          createdAt: this.elapsedMs(),
+          label: pick.label,
+        };
+      }
     }
+  }
+
+  /** Pause zwischen zwei Gelegenheiten (Challenge oder Kombi-Angebot) — schrumpft
+   *  Richtung Rundenende spürbar, damit gerade dort mehr Chancen auf Bonuszeit
+   *  kommen und Spieler eher noch "eine Runde länger" dranbleiben. */
+  private nextChallengeCooldown(): number {
+    const t = this.level ? 0 : Math.min(1, this.elapsedMs() / DURATION_MS);
+    const min = Math.max(4_000, CHALLENGE_COOLDOWN_MIN - t * 6_000); // 12s → 6s
+    const jitter = Math.max(2_000, CHALLENGE_COOLDOWN_JITTER - t * 4_000); // 8s → 4s
+    return min + this.rng.next() * jitter;
+  }
+
+  /** Wählt Schwierigkeitsstufe + Zielfigur für ein neues Kombi-Angebot — `null`,
+   *  wenn gerade keine der in Frage kommenden Formen überhaupt irgendwo aufs
+   *  Brett passt (dann bietet der Aufrufer stattdessen eine normale Challenge an). */
+  private buildComboOffer(): ComboOffer | null {
+    const tier = COMBO_TIERS[Math.floor(this.rng.next() * COMBO_TIERS.length)]!;
+    const pool = COMBO_SHARD_POOL.filter((n) => this.canPlaceAnywhere(n));
+    if (pool.length === 0) return null;
+    const shardName = pool[Math.floor(this.rng.next() * pool.length)]!;
+    return {
+      shardName,
+      target: tier.target,
+      progress: 0,
+      reward: tier.reward,
+      rewardLabel: tier.rewardLabel,
+      createdAt: this.elapsedMs(),
+      accepted: false,
+      deadline: 0,
+      windowMs: 0,
+    };
   }
 
   /** >0, solange die aktuelle Aufgabe noch in der Ankündigungs-Phase steckt —
@@ -468,6 +584,59 @@ export class CascadeState {
     const v = this.challengeWonHeart;
     this.challengeWonHeart = false;
     return v;
+  }
+
+  /** >0, solange ein Kombi-Angebot noch unbeantwortet auf dem Tisch liegt —
+   *  für den Countdown auf der Angebots-Karte. */
+  comboDecisionRemainingMs(): number {
+    return this.comboOffer && !this.comboOffer.accepted
+      ? Math.max(0, this.comboOffer.createdAt + COMBO_DECISION_MS - this.elapsedMs())
+      : 0;
+  }
+  comboRemainingMs(): number {
+    return this.comboOffer?.accepted
+      ? Math.max(0, this.comboOffer.deadline - this.elapsedMs())
+      : 0;
+  }
+  /** Angebot annehmen — ab jetzt zählt jede passende Platzierung, und das Band
+   *  bevorzugt spürbar die Zielfigur (siehe `pickPlaceableName`). */
+  acceptCombo(): void {
+    const c = this.comboOffer;
+    if (!c || c.accepted) return;
+    c.accepted = true;
+    c.windowMs = 9_000 + c.target * 7_000;
+    c.deadline = this.elapsedMs() + c.windowMs;
+  }
+  /** Angebot ablehnen — sofort weg, normale Gelegenheiten-Pause startet neu. */
+  declineCombo(): void {
+    if (!this.comboOffer || this.comboOffer.accepted) return;
+    this.comboOffer = null;
+    this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
+  }
+  /** True once, right after an accepted combo is completed — consume it for
+   *  the celebration; `rewardLabel` matches what was already shown at the offer. */
+  consumeComboWin(): { heart: boolean; rewardLabel: string } | null {
+    if (!this.comboWon) return null;
+    this.comboWon = false;
+    return { heart: this.comboWonHeart, rewardLabel: this.comboWonLabel };
+  }
+
+  private applyComboReward(offer: ComboOffer): void {
+    this.comboWonHeart = false;
+    if (offer.reward === "time") {
+      this.extraMs += COMBO_TIME_BONUS_MS;
+    } else if (offer.reward === "heart") {
+      if (this.lives < CASCADE_LIVES) {
+        this.lives += 1;
+        this.comboWonHeart = true;
+      } else {
+        this.score += 250 * this.multiplier;
+      }
+    } else {
+      this.multiplier = Math.min(6, this.multiplier + COMBO_MULT_BOOST);
+    }
+    this.comboWonLabel = offer.rewardLabel;
+    this.comboWon = true;
   }
 
   cells(shard: Shard): ReadonlyArray<readonly [number, number]> {
@@ -567,6 +736,17 @@ export class CascadeState {
     // darum erst hier geprüft, nachdem this.chain aktuell ist
     if (this.challenge?.kind === "combo" && this.chain >= this.challenge.target) {
       this.creditChallenge(this.challenge.target);
+    }
+    // Kombi-Angebot: zählt JEDE Platzierung der Zielfigur, egal ob sie gerade
+    // eine Reihe räumt — "X Stück auf dem Brett unterbringen" ist der Auftrag,
+    // nicht "X Reihen räumen".
+    if (this.comboOffer?.accepted && shard.name === this.comboOffer.shardName) {
+      this.comboOffer.progress += 1;
+      if (this.comboOffer.progress >= this.comboOffer.target) {
+        this.applyComboReward(this.comboOffer);
+        this.comboOffer = null;
+        this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
+      }
     }
     // Perfekt zählt bei JEDER Kombination aus Reihen/Spalten, die das Brett
     // leer macht — vorher zählten nur Reihen, ein reiner Spalten-Clear ins
@@ -690,8 +870,7 @@ export class CascadeState {
     this.extraMs += CHALLENGE_TIME_BONUS_MS;
     this.challengeWon = true;
     this.challenge = null;
-    this.nextChallengeAt =
-      this.elapsedMs() + CHALLENGE_COOLDOWN_MIN + this.rng.next() * CHALLENGE_COOLDOWN_JITTER;
+    this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
   }
 
   coveredCells(): number {

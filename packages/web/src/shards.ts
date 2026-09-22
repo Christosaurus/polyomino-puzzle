@@ -84,6 +84,10 @@ const ALL_DEFS: ShardDef[] = SHARD_DEFS;
 const BY_NAME = new Map(ALL_DEFS.map((d) => [d.name, d]));
 const INDEX_BY_NAME = new Map(ALL_DEFS.map((d, i) => [d.name, i]));
 
+/** Namen aller Formen — für die Kombi-Angebote (cascade.ts), die eine
+ *  bestimmte Form aus dem gesamten Satz auswählen müssen. */
+export const SHARD_NAMES: readonly string[] = ALL_DEFS.map((d) => d.name);
+
 export function shardDef(name: string): ShardDef {
   return BY_NAME.get(name) ?? SHARD_DEFS[0]!;
 }
@@ -147,9 +151,16 @@ export function shardsFittingGap(targetCells: ReadonlyArray<readonly [number, nu
  * (`crowdedFrac` 0..1) so a nearly-full board still has an easy out.
  * `favorStraight` boosts straight bars (duo/trio-i/quad-i/I-pentomino) —
  * used while the "nur gerade Linien"-Aufgabe läuft, damit sie tatsächlich
- * lösbar ist, ohne ausschließlich gerade Teile zu spucken.
+ * lösbar ist, ohne ausschließlich gerade Teile zu spucken. `favorName`
+ * boostet eine einzelne, konkrete Form stark — für ein angenommenes
+ * Kombi-Angebot, das genau diese Form zuverlässig aufs Band bringen muss.
  */
-export function pickShardName(rng: Rng, crowdedFrac: number, favorStraight = false): string {
+export function pickShardName(
+  rng: Rng,
+  crowdedFrac: number,
+  favorStraight = false,
+  favorName?: string,
+): string {
   const f = Math.max(0, Math.min(1, crowdedFrac));
   let total = 0;
   const weights = SHARD_DEFS.map((d) => {
@@ -161,6 +172,7 @@ export function pickShardName(rng: Rng, crowdedFrac: number, favorStraight = fal
     else if (d.size === 3) w *= 1 + f * 1.4;
     else if (d.size >= 5) w *= Math.max(0.15, 1 - f * 0.82);
     if (favorStraight && d.straight) w *= 3.5;
+    if (favorName && d.name === favorName) w *= 6;
     total += w;
     return w;
   });
