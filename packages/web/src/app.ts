@@ -28,6 +28,7 @@ import { buildRegions, type Manifest, type Region } from "./regions.js";
 import { Scenery, type SceneTheme } from "./scenery.js";
 import { sfx } from "./sfx.js";
 import { duckMusic, playMusic, setMusicEnabled, setMusicVolume } from "./music.js";
+import { setAudioDesired } from "./audio-core.js";
 import { miraLine, type StoryPlace } from "./story.js";
 import { mountTalkarteFx } from "./talkarte.js";
 import { pickChatter } from "./chatter.js";
@@ -213,6 +214,10 @@ function saveSettings(s: Settings): void {
   sfx.setHaptics(s.haptics);
   setMusicEnabled(s.music);
   setMusicVolume(s.musicVolume);
+  // Nur wenn tatsächlich Ton gewünscht ist, darf das Spiel den iOS-Audiokanal
+  // übernehmen (siehe audio-core.ts) — sonst blockiert es unnötig z. B.
+  // Spotify im Hintergrund, obwohl im Spiel selbst gar kein Ton läuft.
+  setAudioDesired(s.sound || s.music);
 }
 let settings = loadSettings();
 saveSettings(settings);

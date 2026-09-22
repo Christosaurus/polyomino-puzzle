@@ -20,6 +20,16 @@ let ac: AudioContext | null = null;
 let unlocked = false;
 const waiting: Array<() => void> = [];
 
+// Ob überhaupt Ton gewünscht ist (Sound ODER Musik an) — von app.ts bei jeder
+// Einstellungsänderung gesetzt. Nur dann darf `openMediaChannel()` das stille
+// `<audio>`-Element abspielen, denn GENAU DAS ist es, was iOS dazu bringt, den
+// Media-Kanal der App zu übernehmen und z. B. Spotify im Hintergrund zu
+// pausieren — auch wenn das eigene Audio dabei komplett stumm ist. Ist im
+// Spiel gar kein Ton gewünscht, soll man daneben normal Spotify hören können;
+// ist Sound/Musik an, ist es dagegen richtig (und erwartet), dass das Spiel
+// den Kanal für sich beansprucht.
+let audioDesired = true;
+
 function create(): AudioContext | null {
   if (ac) return ac;
   const Ctor =
@@ -50,6 +60,18 @@ export function audioUnlocked(): boolean {
 export function onAudioUnlock(fn: () => void): void {
   if (unlocked) fn();
   else waiting.push(fn);
+}
+
+/** Von app.ts bei jeder Einstellungsänderung: `sound || music`. */
+export function setAudioDesired(v: boolean): void {
+  const was = audioDesired;
+  audioDesired = v;
+  // War der Kanal längst freigeschaltet (Nutzer hat schon getippt) und Ton
+  // wird jetzt erst gewünscht (z. B. Musik nachträglich angeschaltet), muss
+  // der Media-Kanal noch nachträglich geöffnet werden — der Klick auf den
+  // Schalter selbst ist eine Nutzergeste, das `.play()` darin läuft also
+  // synchron genug, um nicht als Autoplay geblockt zu werden.
+  if (v && !was && unlocked) openMediaChannel();
 }
 
 // ── stilles Loop-Audio gegen den iOS-Klingelschalter ───────────────────────
@@ -114,7 +136,7 @@ function pump(): void {
       /* egal */
     }
   }
-  openMediaChannel();
+  if (audioDesired) openMediaChannel();
 
   const done = (): void => {
     if (unlocked) return;
