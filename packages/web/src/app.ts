@@ -1806,7 +1806,7 @@ function startCascade(): void {
         `<b>${nf(r.score)}</b> points · ${nf(r.cleared)} lines` +
         ` · ✦ +${nf(shards)}` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfect` : "") +
-        (r.megaClears ? ` · 💥 ${r.megaClears}× shockwave` : "") +
+        (r.megaClears ? ` · 💥 ${r.megaClears}× Ultimate Clear` : "") +
         (r.bestChain >= 3 ? ` · 🔥 Chain ×${r.bestChain}` : "") +
         (newRecord ? ` · 🏆 new record!` : "") +
         (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "");

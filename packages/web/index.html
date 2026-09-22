@@ -127,6 +127,15 @@
         z-index: 45;
         pointer-events: none;
       }
+      /* Schockwelle (Kaskade): eigene Vollbild-Ebene, NICHT durch das
+         `overflow:hidden` des lila Panels begrenzt -- die Splitter müssen
+         sichtbar aus dem Spielfeld heraus über den ganzen Screen fliegen. */
+      #k-shockwave-fx {
+        position: fixed;
+        inset: 0;
+        z-index: 45;
+        pointer-events: none;
+      }
       #app {
         position: relative;
         z-index: 1;
@@ -1723,6 +1732,49 @@
         touch-action: none;
         overflow: hidden;
       }
+      /* Nachleuchten nach einer Schockwelle (cascade-view.ts: ultimateGlowT) —
+         bewusst als box-shadow, NICHT als ::before-Pseudoelement: ein Kind mit
+         negativem inset würde vom `overflow: hidden` oben sofort gekappt,
+         box-shadow dagegen malt außerhalb der eigenen Box und bleibt davon
+         unberührt. Genau das gibt den "Licht hinter der Fläche"-Eindruck. Die
+         ersten drei Schatten sind die normale Panel-Deko, unverändert in
+         beiden Keyframes (sonst springt sie beim Ein-/Ausblenden der Glühen-
+         Schicht mit) — nur die letzten zwei (der eigentliche Glow) pulsieren. */
+      .board-wrap.ultimate-glow {
+        animation: ultimate-glow-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes ultimate-glow-pulse {
+        0%,
+        100% {
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 34px 6px rgba(255, 91, 106, 0.55),
+            0 0 74px 20px rgba(255, 91, 106, 0.28);
+        }
+        50% {
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 56px 16px rgba(255, 91, 106, 0.9),
+            0 0 120px 34px rgba(255, 91, 106, 0.5);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .board-wrap.ultimate-glow {
+          animation: none;
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 40px 10px rgba(255, 91, 106, 0.65);
+        }
+      }
       /* Eigener Bezugsrahmen für die Challenge-Karte (position:absolute) —
          sitzt direkt über dem Canvas, damit sie sich an dessen Position
          orientiert und nicht an der Score/Multiplier-Zeile darüber, die jetzt
@@ -2932,6 +2984,7 @@
   <body>
     <canvas id="scenery"></canvas>
     <canvas id="winfx"></canvas>
+    <canvas id="k-shockwave-fx"></canvas>
     <div id="app">
       <section class="screen" id="screen-home">
         <div class="talkarte" aria-hidden="true">

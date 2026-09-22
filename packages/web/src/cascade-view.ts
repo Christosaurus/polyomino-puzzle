@@ -28,9 +28,18 @@ const COMBO_LIFE_S = 1.9;
 const PERFECT_SHINE_S = 0.9;
 /** Wie lange das große Herz bei einem erspielten Leben zu sehen ist. */
 const HEART_BURST_S = 1.15;
-/** Wie lange der Schockwellen-Ring braucht, um von der Brettmitte bis über
- *  den Rand hinaus zu expandieren. */
-const SHOCKWAVE_S = 0.6;
+/** Kurzer greller Blitz überm Panel im Aufprall-Moment der Schockwelle. */
+const SHOCKWAVE_S = 0.32;
+/** Wie lange der Schockwellen-Ring braucht, um von der Brettmitte bis weit
+ *  über den Bildschirmrand hinaus zu expandieren (Vollbild-Ebene, siehe
+ *  `fxRingT`) — deutlich länger als der Blitz, damit er wirklich als eigene,
+ *  fortlaufende Welle wirkt statt nur als Aufblitzen. */
+const FX_RING_S = 0.95;
+/** Wie lange ein einzelner Splitter unterwegs ist, bevor er verglüht. */
+const FX_CHUNK_S_MIN = 0.75;
+const FX_CHUNK_S_MAX = 1.35;
+/** Wie lange das lila Panel nach einer Schockwelle nachleuchtet. */
+const ULTIMATE_GLOW_S = 10;
 
 interface Layout {
   cssW: number;
@@ -162,9 +171,28 @@ export class CascadeView {
   /** Erspieltes Herz durch eine Aufgabe: großes, halbtransparentes Herz
    *  wächst einmal auf und verschwindet wieder (-1 = inaktiv). */
   private heartBurstT = -1;
-  /** Schockwelle (Christians "Bombe"): expandierender Ring von der Brettmitte
-   *  aus, läuft einmal 0→1 (-1 = inaktiv). */
+  /** Schockwelle (Christians "Bombe"): kurzer, greller Blitz überm Panel im
+   *  Aufprall-Moment (läuft einmal 0→1, -1 = inaktiv) — der eigentliche Ring
+   *  + die Splitter laufen auf der Vollbild-Ebene `fx*` weiter unten, die NICHT
+   *  vom `overflow:hidden` des Panels begrenzt ist. */
   private shockwaveT = -1;
+  /** Vollbild-Ebene für die Schockwelle: eigene Canvas außerhalb des lila
+   *  Panels (siehe #k-shockwave-fx in index.html), damit Ring + Splitter
+   *  sichtbar aus dem Spielfeld heraus über den ganzen Screen fliegen können. */
+  private fxCanvas: HTMLCanvasElement | null = null;
+  private fxCtx: CanvasRenderingContext2D | null = null;
+  private fxChunks: Spark[] = [];
+  private fxRingT = -1;
+  private fxOriginX = 0;
+  private fxOriginY = 0;
+  private fxMaxR = 0;
+  /** Ob im letzten Frame etwas auf der FX-Ebene stand — für den einen sauberen
+   *  Clear-Frame, nachdem Ring+Splitter fertig sind (danach wieder Ruhe/kein
+   *  Resize-Overhead mehr, bis das nächste Mal etwas los ist). */
+  private fxWasActive = false;
+  /** Nachleuchten des lila Panels nach einer Schockwelle (-1 = inaktiv, zählt
+   *  0→ULTIMATE_GLOW_S, steuert nur die CSS-Klasse `ultimate-glow` auf `wrap`). */
+  private ultimateGlowT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
   private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
@@ -174,6 +202,8 @@ export class CascadeView {
     this.wrap = wrap;
     this.game = game;
     this.cb = cb;
+    this.fxCanvas = document.getElementById("k-shockwave-fx") as HTMLCanvasElement | null;
+    this.fxCtx = this.fxCanvas?.getContext("2d") ?? null;
     const cells: [number, number][] = [];
     for (let r = 0; r < game.rows; r++) for (let c = 0; c < game.cols; c++) cells.push([r, c]);
     this.gridCells = cells;
@@ -195,6 +225,14 @@ export class CascadeView {
     this.canvas.removeEventListener("pointercancel", this.onUp);
     window.removeEventListener("resize", this.kick);
     window.visualViewport?.removeEventListener("resize", this.kick);
+    // Vollbild-FX-Ebene ist global (liegt außerhalb dieses Screens) — beim
+    // Verlassen sofort leeren, sonst blitzt ein mitten in der Animation
+    // abgebrochener Rest über dem nächsten Screen auf.
+    this.fxChunks = [];
+    this.fxRingT = -1;
+    this.fxCtx?.clearRect(0, 0, this.fxCanvas?.width ?? 0, this.fxCanvas?.height ?? 0);
+    this.ultimateGlowT = -1;
+    this.wrap.classList.remove("ultimate-glow");
   }
 
   private start(): void {
@@ -206,6 +244,7 @@ export class CascadeView {
       this.last = ts;
       this.step(dt);
       this.render();
+      this.renderFx();
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -216,6 +255,7 @@ export class CascadeView {
       if (now - this.last > 240) {
         this.step(Math.min(0.05, (now - fbTs) / 1000));
         this.render();
+        this.renderFx();
       }
       fbTs = now;
       window.setTimeout(fb, 140);
@@ -274,6 +314,28 @@ export class CascadeView {
     if (this.shockwaveT >= 0) {
       this.shockwaveT += dt;
       if (this.shockwaveT > SHOCKWAVE_S) this.shockwaveT = -1;
+    }
+    if (this.fxRingT >= 0) {
+      this.fxRingT += dt;
+      if (this.fxRingT > FX_RING_S) this.fxRingT = -1;
+    }
+    if (this.fxChunks.length) {
+      for (const s of this.fxChunks) {
+        s.t += dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.vy += 340 * dt; // etwas mehr Schwerkraft als die Board-Funken — fallen sichtbar
+        s.vx *= 1 - dt * 0.6; // wenig Reibung — sie sollen weit rausfliegen, nicht gleich abbremsen
+        s.rot += s.spin * dt;
+      }
+      this.fxChunks = this.fxChunks.filter((s) => s.t < s.max);
+    }
+    if (this.ultimateGlowT >= 0) {
+      this.ultimateGlowT += dt;
+      if (this.ultimateGlowT > ULTIMATE_GLOW_S) {
+        this.ultimateGlowT = -1;
+        this.wrap.classList.remove("ultimate-glow");
+      }
     }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
     this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
@@ -419,17 +481,22 @@ export class CascadeView {
     const mega = this.game.consumeMegaClear();
     if (mega && this.layout) {
       this.comboPop = {
-        text: "💥 SHOCKWAVE!",
+        text: "💥 ULTIMATE CLEAR!",
         t: 0,
         color: cssVar("--stop"),
-        fontScale: 0.62,
+        fontScale: 0.5,
       };
       sfx.milestone();
       sfx.vibrate(40);
-      this.shake(14);
+      this.shake(22);
       this.shockwaveT = 0;
       this.perfectShineT = 0; // derselbe weiße Schein wie beim Perfect Clear obendrauf
       this.spawnShockwave(mega.cells, this.layout);
+      // Nachleuchten: das lila Panel selbst pulsiert 10s nach — siehe
+      // .ultimate-glow in index.html (Halo-Ebene hinter dem Panel, per
+      // negativem inset + Blur, für den 3D-Eindruck).
+      this.ultimateGlowT = 0;
+      this.wrap.classList.add("ultimate-glow");
     }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
@@ -631,55 +698,125 @@ export class CascadeView {
   }
 
   /**
-   * Die Schockwelle: jede weggewischte Zelle fliegt in ihrer eigenen Farbe
-   * radial von der Brettmitte weg auseinander — wie Bauklötze, die eine
-   * Druckwelle zerlegt (Schredder-Optik), nicht wie die feinen Sternchen der
-   * übrigen Effekte. Deutlich größer + schneller als `spawnBigBurst`, plus
-   * ein zusätzlicher weißer Funke pro Zelle für mehr "Wumms".
+   * Die Schockwelle: jede weggewischte Zelle zerspringt in mehrere kleine
+   * Würfel-Splitter (nicht ein einzelner Funke) und wird radial aus der
+   * Brettmitte heraus katapultiert — über das lila Panel hinaus, quer über
+   * den ganzen Screen. Läuft auf der Vollbild-Ebene `#k-shockwave-fx`
+   * (siehe `fxCanvas`), NICHT auf dem Board-Canvas, weil `.board-wrap` per
+   * `overflow:hidden` alles kappen würde, was über seinen Rand hinausgeht.
    */
   private spawnShockwave(
     cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
     L: Layout,
   ): void {
+    const rect = this.canvas.getBoundingClientRect();
     const cx = L.boardX + (this.game.cols * L.cell) / 2;
     const cy = L.boardY + (this.game.rows * L.cell) / 2;
+    const originX = rect.left + cx;
+    const originY = rect.top + cy;
+    this.fxOriginX = originX;
+    this.fxOriginY = originY;
+    // Ring muss von der Brettmitte aus JEDE Bildschirmecke erreichen, egal wo
+    // das Panel gerade sitzt — sonst bleibt in einer Ecke sichtbar Rest stehen.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let maxR = 0;
+    for (const [px, py] of [
+      [0, 0],
+      [vw, 0],
+      [0, vh],
+      [vw, vh],
+    ] as const) {
+      maxR = Math.max(maxR, Math.hypot(px - originX, py - originY));
+    }
+    this.fxMaxR = maxR;
+    this.fxRingT = 0;
+
+    const CHUNKS_PER_CELL = 6;
     for (const { row, col, colorIndex } of cells) {
-      const x = L.boardX + (col + 0.5) * L.cell;
-      const y = L.boardY + (row + 0.5) * L.cell;
-      const dx = x - cx;
-      const dy = y - cy;
+      const x = rect.left + L.boardX + (col + 0.5) * L.cell;
+      const y = rect.top + L.boardY + (row + 0.5) * L.cell;
+      const dx = x - originX;
+      const dy = y - originY;
       const dist = Math.hypot(dx, dy) || 1;
       const baseAng = Math.atan2(dy, dx);
       const color = shardByColorIndex(colorIndex).color;
-      const ang = baseAng + (Math.random() - 0.5) * 0.5;
-      const sp = 240 + Math.random() * 260 + dist * 0.5;
-      this.sparks.push({
-        x,
-        y,
-        vx: Math.cos(ang) * sp,
-        vy: Math.sin(ang) * sp - 140,
-        t: 0,
-        max: 0.6 + Math.random() * 0.5,
-        color,
-        size: L.cell * (0.24 + Math.random() * 0.18),
-        rot: Math.random() * Math.PI,
-        spin: (Math.random() - 0.5) * 20,
-      });
-      this.sparks.push({
-        x,
-        y,
-        vx: Math.cos(baseAng + (Math.random() - 0.5) * 1.2) * sp * 0.65,
-        vy: Math.sin(baseAng + (Math.random() - 0.5) * 1.2) * sp * 0.65 - 90,
-        t: 0,
-        max: 0.4 + Math.random() * 0.35,
-        color: "#ffffff",
-        size: L.cell * 0.1,
-        rot: Math.random() * Math.PI,
-        spin: (Math.random() - 0.5) * 22,
-      });
+      // Ein Block zerspringt in mehrere kleine Würfel, keinen einzelnen Fetzen
+      // — jeder mit eigenem Winkel-/Tempo-Jitter, aber alle grob "vom Zentrum
+      // weg", damit die Wolke insgesamt noch die Druckwellen-Richtung zeigt.
+      for (let i = 0; i < CHUNKS_PER_CELL; i++) {
+        const ang = baseAng + (Math.random() - 0.5) * 0.9;
+        const sp = 420 + Math.random() * 420 + dist * 0.7;
+        this.fxChunks.push({
+          x: x + (Math.random() - 0.5) * L.cell * 0.4,
+          y: y + (Math.random() - 0.5) * L.cell * 0.4,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp - 220,
+          t: 0,
+          max: FX_CHUNK_S_MIN + Math.random() * (FX_CHUNK_S_MAX - FX_CHUNK_S_MIN),
+          color: i === 0 ? "#ffffff" : color,
+          size: L.cell * (0.13 + Math.random() * 0.16),
+          rot: Math.random() * Math.PI,
+          spin: (Math.random() - 0.5) * 26,
+        });
+      }
     }
-    // dazu der normale goldene Funkenregen übers ganze Brett, für zusätzliche Dichte
-    this.spawnBigBurst(L);
+  }
+
+  /**
+   * Zeichnet Ring + Würfel-Splitter der Schockwelle auf die Vollbild-Ebene
+   * (`#k-shockwave-fx`), die außerhalb von `.board-wrap` liegt und darum
+   * nicht von dessen `overflow: hidden` gekappt wird — genau deshalb kann die
+   * Welle sichtbar über das lila Panel hinaus übern ganzen Screen laufen.
+   * Eigener Render-Pass, läuft neben `render()` her (siehe `start()`).
+   */
+  private renderFx(): void {
+    const canvas = this.fxCanvas;
+    const ctx = this.fxCtx;
+    if (!canvas || !ctx) return;
+    const active = this.fxRingT >= 0 || this.fxChunks.length > 0;
+    if (!active && !this.fxWasActive) return; // Ruhezustand: nichts zu tun, nichts zu räumen
+    this.fxWasActive = active;
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.round(window.innerWidth * dpr);
+    const h = Math.round(window.innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    if (!active) return; // gerade eben fertig geworden — der Clear-Frame reicht
+
+    if (this.fxRingT >= 0) {
+      const k = this.fxRingT / FX_RING_S;
+      const eased = 1 - (1 - k) ** 2; // schnell raus, dann austrudeln — kein starres Lineartempo
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = cssVar("--stop");
+      ctx.lineWidth = Math.max(1, 18 * (1 - k));
+      ctx.globalAlpha = Math.max(0, (1 - k) * 0.85);
+      ctx.beginPath();
+      ctx.arc(this.fxOriginX, this.fxOriginY, this.fxMaxR * eased, 0, Math.PI * 2);
+      ctx.stroke();
+      // zweiter, engerer Ring kurz dahinter — wirkt dichter als eine einzelne Linie
+      ctx.lineWidth = Math.max(1, 9 * (1 - k));
+      ctx.globalAlpha = Math.max(0, (1 - k) * 0.55);
+      ctx.beginPath();
+      ctx.arc(this.fxOriginX, this.fxOriginY, Math.max(0, this.fxMaxR * eased - 46), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (this.fxChunks.length) {
+      for (const s of this.fxChunks) {
+        const k = 1 - s.t / s.max;
+        ctx.globalAlpha = Math.max(0, k);
+        this.drawCube(ctx, s.x, s.y, s.size * (0.65 + k * 0.55), s.rot, s.color);
+      }
+      ctx.globalAlpha = 1;
+    }
   }
 
   /**
@@ -844,6 +981,24 @@ export class CascadeView {
     }
     ctx.closePath();
     ctx.fill();
+  }
+
+  /** Ein kleiner, leicht 3D schattierter Würfel-Splitter — für die Schockwelle
+   *  (`renderFx`). Nimmt den Kontext explizit entgegen, weil er auf der
+   *  Vollbild-FX-Ebene zeichnet, nicht auf dem Board-Canvas (`this.ctx`). */
+  private drawCube(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, rot: number, color: string): void {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    const s = size;
+    const grad = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
+    grad.addColorStop(0, shade(color, 0.5));
+    grad.addColorStop(0.55, color);
+    grad.addColorStop(1, shade(color, -0.35));
+    ctx.fillStyle = grad;
+    roundRect(ctx, -s / 2, -s / 2, s, s, Math.max(1, s * 0.22));
+    ctx.fill();
+    ctx.restore();
   }
 
   /** Herz-Umriss, `size` = Breite über die beiden Lappen. Füllt/stroket nicht
@@ -1034,28 +1189,17 @@ export class CascadeView {
       ctx.restore();
     }
 
-    // Schockwelle: ein expandierender Ring von der Brettmitte aus, verblasst
-    // beim Auslaufen — der Kern des "Bombe"-Effekts, ganz unabhängig von den
-    // wegfliegenden Funken.
+    // Schockwelle: greller, kurzer Blitz im Aufprall-Moment — der eigentliche
+    // Ring + die Splitter fliegen auf der Vollbild-Ebene weiter (renderFx),
+    // weil .board-wrap alles am Rand kappen würde (overflow: hidden).
     if (this.shockwaveT >= 0) {
       const k = this.shockwaveT / SHOCKWAVE_S;
-      const cx = L.boardX + (this.game.cols * L.cell) / 2;
-      const cy = L.boardY + (this.game.rows * L.cell) / 2;
-      const maxR = Math.hypot(this.game.cols * L.cell, this.game.rows * L.cell) * 0.68;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = cssVar("--stop");
-      ctx.lineWidth = Math.max(1, 12 * (1 - k));
-      ctx.globalAlpha = Math.max(0, (1 - k) * 0.9);
-      ctx.beginPath();
-      ctx.arc(cx, cy, maxR * k, 0, Math.PI * 2);
-      ctx.stroke();
-      // zweiter, engerer Ring kurz dahinter — wirkt dichter als ein einzelner
-      ctx.lineWidth = Math.max(1, 6 * (1 - k));
-      ctx.globalAlpha = Math.max(0, (1 - k) * 0.6);
-      ctx.beginPath();
-      ctx.arc(cx, cy, Math.max(0, maxR * k - L.cell * 0.6), 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.globalAlpha = Math.max(0, (1 - k) ** 2) * 0.85;
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, L.boardX - 4, L.boardY - 4, this.game.cols * L.cell + 8, this.game.rows * L.cell + 8, 14);
+      ctx.fill();
       ctx.restore();
     }
 
