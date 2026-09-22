@@ -186,6 +186,76 @@ Edge Function). Die Deckel in Schritt 4 sind bewusst locker — wenn echte
 Top-Scores reinkommen, `p_cleared`-Faktor (550) und `score_cap` (800/30/6000)
 enger stellen.
 
+### 2c. Fix — Mindest-Rundenzeit war zu hoch, Obergrenze zu knapp
+
+Gefunden beim Debuggen von "die Bestenliste geht nicht": `submit_cascade_score`
+hat `p_run_ms < 45000` verlangt — ein Lauf mit drei schnell verlorenen Leben
+ist aber oft schon nach 15-20s vorbei (die erste Scherbe kann bereits nach
+~4,6s vom Band fallen) und wurde bisher komplett stillschweigend abgelehnt,
+ohne dass der Spieler je einen Hinweis sah. Gleichzeitig ist die Obergrenze
+(200000ms = 3:20) mit den neueren Bonus-Quellen (Kombi-Angebote, Schockwelle)
+knapper geworden, als der Kommentar im Code noch von "2:30 Grundzeit" ausging
+— tatsächlich sind es 3:00, plus möglicherweise mehrere Bonus-Zeiten obendrauf.
+
+Im **SQL Editor** als **eine** neue Query ausführen (ersetzt Schritt 2b/4
+komplett, `create or replace` macht den Umbau selbst):
+
+```sql
+create or replace function public.submit_cascade_score(
+  p_player_id text, p_name text, p_score integer, p_cleared integer,
+  p_country text default 'XX', p_token uuid default null, p_run_ms integer default null
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  wk text := to_char(now() at time zone 'UTC', 'IYYY')
+             || '-W' || lpad(to_char(now() at time zone 'UTC', 'IW'), 2, '0');
+  nm text := left(trim(coalesce(p_name, '')), 24);
+  cc text := upper(left(coalesce(p_country, 'XX'), 2));
+  score_cap integer;
+  tok_ok boolean;
+begin
+  update run_tokens set used = true
+   where token = p_token and player_id = p_player_id
+     and not used and created_at > now() - interval '25 minutes'
+  returning true into tok_ok;
+  if tok_ok is distinct from true then
+    raise exception 'invalid run token';
+  end if;
+
+  -- Kaskade = 3:00 Grundzeit + ggf. mehrere Bonus-Quellen (Challenge, Kombi-
+  -- Angebot, Schockwelle, Perfect Clear) -- Obergrenze grosszuegiger, Unter-
+  -- grenze auf "wirklich eine Runde gespielt" runter statt auf "mindestens
+  -- 45s" (ein Lauf mit 3 schnell verlorenen Leben ist oft schon nach 15-20s
+  -- vorbei und wurde bisher zu Unrecht abgelehnt).
+  if p_run_ms is null or p_run_ms < 3000 or p_run_ms > 280000 then
+    raise exception 'implausible run time';
+  end if;
+  if p_cleared < 0 or p_cleared > (p_run_ms / 500) then
+    raise exception 'implausible clears';
+  end if;
+  score_cap := least(200000, p_cleared * 900 + (p_run_ms / 1000) * 35 + 8000);
+  if p_score < 0 or p_score > score_cap then
+    raise exception 'implausible score';
+  end if;
+
+  if cc !~ '^[A-Z]{2}$' then cc := 'XX'; end if;
+  insert into public.cascade_scores (player_id, name, score, cleared, week, country)
+  values (p_player_id,
+          coalesce(nullif(nm, ''), 'Glaser'),
+          p_score,
+          greatest(0, least(coalesce(p_cleared, 0), 100000)),
+          wk, cc)
+  on conflict (player_id, week) do update
+    set score      = greatest(cascade_scores.score, excluded.score),
+        cleared    = greatest(cascade_scores.cleared, excluded.cleared),
+        name       = excluded.name,
+        country    = excluded.country,
+        updated_at = now();
+end;
+$$;
+grant execute on function public.submit_cascade_score to anon;
+```
+
 ### 3. Die zwei Werte für mich holen
 
 Linke Leiste → **Project Settings** → **API**:

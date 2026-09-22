@@ -1787,10 +1787,18 @@ function startCascade(): void {
       const freshAch = syncAchievements();
       celebrate(freshAch);
       renderTopPills();
-      // Score in die Wochenbestenliste — fire-and-forget, blockiert nichts
+      // Score in die Wochenbestenliste — fire-and-forget, blockiert nichts.
+      // Ein Fehlschlag war bisher komplett unsichtbar (kein Log, kein Hinweis) —
+      // wirkte dann wie "die Bestenliste geht einfach nicht". Jetzt gibt's
+      // wenigstens einen leisen Toast, wenn's tatsächlich einen Score gab, der
+      // hätte ankommen sollen (0-Punkte-Läufe werden erst gar nicht versucht).
       void submitCascadeScore(r.score, r.cleared, store.playerName(), r.elapsedMs, cascadeToken).then(
         (ok) => {
-          if (ok && $("lb-overlay").classList.contains("show")) void renderLeaderboard();
+          if (ok) {
+            if ($("lb-overlay").classList.contains("show")) void renderLeaderboard();
+          } else if (r.score > 0) {
+            toast("⚠️ Score couldn't be added to the leaderboard this round");
+          }
         },
       );
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "No Lives Left!" : "Time's Up!";
@@ -1798,6 +1806,7 @@ function startCascade(): void {
         `<b>${nf(r.score)}</b> points · ${nf(r.cleared)} lines` +
         ` · ✦ +${nf(shards)}` +
         (r.perfectClears ? ` · ${r.perfectClears}× perfect` : "") +
+        (r.megaClears ? ` · 💥 ${r.megaClears}× shockwave` : "") +
         (r.bestChain >= 3 ? ` · 🔥 Chain ×${r.bestChain}` : "") +
         (newRecord ? ` · 🏆 new record!` : "") +
         (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "");

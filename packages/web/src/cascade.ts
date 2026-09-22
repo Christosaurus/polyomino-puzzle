@@ -47,6 +47,8 @@ export interface CascadeResult {
   cleared: number;
   covered: number;
   perfectClears: number;
+  /** Wie oft die Schockwelle (2+ Reihen UND 2+ Spalten in einer Platzierung) ausgelöst hat. */
+  megaClears: number;
   livesLeft: number;
   bestChain: number;
   /** Gespielte Zeit in ms — für die Plausibilitätsprüfung der Bestenliste. */
@@ -106,6 +108,13 @@ export const CHALLENGE_PREVIEW_MS = 6_000;
 const CHALLENGE_FIRST_AT = 12_000;
 /** Bonuszeit für eine gelöste Aufgabe — Runden werden länger, wenn man sie löst. */
 const CHALLENGE_TIME_BONUS_MS = 15_000;
+/** Schockwelle: 2+ Reihen UND 2+ Spalten in einer Platzierung wischen das
+ *  ganze Brett leer — der große, clip-taugliche Showmoment (Christians
+ *  "Bombe"-Idee). Bonus ist bewusst deutlich fetter als der normale Perfect
+ *  Clear, dafür ist die Bedingung auch viel seltener/schwerer zu treffen. */
+const MEGA_SCORE_BONUS = 500;
+const MEGA_MULT_BOOST = 1.5;
+const MEGA_TIME_BONUS_MS = 10_000;
 
 /**
  * Kombi-Angebot: eine ANDERE Art Gelegenheit als die normale Challenge, an
@@ -169,6 +178,8 @@ export class CascadeState {
   multiplier = 1;
   cleared = 0;
   perfectClears = 0;
+  /** Wie oft die Schockwelle ausgelöst hat (siehe `triggerMegaClear`). */
+  megaClears = 0;
   misses = 0;
   /** A shard reaching the bottom unplaced costs one of these; hit 0 and the run ends. */
   lives: number;
@@ -197,6 +208,11 @@ export class CascadeState {
   private multTierSeen = 1;
   private tierUp = 0;
   private perfectFlag = false;
+  private megaFlag = false;
+  /** Snapshot der Zellen, die die Schockwelle gerade weggewischt hat (Position +
+   *  Farbe) — für die View, die daraus die Wegflieg-Funken baut, bevor die
+   *  Zellen selbst schon längst wieder 0 sind. */
+  private megaCells: Array<{ row: number; col: number; colorIndex: number }> = [];
 
   /** The rows/cols cleared by the last placement, once — for the view's burst/flash/pop. */
   consumeFreshClear(): {
@@ -231,6 +247,15 @@ export class CascadeState {
     const v = this.perfectFlag;
     this.perfectFlag = false;
     return v;
+  }
+  /** Einmalig die weggewischten Zellen, direkt nach einer Schockwelle — `null`
+   *  sonst. Für die "alles fliegt weg"-Feier in der View. */
+  consumeMegaClear(): { cells: Array<{ row: number; col: number; colorIndex: number }> } | null {
+    if (!this.megaFlag) return null;
+    this.megaFlag = false;
+    const cells = this.megaCells;
+    this.megaCells = [];
+    return { cells };
   }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
@@ -437,6 +462,7 @@ export class CascadeState {
       cleared: this.cleared,
       covered: this.coveredCells(),
       perfectClears: this.perfectClears,
+      megaClears: this.megaClears,
       livesLeft: this.lives,
       bestChain: this.bestChain,
       elapsedMs: Math.round(this.elapsedMs()),
@@ -639,6 +665,31 @@ export class CascadeState {
     this.comboWon = true;
   }
 
+  /** Wischt das GESAMTE Brett leer (nicht nur die gerade vollen Reihen/Spalten)
+   *  und zündet den großen Bonus — ausgelöst, sobald eine einzelne Platzierung
+   *  2+ Reihen UND 2+ Spalten gleichzeitig räumt. Merkt sich Position + Farbe
+   *  jeder weggewischten Zelle für die "alles fliegt weg"-Funken in der View. */
+  private triggerMegaClear(): void {
+    const cells: Array<{ row: number; col: number; colorIndex: number }> = [];
+    for (let r = this.shrunkRows; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const v = this.board[this.idx(r, c)] ?? 0;
+        if (v !== 0) {
+          cells.push({ row: r, col: c, colorIndex: v });
+          this.board[this.idx(r, c)] = 0;
+        }
+      }
+    }
+    this.megaCells = cells;
+    this.megaClears += 1;
+    this.score += MEGA_SCORE_BONUS * this.multiplier;
+    this.multiplier = Math.min(6, this.multiplier + MEGA_MULT_BOOST);
+    // Zeitbonus nur im Free Play — im Level-Modus läuft keine Uhr, gegen die
+    // man Zeit gewinnen könnte.
+    if (!this.level) this.extraMs += MEGA_TIME_BONUS_MS;
+    this.megaFlag = true;
+  }
+
   cells(shard: Shard): ReadonlyArray<readonly [number, number]> {
     const o = shardDef(shard.name).orientations;
     return o[shard.orientationIndex % o.length]!;
@@ -748,10 +799,16 @@ export class CascadeState {
         this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
       }
     }
-    // Perfekt zählt bei JEDER Kombination aus Reihen/Spalten, die das Brett
-    // leer macht — vorher zählten nur Reihen, ein reiner Spalten-Clear ins
-    // leere Brett (im Free Play ganz normal möglich) wurde übersehen.
-    if (this.coveredCells() === 0 && lines > 0) {
+    // Schockwelle: 2+ Reihen UND 2+ Spalten in EINER Platzierung — der große,
+    // clip-taugliche Showmoment. Geht dem normalen Perfect Clear vor (schließt
+    // ihn ein, da danach garantiert 0 Zellen belegt sind), sonst würden beide
+    // gleichzeitig feiern und doppelt Bonus geben.
+    if (rows >= 2 && cols >= 2) {
+      this.triggerMegaClear();
+    } else if (this.coveredCells() === 0 && lines > 0) {
+      // Perfekt zählt bei JEDER Kombination aus Reihen/Spalten, die das Brett
+      // leer macht — vorher zählten nur Reihen, ein reiner Spalten-Clear ins
+      // leere Brett (im Free Play ganz normal möglich) wurde übersehen.
       this.perfectClears += 1;
       this.score += 200 * this.multiplier;
       this.extraMs += 5000;

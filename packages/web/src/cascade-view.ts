@@ -28,6 +28,9 @@ const COMBO_LIFE_S = 1.9;
 const PERFECT_SHINE_S = 0.9;
 /** Wie lange das große Herz bei einem erspielten Leben zu sehen ist. */
 const HEART_BURST_S = 1.15;
+/** Wie lange der Schockwellen-Ring braucht, um von der Brettmitte bis über
+ *  den Rand hinaus zu expandieren. */
+const SHOCKWAVE_S = 0.6;
 
 interface Layout {
   cssW: number;
@@ -159,6 +162,9 @@ export class CascadeView {
   /** Erspieltes Herz durch eine Aufgabe: großes, halbtransparentes Herz
    *  wächst einmal auf und verschwindet wieder (-1 = inaktiv). */
   private heartBurstT = -1;
+  /** Schockwelle (Christians "Bombe"): expandierender Ring von der Brettmitte
+   *  aus, läuft einmal 0→1 (-1 = inaktiv). */
+  private shockwaveT = -1;
   /** alle Brettzellen als [r,c] — für das gecachte Leer-Raster (einmal gebaut) */
   private readonly gridCells: ReadonlyArray<readonly [number, number]>;
 
@@ -264,6 +270,10 @@ export class CascadeView {
     if (this.heartBurstT >= 0) {
       this.heartBurstT += dt;
       if (this.heartBurstT > HEART_BURST_S) this.heartBurstT = -1;
+    }
+    if (this.shockwaveT >= 0) {
+      this.shockwaveT += dt;
+      if (this.shockwaveT > SHOCKWAVE_S) this.shockwaveT = -1;
     }
     this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
     this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
@@ -403,6 +413,23 @@ export class CascadeView {
         this.heartBurstT = 0;
         this.spawnHeartBurst(this.layout);
       }
+    }
+    // Schockwelle: der große, clip-taugliche Moment — 2+ Reihen UND 2+ Spalten
+    // auf einen Schlag, das ganze Brett fliegt in Scherben auseinander.
+    const mega = this.game.consumeMegaClear();
+    if (mega && this.layout) {
+      this.comboPop = {
+        text: "💥 SHOCKWAVE!",
+        t: 0,
+        color: cssVar("--stop"),
+        fontScale: 0.62,
+      };
+      sfx.milestone();
+      sfx.vibrate(40);
+      this.shake(14);
+      this.shockwaveT = 0;
+      this.perfectShineT = 0; // derselbe weiße Schein wie beim Perfect Clear obendrauf
+      this.spawnShockwave(mega.cells, this.layout);
     }
     if (this.game.isOver && !this.ended) {
       this.ended = true;
@@ -601,6 +628,58 @@ export class CascadeView {
         spin: (Math.random() - 0.5) * 14,
       });
     }
+  }
+
+  /**
+   * Die Schockwelle: jede weggewischte Zelle fliegt in ihrer eigenen Farbe
+   * radial von der Brettmitte weg auseinander — wie Bauklötze, die eine
+   * Druckwelle zerlegt (Schredder-Optik), nicht wie die feinen Sternchen der
+   * übrigen Effekte. Deutlich größer + schneller als `spawnBigBurst`, plus
+   * ein zusätzlicher weißer Funke pro Zelle für mehr "Wumms".
+   */
+  private spawnShockwave(
+    cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
+    L: Layout,
+  ): void {
+    const cx = L.boardX + (this.game.cols * L.cell) / 2;
+    const cy = L.boardY + (this.game.rows * L.cell) / 2;
+    for (const { row, col, colorIndex } of cells) {
+      const x = L.boardX + (col + 0.5) * L.cell;
+      const y = L.boardY + (row + 0.5) * L.cell;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const baseAng = Math.atan2(dy, dx);
+      const color = shardByColorIndex(colorIndex).color;
+      const ang = baseAng + (Math.random() - 0.5) * 0.5;
+      const sp = 240 + Math.random() * 260 + dist * 0.5;
+      this.sparks.push({
+        x,
+        y,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp - 140,
+        t: 0,
+        max: 0.6 + Math.random() * 0.5,
+        color,
+        size: L.cell * (0.24 + Math.random() * 0.18),
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 20,
+      });
+      this.sparks.push({
+        x,
+        y,
+        vx: Math.cos(baseAng + (Math.random() - 0.5) * 1.2) * sp * 0.65,
+        vy: Math.sin(baseAng + (Math.random() - 0.5) * 1.2) * sp * 0.65 - 90,
+        t: 0,
+        max: 0.4 + Math.random() * 0.35,
+        color: "#ffffff",
+        size: L.cell * 0.1,
+        rot: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 22,
+      });
+    }
+    // dazu der normale goldene Funkenregen übers ganze Brett, für zusätzliche Dichte
+    this.spawnBigBurst(L);
   }
 
   /**
@@ -952,6 +1031,31 @@ export class CascadeView {
       ctx.fillStyle = cssVar("--gold");
       roundRect(ctx, L.boardX - 3, L.boardY - 3, this.game.cols * L.cell + 6, this.game.rows * L.cell + 6, 12);
       ctx.fill();
+      ctx.restore();
+    }
+
+    // Schockwelle: ein expandierender Ring von der Brettmitte aus, verblasst
+    // beim Auslaufen — der Kern des "Bombe"-Effekts, ganz unabhängig von den
+    // wegfliegenden Funken.
+    if (this.shockwaveT >= 0) {
+      const k = this.shockwaveT / SHOCKWAVE_S;
+      const cx = L.boardX + (this.game.cols * L.cell) / 2;
+      const cy = L.boardY + (this.game.rows * L.cell) / 2;
+      const maxR = Math.hypot(this.game.cols * L.cell, this.game.rows * L.cell) * 0.68;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = cssVar("--stop");
+      ctx.lineWidth = Math.max(1, 12 * (1 - k));
+      ctx.globalAlpha = Math.max(0, (1 - k) * 0.9);
+      ctx.beginPath();
+      ctx.arc(cx, cy, maxR * k, 0, Math.PI * 2);
+      ctx.stroke();
+      // zweiter, engerer Ring kurz dahinter — wirkt dichter als ein einzelner
+      ctx.lineWidth = Math.max(1, 6 * (1 - k));
+      ctx.globalAlpha = Math.max(0, (1 - k) * 0.6);
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(0, maxR * k - L.cell * 0.6), 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
 
