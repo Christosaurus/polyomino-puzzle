@@ -1094,14 +1094,9 @@
       }
       /* Highscore steht über dem Score, beide gleich groß — erst wenn man den
          Highscore knackt, tritt Highscore ab (Burst) und die Krone bleibt
-         neben dem Score (siehe .burst unten + app.ts). Liegt jetzt oben im
-         lila Feld selbst (Kind von #k-wrap), nicht mehr im Header darüber. */
-      #k-hud2 {
-        grid-template-columns: 1fr 1fr;
-        align-items: start;
-        padding: 0 4px;
-        margin-bottom: 8px;
-      }
+         neben dem Score (siehe .burst unten + app.ts). Score/Highscore und
+         Multiplier/Streak stehen auf Höhe der Herzen, NICHT auf lila
+         Hintergrund — .k-lives ist ihr gemeinsamer Rahmen, siehe unten. */
       .score-col {
         display: flex;
         flex-direction: column;
@@ -1219,12 +1214,28 @@
         70% { opacity: 1; transform: translateY(-50%) scale(1.03) rotate(2deg); }
         100% { opacity: 0; transform: translateY(-50%) scale(0.7) rotate(0deg); }
       }
-      /* ── Kaskade lives — a little cluster of hearts, centre one bigger ── */
+      /* ── Kaskade lives — a little cluster of hearts, centre one bigger ──
+         Gleichzeitig die gemeinsame Zeile für Score/Highscore (links) und
+         Multiplier/Streak (rechts) — auf Höhe der Herzen, aber NICHT auf dem
+         lila Spielfeld-Panel, das erst darunter beginnt. */
       .k-lives {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 8px;
+        margin-top: -4px;
+        padding: 0 4px;
+      }
+      .k-lives .score-col {
+        justify-self: start;
+      }
+      .k-lives .mult-col {
+        justify-self: end;
+      }
+      .k-hearts {
         display: flex;
         align-items: center;
-        justify-content: center;
-        margin-top: -4px;
+        justify-self: center;
       }
       .k-life {
         width: 48px;
@@ -2957,24 +2968,24 @@
           <p class="rescue-blurb" id="rs-blurb"></p>
         </div>
         <div class="k-lives" id="k-lives">
-          <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
-          <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
-          <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
+          <span class="score-col">
+            <span class="metric best" id="k-best-wrap"><small id="k-best-label">👑 Highscore</small><span id="k-best">0</span></span>
+            <span class="metric" id="k-score">
+              <small id="k-score-label">Score</small>
+              <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
+            </span>
+          </span>
+          <span class="k-hearts">
+            <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
+            <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
+            <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
+          </span>
+          <span class="mult-col" id="k-mult-col">
+            <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
+            <div class="k-streak" id="k-streak"></div>
+          </span>
         </div>
         <div class="board-wrap" id="k-wrap">
-          <div class="hud" id="k-hud2">
-            <span class="score-col">
-              <span class="metric best" id="k-best-wrap"><small id="k-best-label">👑 Highscore</small><span id="k-best">0</span></span>
-              <span class="metric" id="k-score">
-                <small id="k-score-label">Score</small>
-                <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
-              </span>
-            </span>
-            <span class="mult-col" id="k-mult-col">
-              <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
-              <div class="k-streak" id="k-streak"></div>
-            </span>
-          </div>
           <div class="board-inner">
             <div class="challenge" id="k-challenge" hidden>
               <div class="chal-top">

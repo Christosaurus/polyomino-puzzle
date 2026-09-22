@@ -446,10 +446,10 @@ export class CascadeView {
     // zu groß und schiebt den Banner aus dem sichtbaren Bereich.
     const AD_SLOT_H = 64;
     const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H);
-    // topRowH schwankt so oder so nur zwischen 60-84px (siehe Clamp unten) —
+    // topRowH schwankt so oder so nur zwischen 52-70px (siehe Clamp unten) —
     // für die Höhen-Rechnung reicht ein Schätzwert aus der Mitte, die paar
     // Pixel Unterschied ändern die Zellgröße nicht spürbar.
-    const availH = Math.max(200, maxH - 72 - 10);
+    const availH = Math.max(200, maxH - 62 - 10);
 
     // Zellgröße = das Engere von "Höhe reicht für 8 Reihen" und "Breite
     // reicht fürs Brett, wenn der Gürtel nur seine Mindestbreite bekommt".
@@ -472,7 +472,7 @@ export class CascadeView {
     // Gemeinsame obere Zeile: links die Challenge-Karte (DOM, siehe index.html
     // .challenge — folgt --top-row-h/--belt-w unten), rechts Hold, genauso
     // breit wie der Gürtel und etwas höher als frühers Hold-Quadrat.
-    const topRowH = Math.round(Math.max(60, Math.min(84, beltW * 1.05)));
+    const topRowH = Math.round(Math.max(52, Math.min(70, beltW * 0.9)));
     const holdY = pad;
     const holdW = beltW;
     const holdH = topRowH;
