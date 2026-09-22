@@ -699,7 +699,7 @@ export class CascadeView {
 
   /**
    * Die Schockwelle: jede weggewischte Zelle zerspringt in mehrere kleine
-   * Würfel-Splitter (nicht ein einzelner Funke) und wird radial aus der
+   * Kugel-Splitter (nicht ein einzelner Funke) und wird radial aus der
    * Brettmitte heraus katapultiert — über das lila Panel hinaus, quer über
    * den ganzen Screen. Läuft auf der Vollbild-Ebene `#k-shockwave-fx`
    * (siehe `fxCanvas`), NICHT auf dem Board-Canvas, weil `.board-wrap` per
@@ -741,21 +741,25 @@ export class CascadeView {
       const dist = Math.hypot(dx, dy) || 1;
       const baseAng = Math.atan2(dy, dx);
       const color = shardByColorIndex(colorIndex).color;
-      // Ein Block zerspringt in mehrere kleine Würfel, keinen einzelnen Fetzen
-      // — jeder mit eigenem Winkel-/Tempo-Jitter, aber alle grob "vom Zentrum
-      // weg", damit die Wolke insgesamt noch die Druckwellen-Richtung zeigt.
+      // Eine Kugel zerspringt in mehrere kleine Kugeln, keine Würfel (die
+      // Spielteile SIND Kugeln, siehe drawPieceBody) — "Glas, das zersplittert,
+      // nur abgerundet". Start eng um die ursprüngliche Position gebündelt
+      // (0.22 statt breiter Streuung), damit auch in Zeitlupe klar bleibt:
+      // DIESE eine Kugel ist es, die hier auseinanderfliegt, nicht irgendein
+      // zufälliges Partikelchaos. Alle Splitter behalten die Farbe der
+      // Ursprungskugel, bis auf einen weißen Glanz-Splitter fürs Funkeln.
       for (let i = 0; i < CHUNKS_PER_CELL; i++) {
-        const ang = baseAng + (Math.random() - 0.5) * 0.9;
+        const ang = baseAng + (Math.random() - 0.5) * 0.7;
         const sp = 420 + Math.random() * 420 + dist * 0.7;
         this.fxChunks.push({
-          x: x + (Math.random() - 0.5) * L.cell * 0.4,
-          y: y + (Math.random() - 0.5) * L.cell * 0.4,
+          x: x + (Math.random() - 0.5) * L.cell * 0.22,
+          y: y + (Math.random() - 0.5) * L.cell * 0.22,
           vx: Math.cos(ang) * sp,
           vy: Math.sin(ang) * sp - 220,
           t: 0,
           max: FX_CHUNK_S_MIN + Math.random() * (FX_CHUNK_S_MAX - FX_CHUNK_S_MIN),
           color: i === 0 ? "#ffffff" : color,
-          size: L.cell * (0.13 + Math.random() * 0.16),
+          size: L.cell * (0.16 + Math.random() * 0.18),
           rot: Math.random() * Math.PI,
           spin: (Math.random() - 0.5) * 26,
         });
@@ -764,7 +768,7 @@ export class CascadeView {
   }
 
   /**
-   * Zeichnet Ring + Würfel-Splitter der Schockwelle auf die Vollbild-Ebene
+   * Zeichnet Ring + Kugel-Splitter der Schockwelle auf die Vollbild-Ebene
    * (`#k-shockwave-fx`), die außerhalb von `.board-wrap` liegt und darum
    * nicht von dessen `overflow: hidden` gekappt wird — genau deshalb kann die
    * Welle sichtbar über das lila Panel hinaus übern ganzen Screen laufen.
@@ -813,7 +817,7 @@ export class CascadeView {
       for (const s of this.fxChunks) {
         const k = 1 - s.t / s.max;
         ctx.globalAlpha = Math.max(0, k);
-        this.drawCube(ctx, s.x, s.y, s.size * (0.65 + k * 0.55), s.rot, s.color);
+        this.drawSplinter(ctx, s.x, s.y, s.size * (0.65 + k * 0.55), s.rot, s.color);
       }
       ctx.globalAlpha = 1;
     }
@@ -983,22 +987,27 @@ export class CascadeView {
     ctx.fill();
   }
 
-  /** Ein kleiner, leicht 3D schattierter Würfel-Splitter — für die Schockwelle
-   *  (`renderFx`). Nimmt den Kontext explizit entgegen, weil er auf der
-   *  Vollbild-FX-Ebene zeichnet, nicht auf dem Board-Canvas (`this.ctx`). */
-  private drawCube(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, rot: number, color: string): void {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rot);
-    const s = size;
-    const grad = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
-    grad.addColorStop(0, shade(color, 0.5));
+  /**
+   * Ein kleiner Kugel-Splitter — für die Schockwelle (`renderFx`). Die
+   * Spielteile selbst sind ja Kugeln (`drawPieceBody`), darum muss auch jeder
+   * Splitter eine kleine Kugel sein, keine Ecke/Kante wie ein Würfel — "Glas,
+   * das zersplittert, nur abgerundet". Radialer Verlauf mit Glanzpunkt, der
+   * über `rot` leicht wandert, für einen tumbelnden 3D-Eindruck. Nimmt den
+   * Kontext explizit entgegen, weil er auf der Vollbild-FX-Ebene zeichnet,
+   * nicht auf dem Board-Canvas (`this.ctx`).
+   */
+  private drawSplinter(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, rot: number, color: string): void {
+    const r = size / 2;
+    const hx = x + Math.cos(rot) * r * 0.3;
+    const hy = y + Math.sin(rot) * r * 0.3;
+    const grad = ctx.createRadialGradient(hx - r * 0.25, hy - r * 0.3, r * 0.1, x, y, r * 1.08);
+    grad.addColorStop(0, shade(color, 0.6));
     grad.addColorStop(0.55, color);
-    grad.addColorStop(1, shade(color, -0.35));
+    grad.addColorStop(1, shade(color, -0.3));
     ctx.fillStyle = grad;
-    roundRect(ctx, -s / 2, -s / 2, s, s, Math.max(1, s * 0.22));
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
   }
 
   /** Herz-Umriss, `size` = Breite über die beiden Lappen. Füllt/stroket nicht
