@@ -1778,8 +1778,16 @@ function startCascade(): void {
       }
       lastMultTier = tier;
       const el = $("k-clock");
-      el.textContent = fmt(h.ms);
+      $("k-clock-txt").textContent = fmt(h.ms);
       el.classList.toggle("warn", h.ms < 12_000);
+      // Gefahr-Zustand "Brett wird eng" (Abschnitt 3 im Ökonomie-Konzept):
+      // Panel pulsiert bereits selbst (siehe .board-wrap.danger in
+      // cascade-view.ts), hier nur die zwei DOM-seitigen Hinweise dazu —
+      // Warn-Icon neben der Uhr, plus ein Puls auf dem Klärfunke-Icon, aber
+      // nur wenn davon auch wirklich einer im Vorrat ist (sonst zeigt der
+      // Hinweis auf ein Werkzeug, das gar nicht einsetzbar ist).
+      $("k-crowd-warn").hidden = !h.crowded;
+      $("ka-clear").classList.toggle("suggest", h.crowded && !$<HTMLButtonElement>("ka-clear").disabled);
       // Highscore-Slot zeigt nur noch die Differenz, nicht die absolute Zahl —
       // "wie viel fehlt noch". Ohne eigenen Highscore (ganz erster Lauf) zählt
       // schon der erste Punkt als neuer Rekord, sonst erst das Erreichen/
@@ -2066,7 +2074,7 @@ function startRescueLevel(level: RescueLevel): void {
       const usedFrac = Math.min(1, 1 - h.shardsLeft / level.config.shardBudget);
       $("rs-threat").style.transform = `translateY(${Math.round(usedFrac * 58)}px)`;
       const el = $("k-clock");
-      el.textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
+      $("k-clock-txt").textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
       el.classList.toggle("warn", h.shardsLeft <= 3);
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
       // keine Zwischenaufgaben im Level — das Ziel ist das Ziel

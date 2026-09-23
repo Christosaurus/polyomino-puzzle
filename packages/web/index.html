@@ -1097,6 +1097,38 @@
       .clock.moves.warn i {
         color: #ffd0cd;
       }
+      /* Warn-Icon neben der Uhr, solange das Brett eng ist (Abschnitt 3 im
+         Ökonomie-Konzept) -- eigenes blinkendes Signal statt der Uhr-eigenen
+         `.warn`-Farbe, damit "wenig Zeit" und "Brett wird voll" klar zwei
+         verschiedene Warnungen bleiben. Position absolut, damit es die Uhr
+         nicht breiter macht (die feste `min-width` der Pille soll stehen). */
+      .clock {
+        position: relative;
+      }
+      .crowd-warn {
+        position: absolute;
+        top: -10px;
+        right: -8px;
+        font-size: 18px;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+        animation: crowd-warn-blink 1.1s ease-in-out infinite;
+      }
+      @keyframes crowd-warn-blink {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.55;
+          transform: scale(0.85);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .crowd-warn {
+          animation: none;
+        }
+      }
       .clock.warn {
         color: #ffd0cd;
         border-color: var(--stop);
@@ -1849,6 +1881,48 @@
             0 0 18px 2px rgba(255, 255, 255, 0.7);
         }
       }
+      /* Brett wird eng (>= 78% belegt, siehe DANGER_FRAC in cascade-view.ts,
+         Abschnitt 3 im Ökonomie-Konzept) — ruhigeres, warnendes Pulsieren in
+         Orange statt der weißen Feier-Glut von ultimate-glow, damit beide
+         Zustände sich nie wie dasselbe Signal anfühlen. Randfarbe pulsiert
+         mit, nicht nur der Schein dahinter — soll klar als "Rahmen warnt"
+         lesbar sein, nicht als hübsches Leuchten. */
+      .board-wrap.danger {
+        animation: danger-pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes danger-pulse {
+        0%,
+        100% {
+          border-color: var(--border);
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 10px 1px rgba(255, 159, 42, 0.35);
+        }
+        50% {
+          border-color: var(--mango);
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 20px 5px rgba(255, 159, 42, 0.75);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .board-wrap.danger {
+          animation: none;
+          border-color: var(--mango);
+          box-shadow:
+            inset 0 4px 0 rgba(255, 255, 255, 0.22),
+            inset 0 -8px 0 rgba(0, 0, 0, 0.25),
+            0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+            var(--shadow),
+            0 0 14px 2px rgba(255, 159, 42, 0.5);
+        }
+      }
       /* Eigener Bezugsrahmen für die Challenge-Karte (position:absolute) —
          sitzt direkt über dem Canvas, damit sie sich an dessen Position
          orientiert und nicht an der Score/Multiplier-Zeile darüber, die jetzt
@@ -2006,6 +2080,40 @@
       }
       .k-ability.fire {
         animation: jfire 0.45s ease;
+      }
+      /* Brett wird eng UND Klärfunke im Vorrat -- dezenter Hinweis-Puls,
+         "jetzt wäre der Moment" (Abschnitt 3), ohne zu bevormunden: kein
+         Text, nur ein sanftes Wachsen+Leuchten am Icon selbst. */
+      .k-ability.suggest {
+        animation: ka-suggest 1.1s ease-in-out infinite;
+      }
+      @keyframes ka-suggest {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.45),
+            inset 0 -4px 0 rgba(0, 0, 0, 0.22),
+            0 5px 0 -1px var(--jc-lo);
+        }
+        50% {
+          transform: scale(1.08);
+          box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.45),
+            inset 0 -4px 0 rgba(0, 0, 0, 0.22),
+            0 5px 0 -1px var(--jc-lo),
+            0 0 16px 4px color-mix(in srgb, var(--jc) 65%, transparent);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .k-ability.suggest {
+          animation: none;
+          box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.45),
+            inset 0 -4px 0 rgba(0, 0, 0, 0.22),
+            0 5px 0 -1px var(--jc-lo),
+            0 0 12px 3px color-mix(in srgb, var(--jc) 55%, transparent);
+        }
       }
 
       /* ── Overlays ──────────────────────────────────── */
@@ -3248,7 +3356,7 @@
       <section class="screen play" id="screen-kaskade" hidden>
         <div class="k-topbar">
           <img class="mini-brand" src="ui/logo-wordmark.webp" alt="Lumen" />
-          <div class="clock" id="k-clock">3:00</div>
+          <div class="clock" id="k-clock"><span id="k-clock-txt">3:00</span><span class="crowd-warn" id="k-crowd-warn" hidden>⚠️</span></div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
         <div class="rescue-scene" id="rs-scene" hidden>

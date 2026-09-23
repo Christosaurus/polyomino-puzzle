@@ -97,8 +97,17 @@ export interface CascadeCallbacks {
     chain: number;
     /** `Infinity` im Free Play — nur im Level-Modus ein echtes Budget. */
     shardsLeft: number;
+    /** Brett ist eng geworden (>= DANGER_FRAC belegt) — steuert den Warn-
+     *  Zustand im HUD (Klärfunke-Hervorhebung), siehe `.board-wrap.danger`. */
+    crowded: boolean;
   }) => void;
 }
+
+/** Ab dieser Belegung gilt das Brett als "eng" — sichtbarer Gefahr-Zustand
+ *  im HUD (Abschnitt 3, `art-refs/KONZEPT-kaskade-oekonomie.md`). Intern
+ *  steuert `pickShardName` schon vorher gleitend gegen (mehr kleine Teile,
+ *  je voller), das hier ist nur die feste Schwelle für die sichtbare Warnung. */
+const DANGER_FRAC = 0.78;
 
 export class CascadeView {
   private canvas: HTMLCanvasElement;
@@ -517,6 +526,10 @@ export class CascadeView {
       else sfx.win(2);
       this.cb.onEnd(this.game.result());
     }
+    const crowded = this.game.coveredCells() / (this.game.rows * this.game.cols) >= DANGER_FRAC;
+    // Direkt am Panel getoggelt (nicht über eine App.ts-Klasse), gleiches
+    // Muster wie `ultimate-glow` oben — die View besitzt `this.wrap` schon.
+    this.wrap.classList.toggle("danger", crowded && !this.game.isOver);
     this.cb.onHud({
       score: Math.round(this.game.score),
       mult: this.game.multiplier,
@@ -525,6 +538,7 @@ export class CascadeView {
       lives: this.game.lives,
       chain: this.game.chain,
       shardsLeft: this.game.shardsLeft,
+      crowded: crowded && !this.game.isOver,
     });
   }
 
