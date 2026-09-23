@@ -132,6 +132,12 @@ export interface ComboOffer {
   /** Wie viele Stück dieser Form platziert werden müssen. */
   target: number;
   progress: number;
+  /** Wie viele Exemplare der Zielfigur seit der Zusage schon aufs Band kamen
+   *  (unabhängig davon, ob sie auch platziert wurden) — steuert die Garantie
+   *  in `pickPlaceableName`: erst wenn genug Nachschub da war/ist, darf die
+   *  Auswahl wieder normal laufen. Ohne das war "X Stück platzieren" nur ein
+   *  Versprechen, das vom Zufall der Gewichtung abhing. */
+  spawned: number;
   reward: ComboReward;
   /** Fertiger Anzeigetext für die Belohnung ("+15s", "+1 ❤", "+2.0×") —
    *  steht schon in der Anfrage, bevor der Spieler zusagt. */
@@ -151,15 +157,37 @@ const COMBO_CHANCE = 0.35;
 const COMBO_DECISION_MS = 8_000;
 const COMBO_TIME_BONUS_MS = 15_000;
 const COMBO_MULT_BOOST = 2;
-const COMBO_TIERS: ReadonlyArray<{ target: number; reward: ComboReward; rewardLabel: string }> = [
-  { target: 3, reward: "time", rewardLabel: "+15s" },
-  { target: 4, reward: "heart", rewardLabel: "+1 ❤" },
-  { target: 5, reward: "mult", rewardLabel: `+${COMBO_MULT_BOOST.toFixed(1)}×` },
+/** Schwierigkeitsstufen — Zielanzahl kommt NICHT mehr von hier, sondern aus
+ *  `comboTarget()` (hängt von der Formgröße ab), nur die Belohnung ist fix
+ *  pro Stufe (leicht→schwer = mehr Zeit → Herz → Multiplikator). */
+const COMBO_TIERS: ReadonlyArray<{ reward: ComboReward; rewardLabel: string }> = [
+  { reward: "time", rewardLabel: "+15s" },
+  { reward: "heart", rewardLabel: "+1 ❤" },
+  { reward: "mult", rewardLabel: `+${COMBO_MULT_BOOST.toFixed(1)}×` },
 ];
-/** Größtmögliches Zeitfenster eines Kombi-Angebots (härteste Stufe) — bevor
- *  eins angeboten wird, muss noch genug Rundenzeit übrig sein, es überhaupt
- *  zu Ende zu spielen. */
-const COMBO_MAX_WINDOW_MS = 9_000 + 5 * 7_000;
+/** Basis + Zeit pro gefordertem Stück für das Lösungsfenster, nachdem ein
+ *  Angebot angenommen wurde — bewusst großzügig, weil jedes Stück ja nicht
+ *  nur ERSCHEINEN, sondern vom Spieler auch noch erkannt, gegriffen und
+ *  platziert werden muss (siehe `comboTarget` + die Nachschub-Garantie in
+ *  `pickPlaceableName`). */
+const COMBO_WINDOW_BASE_MS = 12_000;
+const COMBO_WINDOW_PER_PIECE_MS = 8_000;
+/**
+ * Ziel-Stückzahl für ein Kombi-Angebot: gestaffelt nach Formgröße (2..5
+ * Zellen) UND Schwierigkeitsstufe (0 = leicht/Zeit .. 2 = schwer/Mult). Eine
+ * kleine, häufige Form (z. B. "duo") verlangt mehr Stück als eine seltene,
+ * große Pentomino-Form — ohne diese Staffelung verlangte jede Form dieselbe
+ * feste Anzahl, was ein Angebot mit einer seltenen großen Form in der
+ * verfügbaren Zeit quasi unschaffbar machte.
+ */
+function comboTarget(size: number, tier: 0 | 1 | 2): number {
+  const base = Math.max(3, 8 - size); // size 2→6, 3→5, 4→4, 5→3
+  return Math.max(2, base - 1 + tier);
+}
+/** Größtmögliches Zeitfenster eines Kombi-Angebots (härteste Stufe, kleinste
+ *  Form) — bevor eins angeboten wird, muss noch genug Rundenzeit übrig sein,
+ *  es überhaupt zu Ende zu spielen. */
+const COMBO_MAX_WINDOW_MS = COMBO_WINDOW_BASE_MS + comboTarget(2, 2) * COMBO_WINDOW_PER_PIECE_MS;
 /** "mono" (1x1) passt überall — als Kombi-Ziel kein echter Auftrag. */
 const COMBO_SHARD_POOL = SHARD_NAMES.filter((n) => n !== "mono");
 
@@ -315,7 +343,18 @@ export class CascadeState {
     const favorStraight = this.challenge?.kind === "straight";
     // Angenommenes Kombi-Angebot: die Zielfigur muss zuverlässig auftauchen,
     // sonst ist die Zusage ein leeres Versprechen.
-    const favorName = this.comboOffer?.accepted ? this.comboOffer.shardName : undefined;
+    const offer = this.comboOffer;
+    const favorName = offer?.accepted ? offer.shardName : undefined;
+    // Solange noch nicht genug Nachschub der Zielfigur erzeugt wurde, wird sie
+    // ERZWUNGEN statt nur bevorzugt gewichtet — eine Gewichtung allein kann
+    // auch bei Pech ausbleiben, und genau das ließ manche Angebote in der
+    // verfügbaren Zeit gar nicht zu schaffen sein. Nur erzwingen, wenn die
+    // Form gerade wirklich irgendwo aufs Brett passt (sonst käme eine
+    // Scherbe aufs Band, die niemand platzieren kann).
+    if (favorName && offer && offer.spawned < offer.target && this.canPlaceAnywhere(favorName)) {
+      offer.spawned += 1;
+      return favorName;
+    }
     // Steht ein Ultra-Clear kurz bevor (mehrere Reihen/Spalten brauchen
     // zusammen nur noch eine Handvoll Zellen), kommt mit erhöhter statt
     // garantierter Chance ein Teil, das genau in die Lücke passt — der
@@ -570,14 +609,16 @@ export class CascadeState {
    *  wenn gerade keine der in Frage kommenden Formen überhaupt irgendwo aufs
    *  Brett passt (dann bietet der Aufrufer stattdessen eine normale Challenge an). */
   private buildComboOffer(): ComboOffer | null {
-    const tier = COMBO_TIERS[Math.floor(this.rng.next() * COMBO_TIERS.length)]!;
+    const tierIndex = Math.floor(this.rng.next() * COMBO_TIERS.length) as 0 | 1 | 2;
+    const tier = COMBO_TIERS[tierIndex]!;
     const pool = COMBO_SHARD_POOL.filter((n) => this.canPlaceAnywhere(n));
     if (pool.length === 0) return null;
     const shardName = pool[Math.floor(this.rng.next() * pool.length)]!;
     return {
       shardName,
-      target: tier.target,
+      target: comboTarget(shardDef(shardName).size, tierIndex),
       progress: 0,
+      spawned: 0,
       reward: tier.reward,
       rewardLabel: tier.rewardLabel,
       createdAt: this.elapsedMs(),
@@ -625,12 +666,12 @@ export class CascadeState {
       : 0;
   }
   /** Angebot annehmen — ab jetzt zählt jede passende Platzierung, und das Band
-   *  bevorzugt spürbar die Zielfigur (siehe `pickPlaceableName`). */
+   *  liefert die Zielfigur garantiert nach (siehe `pickPlaceableName`). */
   acceptCombo(): void {
     const c = this.comboOffer;
     if (!c || c.accepted) return;
     c.accepted = true;
-    c.windowMs = 9_000 + c.target * 7_000;
+    c.windowMs = COMBO_WINDOW_BASE_MS + c.target * COMBO_WINDOW_PER_PIECE_MS;
     c.deadline = this.elapsedMs() + c.windowMs;
   }
   /** Angebot ablehnen — sofort weg, normale Gelegenheiten-Pause startet neu. */
