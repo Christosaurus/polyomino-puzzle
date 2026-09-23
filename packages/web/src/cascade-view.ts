@@ -574,14 +574,13 @@ export class CascadeView {
 
     // Platz für den Ad-Banner unter dem Brett reservieren (siehe .ad-slot in
     // index.html: 56px Höhe + 8px margin-top) — sonst rechnet sich das Feld
-    // zu groß und schiebt den Banner aus dem sichtbaren Bereich. Dieselbe
-    // Rechnung für die Kaskaden-Fähigkeiten-Reihe darunter (.k-abilities:
-    // 46px Knöpfe + 8px margin-top) — reserviert auch im Story-Modus, wo die
-    // Reihe versteckt ist (unkritisch, nur etwas ungenutzter Rand, aber
-    // deutlich einfacher als zwei verschiedene Layout-Rechnungen zu pflegen).
+    // zu groß und schiebt den Banner aus dem sichtbaren Bereich. Die
+    // Kaskaden-Fähigkeiten sitzen jetzt IN der Score/Multiplikator-Zeile
+    // (anstelle der zur Uhr gewanderten Herzen) und brauchen deshalb keine
+    // eigene Höhen-Reservierung mehr — `canvasTop` (unten) erfasst diese
+    // Zeile schon automatisch mit, wie jede andere HUD-Zeile über dem Brett.
     const AD_SLOT_H = 64;
-    const ABILITIES_H = 54;
-    const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H - ABILITIES_H);
+    const maxH = Math.max(280, viewportH - canvasTop - 24 - AD_SLOT_H);
     // topRowH schwankt so oder so nur zwischen 52-70px (siehe Clamp unten) —
     // für die Höhen-Rechnung reicht ein Schätzwert aus der Mitte, die paar
     // Pixel Unterschied ändern die Zellgröße nicht spürbar.

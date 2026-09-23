@@ -1246,11 +1246,28 @@
         align-items: center;
         justify-self: center;
       }
+      /* Jetzt unter der Uhr statt in der Score/Multiplikator-Zeile -- eigene,
+         kleinere Größe (die alte 48-64px-Kluster war für dort gedacht, wo
+         mehr Höhe zur Verfügung stand; hier direkt unterm Uhr-Pill ist
+         weniger Platz). Macht die Zeile darunter frei für die
+         Kaskaden-Fähigkeiten. */
+      .k-hearts-top {
+        justify-content: center;
+        margin: 2px 0 -2px;
+      }
+      .k-hearts-top .k-life {
+        width: 30px;
+        height: 30px;
+      }
+      .k-hearts-top .k-life-mid {
+        width: 38px;
+        height: 38px;
+      }
       .k-life {
         width: 48px;
         height: 48px;
         filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
-        transition: opacity 0.25s ease, filter 0.25s ease;
+        transition: opacity 0.25s ease, filter 0.25s ease, width 0.2s ease, height 0.2s ease;
       }
       .k-life:first-child {
         transform: rotate(-12deg);
@@ -1912,21 +1929,21 @@
       }
 
       /* ── Kaskaden-Fähigkeiten ──────────────────────── */
-      /* deutlich kompakter als .jokers -- der Kaskaden-Screen hat weniger
-         vertikalen Platz übrig (siehe AD_SLOT_H/ABILITIES_H in
-         cascade-view.ts, die beide von der verfügbaren Bretthöhe abgezogen
-         werden, damit sich diese Zeile nie mit dem Ad-Slot überlappt). */
+      /* Sitzt anstelle der Herzen in der Score/Multiplikator-Zeile (.k-lives
+         ist ihr Grid-Rahmen, dieselben drei Spalten wie score-col/mult-col
+         daneben) -- die Herzen sind unter die Uhr gewandert, siehe
+         .k-hearts-top weiter oben. */
       .k-abilities {
         display: flex;
         justify-content: center;
-        gap: 10px;
-        margin-top: 8px;
+        justify-self: center;
+        gap: 8px;
       }
       .k-ability {
         position: relative;
-        width: 46px;
-        height: 46px;
-        border-radius: 14px;
+        width: 40px;
+        height: 40px;
+        border-radius: 13px;
         background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 82%, #fff), var(--gold-lo));
         display: grid;
         place-items: center;
@@ -1936,15 +1953,15 @@
           0 4px 0 -1px var(--gold-lo);
       }
       .k-ability .jl {
-        font-size: 20px;
+        font-size: 17px;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
       }
       .k-ability .c {
         position: absolute;
-        top: -7px;
-        right: -7px;
-        min-width: 19px;
-        height: 19px;
+        top: -6px;
+        right: -6px;
+        min-width: 17px;
+        height: 17px;
         padding: 0 4px;
         border-radius: 999px;
         background: linear-gradient(180deg, #ff7a72, #db3a32);
@@ -3203,6 +3220,14 @@
           <div class="clock" id="k-clock">3:00</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
+        <!-- Herzen direkt unter der Uhr statt in der Score/Multiplikator-Zeile
+             -- da war noch Platz, und es macht die Zeile darunter frei für
+             die Kaskaden-Fähigkeiten (siehe .k-abilities weiter unten). -->
+        <span class="k-hearts k-hearts-top">
+          <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
+          <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
+          <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
+        </span>
         <div class="rescue-scene" id="rs-scene" hidden>
           <div class="rescue-goal" id="rs-goal">
             <span class="rg-icon">🪨</span>
@@ -3223,11 +3248,17 @@
               <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
             </span>
           </span>
-          <span class="k-hearts">
-            <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
-            <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
-            <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
-          </span>
+          <div class="k-abilities" id="k-abilities">
+            <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
+              <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
+            </button>
+            <button class="k-ability" id="ka-clear" data-kind="clear">
+              <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
+            </button>
+            <button class="k-ability" id="ka-time" data-kind="time">
+              <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
+            </button>
+          </div>
           <span class="mult-col" id="k-mult-col">
             <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
             <div class="k-streak" id="k-streak"></div>
@@ -3261,17 +3292,6 @@
             </div>
             <canvas id="k-canvas"></canvas>
           </div>
-        </div>
-        <div class="k-abilities" id="k-abilities">
-          <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
-            <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
-          </button>
-          <button class="k-ability" id="ka-clear" data-kind="clear">
-            <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
-          </button>
-          <button class="k-ability" id="ka-time" data-kind="time">
-            <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
-          </button>
         </div>
         <div class="ad-slot" id="k-ad-slot"><span>Ad space</span></div>
       </section>
