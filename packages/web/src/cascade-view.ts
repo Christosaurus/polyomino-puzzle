@@ -1493,11 +1493,17 @@ export class CascadeView {
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
   private overBoard(x: number, y: number, L: Layout): boolean {
+    // Die untere Grenze muss den Anheb-Versatz (DRAG_LIFT_CELLS) mit abdecken:
+    // snappedFor() rechnet die Zielzeile aus `py - cell*DRAG_LIFT_CELLS` — um
+    // unten auf die letzte Reihe zu treffen, muss der Finger also spürbar
+    // TIEFER als das Brett selbst stehen. Ohne diesen Zuschlag galt der
+    // Finger dort schon als "nicht mehr übers Brett", bevor die unterste
+    // Reihe überhaupt erreichbar war — die Reihe war praktisch unbespielbar.
     return (
       x >= L.boardX - L.cell * 0.6 &&
       y >= L.boardY - L.cell * 0.6 &&
       x < L.boardX + L.cell * (this.game.cols + 0.6) &&
-      y < L.boardY + L.cell * (this.game.rows + 0.6)
+      y < L.boardY + L.cell * (this.game.rows + DRAG_LIFT_CELLS + 0.6)
     );
   }
   private boardCell(x: number, y: number, L: Layout): Pos {
@@ -1514,24 +1520,26 @@ export class CascadeView {
     const raw: Pos = { row: t.row - d.grabR, col: t.col - d.grabC };
     if (this.game.canPlace(d.shard, raw)) return raw;
     // Die exakt getroffene Zelle passt nicht (Rand, schon belegt, knapp
-    // daneben getippt) — vor dem "ungültig"-Feedback erst die unmittelbaren
-    // Nachbarzellen probieren und sanft dorthin einrasten ("Magnet"). Das
-    // verzeiht kleine Wackler beim Loslassen, die sonst als Fehlwurf zählen
-    // würden. Orthogonale Nachbarn zuerst, dann diagonale; nichts gefunden →
-    // beim rohen Treffer bleiben (dann greift wie gehabt die Ungültig-Anzeige).
+    // daneben getippt). Vorher sprang das hier auf JEDE freie Nachbarzelle —
+    // das führte genau zu den zwei gemeldeten Problemen: 1) man musste die
+    // Figur regelrecht aus dem Fangbereich "herausziehen", weil praktisch
+    // jede Nachbarzelle als Ausweichziel taugte, und 2) die Figur "sprang" im
+    // letzten Moment auf eine beliebige freie Zelle, die mit der Absicht des
+    // Spielers nichts zu tun hatte. Jetzt rastet es NUR ein, wenn eine der 4
+    // unmittelbaren Nachbarzellen wirklich eine Reihe/Spalte fertigmachen
+    // würde — ein bewusster Vorteil fürs Vollenden, kein genereller
+    // Toleranz-Magnet. Sonst bleibt es beim rohen Treffer (→ Ungültig-Anzeige).
     const neighbors: Array<[number, number]> = [
       [0, -1],
       [0, 1],
       [-1, 0],
       [1, 0],
-      [-1, -1],
-      [-1, 1],
-      [1, -1],
-      [1, 1],
     ];
     for (const [dr, dc] of neighbors) {
       const cand: Pos = { row: raw.row + dr, col: raw.col + dc };
-      if (this.game.canPlace(d.shard, cand)) return cand;
+      if (!this.game.canPlace(d.shard, cand)) continue;
+      const lines = this.previewLines(d.shard, cand);
+      if (lines.rows.length > 0 || lines.cols.length > 0) return cand;
     }
     return raw;
   }

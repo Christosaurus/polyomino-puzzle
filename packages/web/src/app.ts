@@ -1671,7 +1671,7 @@ function startCascade(): void {
       // Überholen des alten Bestwerts.
       const hasBest = bestScore > 0;
       if (!newRecord) {
-        $("k-best").textContent = hasBest ? `−${nf(Math.max(0, bestScore - h.score))}` : "−";
+        $("k-best").textContent = hasBest ? nf(Math.max(0, bestScore - h.score)) : "−";
         const beat = hasBest ? h.score >= bestScore : h.score > 0;
         if (beat) {
           newRecord = true;
@@ -1695,7 +1695,7 @@ function startCascade(): void {
         }
       } else if (lbTop1 !== null) {
         const toFirst = Math.max(0, lbTop1 - h.score);
-        $("k-best").textContent = toFirst > 0 ? `−${nf(toFirst)}` : "🏆";
+        $("k-best").textContent = toFirst > 0 ? nf(toFirst) : "🏆";
       }
       for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
 
@@ -1819,6 +1819,7 @@ function startCascade(): void {
       $("k-again").textContent = "Play Again";
     },
   });
+  if (import.meta.env.DEV) (window as unknown as { __cascadeView: CascadeView }).__cascadeView = cascadeView;
   $("k-best").textContent = nf(bestScore);
   showScreen("kaskade");
   window.scrollTo(0, 0);

@@ -11,13 +11,22 @@
  * schon leise von vorne, während die erste ausklingt — der Schnitt fällt
  * unter die Überblendung, man hört ihn nicht.
  *
+ * Lautstärke läuft NICHT über `audio.volume` — iOS Safari bindet die
+ * Lautstärke eines <audio>-Elements an den Hardware-Regler und ignoriert
+ * `.volume`-Zuweisungen aus JS komplett (ein bekanntes, absichtliches
+ * WebKit-Verhalten). Der Regler in den Einstellungen wirkte darum am
+ * eigenen Desktop-Test, aber nicht auf dem iPhone. Stattdessen läuft jede
+ * Kopie durch einen eigenen `GainNode` im geteilten AudioContext (siehe
+ * `audio-core.ts`) — `GainNode.gain` ist von der Plattform-Einschränkung
+ * nicht betroffen und funktioniert überall zuverlässig.
+ *
  * Autoplay: ein `<audio>`-Element darf erst nach einer Nutzergeste laufen.
  * Das Freischalten macht `audio-core.ts`; hier wird nur der gemerkte Wunsch
  * gespielt, sobald es so weit ist. Lautstärkewechsel (Start/Stop/Ducken)
  * laufen als sanfte Fades, nie hart geschnitten.
  */
 
-import { onAudioUnlock } from "./audio-core.js";
+import { audioCtx, onAudioUnlock } from "./audio-core.js";
 
 export type TrackId = "menu" | "play" | "cascade";
 
@@ -30,7 +39,12 @@ const CROSSFADE_S = 1.7; // Überlappung am Loop-Punkt
 let masterVolume = 0.5;
 
 let tracks: [HTMLAudioElement, HTMLAudioElement] | null = null;
-let activeTrack = 0; // Index in `tracks` — welche Kopie gerade "vorne" ist
+/** Ein GainNode pro Kopie, 1:1 zu `tracks` — steuert deren tatsächlich
+ *  hörbare Lautstärke (siehe Datei-Kommentar oben). `null` nur, wenn der
+ *  Browser gar kein WebAudio kann; dann fällt `setVol` auf `audio.volume`
+ *  zurück (funktioniert überall außer eben iOS Safari). */
+let trackGains: [GainNode, GainNode] | null = null;
+let activeTrack: 0 | 1 = 0; // Index in `tracks` — welche Kopie gerade "vorne" ist
 let crossfading = false;
 let enabled = true;
 let wanted: TrackId | null = null;
@@ -41,22 +55,50 @@ let stopTimer = 0;
 function makeTrack(): HTMLAudioElement {
   const a = new Audio(SRC);
   a.loop = false; // der Loop läuft manuell per Crossfade, nicht hart
-  a.volume = 0;
+  a.volume = 1; // die eigentliche Lautstärke steuert der GainNode, siehe unten
   a.setAttribute("playsinline", "");
   a.addEventListener("timeupdate", onTimeUpdate);
   return a;
 }
 
+/** Lautstärke einer Kopie setzen — über den GainNode, wenn vorhanden (siehe
+ *  Datei-Kommentar), sonst als Fallback direkt über `audio.volume`. */
+function setVol(idx: 0 | 1, value: number): void {
+  const v = Math.max(0, Math.min(1, value));
+  if (trackGains) {
+    trackGains[idx].gain.value = v;
+  } else if (tracks) {
+    tracks[idx].volume = v;
+  }
+}
+function getVol(idx: 0 | 1): number {
+  if (trackGains) return trackGains[idx].gain.value;
+  return tracks ? tracks[idx].volume : 0;
+}
+
 function ensureTracks(): [HTMLAudioElement, HTMLAudioElement] {
   if (!tracks) {
     tracks = [makeTrack(), makeTrack()];
-    if (import.meta.env.DEV) (window as unknown as { __music: HTMLAudioElement[] }).__music = tracks;
+    const ac = audioCtx();
+    if (ac) {
+      try {
+        trackGains = tracks.map((t) => {
+          const src = ac.createMediaElementSource(t);
+          const gain = ac.createGain();
+          gain.gain.value = 0;
+          src.connect(gain).connect(ac.destination);
+          return gain;
+        }) as [GainNode, GainNode];
+      } catch {
+        trackGains = null; // z. B. Safari-Eigenheiten — dann greift der volume-Fallback
+      }
+    }
+    if (import.meta.env.DEV) {
+      (window as unknown as { __music: HTMLAudioElement[] }).__music = tracks;
+      (window as unknown as { __musicGains: GainNode[] | null }).__musicGains = trackGains;
+    }
   }
   return tracks;
-}
-
-function active(): HTMLAudioElement | null {
-  return tracks ? tracks[activeTrack]! : null;
 }
 
 function targetVolume(): number {
@@ -72,11 +114,11 @@ function onTimeUpdate(e: Event): void {
   if (a.duration - a.currentTime > CROSSFADE_S) return;
   crossfading = true;
   const fromIdx = activeTrack;
-  const toIdx = fromIdx === 0 ? 1 : 0;
+  const toIdx: 0 | 1 = fromIdx === 0 ? 1 : 0;
   const from = tracks[fromIdx]!;
   const to = tracks[toIdx]!;
   to.currentTime = 0;
-  to.volume = 0;
+  setVol(toIdx, 0);
   // Wenn die zweite Kopie aus irgendeinem Grund nicht anspringt (z. B. iOS
   // blockt den Autoplay einer noch nie direkt angetippten Kopie), lieber
   // einen harten Loop auf der auslaufenden Kopie fahren als in Stille zu
@@ -92,10 +134,10 @@ function onTimeUpdate(e: Event): void {
   const step = (now: number): void => {
     const t = Math.min(1, (now - start) / durMs);
     if (toOk) {
-      from.volume = Math.max(0, Math.min(1, target * (1 - t)));
-      to.volume = Math.max(0, Math.min(1, target * t));
+      setVol(fromIdx, target * (1 - t));
+      setVol(toIdx, target * t);
     } else {
-      from.volume = target; // nicht ausblenden — es kommt kein Ersatz
+      setVol(fromIdx, target); // nicht ausblenden — es kommt kein Ersatz
     }
     if (t < 1) {
       fadeRaf = requestAnimationFrame(step);
@@ -114,17 +156,14 @@ function onTimeUpdate(e: Event): void {
 
 /** Sanft auf `target` fahren statt hart zu springen (Start/Stop/Ducken). */
 function fadeTo(target: number, ms: number): void {
-  const a = active();
-  if (!a || crossfading) return; // während der Loop-Überblendung nicht querschießen
+  if (!tracks || crossfading) return; // während der Loop-Überblendung nicht querschießen
+  const idx = activeTrack as 0 | 1;
   cancelAnimationFrame(fadeRaf);
-  const from = a.volume;
+  const from = getVol(idx);
   const start = performance.now();
   const step = (now: number): void => {
     const t = Math.min(1, (now - start) / ms);
-    // Gleitkomma-Rundung kann das Ergebnis hauchdünn über/unter [0, 1]
-    // schieben (z. B. -0.0000005 bei target=0) — der `volume`-Setter wirft
-    // dann eine IndexSizeError, darum hart geklemmt.
-    a.volume = Math.max(0, Math.min(1, from + (target - from) * t));
+    setVol(idx, from + (target - from) * t);
     if (t < 1) fadeRaf = requestAnimationFrame(step);
   };
   fadeRaf = requestAnimationFrame(step);
@@ -170,7 +209,7 @@ export function stopMusic(): void {
 /** Während einer Cutscene / Dialogszene leiser. */
 export function duckMusic(on: boolean): void {
   ducked = on;
-  const a = active();
+  const a = tracks?.[activeTrack];
   if (a && !a.paused) fadeTo(targetVolume(), 500);
 }
 
@@ -214,7 +253,7 @@ document.addEventListener("visibilitychange", () => {
     tracks[0].pause();
     tracks[1].pause();
   } else if (enabled && wanted) {
-    void active()?.play().catch(() => {
+    void tracks[activeTrack]?.play().catch(() => {
       /* egal */
     });
   }
