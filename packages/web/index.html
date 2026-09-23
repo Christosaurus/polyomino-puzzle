@@ -3126,7 +3126,11 @@
           <p class="muted" id="cascade-attempts" style="margin:0;text-align:center"></p>
           <button class="go big" id="cascade-play">Start Cascade</button>
         </div>
-        <div class="card mode-card" id="home-story-card">
+        <!-- Story Mode (Rettungslevel) ist für's Erste bewusst nicht erreichbar
+             -- der Fokus liegt jetzt ausschließlich auf Kaskade. Code bleibt
+             unangetastet liegen, nicht gelöscht (dasselbe Muster wie bei
+             Kampagne/Abstieg, siehe Dateikopf-Kommentar). -->
+        <div class="card mode-card" id="home-story-card" hidden>
           <p class="muted" style="margin:0">Cascade with a goal instead of a clock — free the figure from the rubble.</p>
           <button id="rescue-open">🏰 Story Mode</button>
         </div>

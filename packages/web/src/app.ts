@@ -1,8 +1,10 @@
 /**
  * App shell: bottom-tab navigation between Start (jetzt direkt Kaskade),
  * Täglich und Sammlung; plus der geteilte Play-Screen für Kaskade.
- * Kampagne (Regionen/Fenster) und Abstieg sind ohne Tab/Einstieg nicht mehr
- * erreichbar, ihr Code bleibt aber unangetastet liegen (nicht gelöscht).
+ * Kampagne (Regionen/Fenster), Abstieg UND Story Mode (Rettungslevel) sind
+ * ohne Tab/Einstieg nicht mehr erreichbar (Christians Entscheidung: der
+ * Fokus liegt jetzt ausschließlich auf Kaskade), ihr Code bleibt aber
+ * unangetastet liegen (nicht gelöscht).
  */
 
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
