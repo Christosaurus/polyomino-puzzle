@@ -170,7 +170,7 @@ const COMBO_TIERS: ReadonlyArray<{ reward: ComboReward; rewardLabel: string }> =
  *  nur ERSCHEINEN, sondern vom Spieler auch noch erkannt, gegriffen und
  *  platziert werden muss (siehe `comboTarget` + die Nachschub-Garantie in
  *  `pickPlaceableName`). */
-const COMBO_WINDOW_BASE_MS = 12_000;
+const COMBO_WINDOW_BASE_MS = 17_000;
 const COMBO_WINDOW_PER_PIECE_MS = 8_000;
 /**
  * Ziel-Stückzahl für ein Kombi-Angebot: gestaffelt nach Formgröße (2..5
@@ -571,9 +571,23 @@ export class CascadeState {
       if (!this.comboOffer.accepted) {
         // Angebot nicht innerhalb der Bedenkzeit angetippt → gilt als abgelehnt
         if (this.elapsedMs() - this.comboOffer.createdAt >= COMBO_DECISION_MS) this.declineCombo();
-      } else if (this.elapsedMs() >= this.comboOffer.deadline) {
-        this.comboOffer = null;
-        this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
+      } else {
+        const c = this.comboOffer;
+        // Sicherheitsnetz: ist das Brett gerade so voll, dass die Zielfigur
+        // NIRGENDS hinpasst, kann `pickPlaceableName` sie auch nicht
+        // nachliefern (sonst käme eine unplatzierbare Scherbe aufs Band) —
+        // die Garantie stünde dann nur auf dem Papier. Statt die Uhr in so
+        // einem Moment einfach weiterlaufen zu lassen, wird das Fenster in
+        // kleinen Schritten geschoben, bis entweder genug Nachschub kam
+        // (`spawned >= target`) oder wieder Platz für die Figur ist.
+        if (c.spawned < c.target && this.elapsedMs() >= c.deadline - 3_000 && !this.canPlaceAnywhere(c.shardName)) {
+          c.deadline += 3_000;
+          c.windowMs += 3_000;
+        }
+        if (this.elapsedMs() >= c.deadline) {
+          this.comboOffer = null;
+          this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
+        }
       }
     } else if (this.elapsedMs() >= this.nextChallengeAt && this.remainingMs() > CHALLENGE_WINDOW_MS + 5000) {
       const wantsCombo =
