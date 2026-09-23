@@ -3559,6 +3559,24 @@
         </div>
       </div>
 
+      <!-- Weiterspielen-Angebot: erscheint GENAU in dem Moment, in dem das
+           letzte Leben verloren ginge (nicht bei regulärem Zeitablauf --
+           das bleibt ein sauberes Ende, Genre-Standard). Runde ist
+           währenddessen eingefroren (freezeForContinue() in cascade.ts,
+           kostet keine Zeit) -- Abschnitt 4c im Ökonomie-Konzept. Bewusst
+           kein "✕" wie beim Versuche-Dialog: hier ist eine echte
+           Ja/Nein-Entscheidung fällig, kein beliebiges Wegklicken. -->
+      <div class="overlay" id="k-continue-overlay">
+        <div class="ocard">
+          <h3>💔 Letztes Leben verloren</h3>
+          <p class="muted" id="kc-sub" style="margin:0;text-align:center">Für Splitter weiterspielen?</p>
+          <div class="btns" style="flex-direction:column">
+            <button class="go big" id="kc-accept">✦ 15 → weiterspielen</button>
+            <button id="kc-decline">Runde beenden</button>
+          </div>
+        </div>
+      </div>
+
       <nav id="tabbar">
         <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Daily</button>
         <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Cascade!</button>

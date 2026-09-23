@@ -1673,6 +1673,23 @@ $("na-video").addEventListener("click", () => {
   toast("Werbevideos kommen bald");
 });
 
+// ── Weiterspielen-Angebot beim Verlust des letzten Lebens (Abschnitt 4c) ───
+// Reines Splitter-Geschäft -- Preis/Vorrat sind schon beim Öffnen des
+// Dialogs geprüft (siehe onHud oben), hier nur noch Kauf ODER Ablehnung.
+$<HTMLButtonElement>("kc-accept").addEventListener("click", () => {
+  if (!cascadeGame || !cascadeGame.awaitingContinueOffer) return;
+  const price = cascadeGame.nextContinuePrice();
+  if (price === null || !store.spendShards(price)) return;
+  cascadeGame.acceptContinue();
+  sfx.win(2);
+  toast("Weiter geht's!");
+  $("k-continue-overlay").classList.remove("show");
+});
+$("kc-decline").addEventListener("click", () => {
+  cascadeGame?.declineContinue();
+  $("k-continue-overlay").classList.remove("show");
+});
+
 // ── Kaskaden-Fähigkeiten (in der Runde einsetzen) ───────────────────────────
 function renderCascadeAbilities(): void {
   const a = store.load().cascadeAbilities;
@@ -1751,6 +1768,11 @@ function startCascade(): void {
   // Nur neu zeichnen, wenn sich die Zielfigur ändert — nicht jeden Frame.
   let lastComboOfferIcon: string | null = null;
   let lastComboCardIcon: string | null = null;
+  // Weiterspielen-Dialog (Abschnitt 4c): einmalig beim Auftauchen befüllen,
+  // nicht bei jedem HUD-Frame -- während die Runde eingefroren ist, läuft
+  // der Render-Loop trotzdem mit ~60fps weiter, und Preis/Kontostand ändern
+  // sich währenddessen ohnehin nicht.
+  let continueOfferOpen = false;
   if (import.meta.env.DEV) (window as unknown as { __cascade: CascadeState }).__cascade = game;
   $<HTMLButtonElement>("k-combo-accept").onclick = () => {
     game.acceptCombo();
@@ -1788,6 +1810,22 @@ function startCascade(): void {
       // Hinweis auf ein Werkzeug, das gar nicht einsetzbar ist).
       $("k-crowd-warn").hidden = !h.crowded;
       $("ka-clear").classList.toggle("suggest", h.crowded && !$<HTMLButtonElement>("ka-clear").disabled);
+      // Weiterspielen-Angebot: genau beim Auftauchen (nicht jeden Frame)
+      // Preis/Kontostand einmalig eintragen, siehe continueOfferOpen oben.
+      if (h.awaitingContinue && h.continuePrice !== null && !continueOfferOpen) {
+        continueOfferOpen = true;
+        const price = h.continuePrice;
+        const canPay = store.load().shards >= price;
+        const acceptBtn = $<HTMLButtonElement>("kc-accept");
+        acceptBtn.textContent = canPay
+          ? `✦ ${nf(price)} → weiterspielen`
+          : `✦ ${nf(store.load().shards)} / ${nf(price)} Splitter`;
+        acceptBtn.disabled = !canPay;
+        $("k-continue-overlay").classList.add("show");
+      } else if (!h.awaitingContinue && continueOfferOpen) {
+        continueOfferOpen = false;
+        $("k-continue-overlay").classList.remove("show");
+      }
       // Highscore-Slot zeigt nur noch die Differenz, nicht die absolute Zahl —
       // "wie viel fehlt noch". Ohne eigenen Highscore (ganz erster Lauf) zählt
       // schon der erste Punkt als neuer Rekord, sonst erst das Erreichen/

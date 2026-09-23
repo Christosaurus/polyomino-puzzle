@@ -30,6 +30,12 @@ const DURATION_MS = 180_000; // 3:00 Grundzeit (Joker/Blitzstein legen noch drau
  *  lassen. Siehe `addExtraTime()` unten, der einzige Ort, an dem `extraMs`
  *  wächst. */
 const EXTRA_MS_CAP = 90_000;
+/** Weiterspielen-Angebot beim Verlust des letzten Lebens (Abschnitt 4c) —
+ *  Preis steigt pro Nutzung INNERHALB derselben Runde, maximal 3x. Reines
+ *  Splitter-Geschäft (siehe app.ts), nie Echtgeld-exklusiv. Der steigende
+ *  Preis + die feste Obergrenze verhindern, dass eine einzelne Runde durch
+ *  Dauer-Zukauf die Bestenliste sprengt. */
+const CONTINUE_PRICES = [15, 30, 60] as const;
 const BASE_SPAWN_MS = 2200;
 const MIN_SPAWN_MS = 950;
 const BELT_TRAVEL_MS_START = 16_500; // time for a shard to ride top→bottom, at run start
@@ -355,6 +361,15 @@ export class CascadeState {
   private comboWon = false;
   private comboWonHeart = false;
   private comboWonLabel = "";
+  /** Wie oft in dieser Runde schon "Weiterspielen" gekauft wurde — steuert
+   *  Preis + Obergrenze, siehe CONTINUE_PRICES und `nextContinuePrice()`. */
+  private continuesUsed = 0;
+  /** True genau in dem Fenster zwischen "letztes Leben verloren" und der
+   *  Kauf-/Ablehn-Entscheidung — friert die Runde ein (siehe `tick()`,
+   *  `freezeForContinue()`), ohne die normale Pause-Budget-Uhr zu belasten. */
+  private awaitingContinue = false;
+  private continueFreezeStart: number | null = null;
+  private continueFreezeTotal = 0;
 
   constructor(seed: string, level: LevelConfig | null = null) {
     this.rng = rngFromSeed(seed);
@@ -536,8 +551,8 @@ export class CascadeState {
   }
   elapsedMs(): number {
     if (this.started === null) return 0;
-    const end = this.endedAt ?? this.pausedAt ?? performance.now();
-    return end - this.started - this.pausedTotal;
+    const end = this.endedAt ?? this.pausedAt ?? this.continueFreezeStart ?? performance.now();
+    return end - this.started - this.pausedTotal - this.continueFreezeTotal;
   }
   /** Im Level-Modus bedeutungslos (keine Uhr) — `Infinity`, statt eine falsche
    *  Zahl runterzuzählen, gegen die niemand spielt. */
@@ -550,8 +565,54 @@ export class CascadeState {
   private addExtraTime(ms: number): void {
     this.extraMs = Math.min(EXTRA_MS_CAP, this.extraMs + ms);
   }
+  /** Friert Uhr/Multiplikator-Zerfall für das Weiterspielen-Angebot ein —
+   *  bewusst NICHT über `pause()`/`resume()`, die haben ein knappes
+   *  Budget gegen Pause-Missbrauch (Playtest-Exploit E2); dieses Fenster
+   *  öffnet das Spiel selbst, nicht der Spieler, und darf das Budget nicht
+   *  auffressen, sonst könnte ein spätes Weiterspielen-Angebot mitten in der
+   *  Kaufentscheidung plötzlich wieder die Uhr laufen lassen. */
+  private freezeForContinue(): void {
+    if (this.continueFreezeStart === null && this.started !== null && this.endedAt === null) {
+      this.continueFreezeStart = performance.now();
+    }
+  }
+  private unfreezeForContinue(): void {
+    if (this.continueFreezeStart !== null) {
+      this.continueFreezeTotal += performance.now() - this.continueFreezeStart;
+      this.continueFreezeStart = null;
+    }
+  }
+  /** Preis für die nächste Weiterspielen-Nutzung in dieser Runde, oder
+   *  `null` sobald das Limit (3x) erreicht ist. Reiner Lesezugriff — der
+   *  eigentliche Kauf läuft über `acceptContinue()`, hier wird nichts
+   *  verändert. */
+  nextContinuePrice(): number | null {
+    return this.continuesUsed < CONTINUE_PRICES.length ? CONTINUE_PRICES[this.continuesUsed]! : null;
+  }
+  /** True genau während das Weiterspielen-Angebot auf eine Entscheidung
+   *  wartet (siehe `tick()`) — steuert den Kauf-Dialog in der App. */
+  get awaitingContinueOffer(): boolean {
+    return this.awaitingContinue;
+  }
+  /** App.ts hat den Preis schon geprüft und bezahlt — ein Leben zurück,
+   *  Runde läuft normal weiter. */
+  acceptContinue(): void {
+    if (!this.awaitingContinue) return;
+    this.lives = 1;
+    this.continuesUsed += 1;
+    this.awaitingContinue = false;
+    this.unfreezeForContinue();
+  }
+  /** Abgelehnt oder kein Geld — Runde endet normal, `lives` bleibt bei 0
+   *  und `isOver` greift im nächsten Frame wie gehabt. */
+  declineContinue(): void {
+    if (!this.awaitingContinue) return;
+    this.awaitingContinue = false;
+    this.unfreezeForContinue();
+  }
   get isOver(): boolean {
     if (!this.isStarted) return false;
+    if (this.awaitingContinue) return false; // eingefroren, wartet auf Kauf/Ablehnung
     if (this.lives <= 0) return true;
     if (this.level) {
       // gewonnen, oder aus Scherben (Band + Ablage leer, kein Nachschub mehr) —
@@ -585,7 +646,7 @@ export class CascadeState {
   // ── Belt ─────────────────────────────────────────────────────────────────
   /** Advance the belt; drop shards that reach the bottom. */
   tick(dt: number): void {
-    if (!this.isStarted || this.isOver || this.isPaused) return;
+    if (!this.isStarted || this.isOver || this.isPaused || this.awaitingContinue) return;
     const speed = dt / (this.travelMs() / 1000);
     for (const s of this.belt) s.y += speed;
 
@@ -602,7 +663,18 @@ export class CascadeState {
       this.multTierSeen = 1;
       // the whole point now: every shard on the belt is meant to get used —
       // let one ride off unplaced and it costs a life, same as failing a move
-      this.lives = Math.max(0, this.lives - fell.length);
+      const newLives = Math.max(0, this.lives - fell.length);
+      if (newLives <= 0 && this.lives > 0 && !this.level && this.nextContinuePrice() !== null) {
+        // letztes Leben verloren, NICHT weil die Uhr regulär abgelaufen ist
+        // (das bleibt ein sauberes Ende) -- Weiterspielen-Angebot statt
+        // sofortigem Rundenende, Abschnitt 4c im Ökonomie-Konzept. Limit
+        // erreicht? Dann normal durchfallen wie bisher.
+        this.lives = 0;
+        this.awaitingContinue = true;
+        this.freezeForContinue();
+      } else {
+        this.lives = newLives;
+      }
       this.spawnInterval = Math.max(MIN_SPAWN_MS, this.spawnInterval * 0.97);
       // Sicherheitsnetz: fiel gerade die letzte Scherbe vom Band, die irgendwo
       // gepasst hätte, sofort nachlegen — sonst könnte genau in diesem Fenster

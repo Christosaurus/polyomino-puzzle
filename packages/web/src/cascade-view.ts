@@ -100,6 +100,12 @@ export interface CascadeCallbacks {
     /** Brett ist eng geworden (>= DANGER_FRAC belegt) — steuert den Warn-
      *  Zustand im HUD (Klärfunke-Hervorhebung), siehe `.board-wrap.danger`. */
     crowded: boolean;
+    /** True, solange das Weiterspielen-Angebot auf eine Entscheidung wartet
+     *  (Abschnitt 4c) — steuert den Kauf-Dialog in app.ts. */
+    awaitingContinue: boolean;
+    /** Preis für die nächste Weiterspielen-Nutzung, `null` erst relevant
+     *  wenn `awaitingContinue` true ist. */
+    continuePrice: number | null;
   }) => void;
 }
 
@@ -539,6 +545,8 @@ export class CascadeView {
       chain: this.game.chain,
       shardsLeft: this.game.shardsLeft,
       crowded: crowded && !this.game.isOver,
+      awaitingContinue: this.game.awaitingContinueOffer,
+      continuePrice: this.game.nextContinuePrice(),
     });
   }
 
