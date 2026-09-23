@@ -18,6 +18,21 @@ export const NO_BEST_MS = Number.MAX_SAFE_INTEGER;
 export type JokerKind = "hint" | "time" | "solvent";
 export type Jokers = Record<JokerKind, number>;
 
+/** Kaskade-eigene Fähigkeiten (KONZEPT-kaskade-oekonomie.md §2) — anders als
+ *  die Kampagnen-Joker oben speziell für den Free-Play-Loop: Mischen/
+ *  Klärfunke/Zeitphiole sind Verbrauchsgut mit Lagerdeckel (siehe
+ *  `CASCADE_ABILITY_CAP`), Weitblick ist ein Einmalkauf (kein Verbrauch).
+ *  Der Deckel pro Verbrauchsgut hält den Vorteil pro Runde begrenzt, statt
+ *  dass eine große Grind-Session zu einem unfairen Dauervorteil wird. */
+export type CascadeAbilityKind = "shuffle" | "clear" | "time";
+export interface CascadeAbilities {
+  shuffle: number;
+  clear: number;
+  time: number;
+  foresight: boolean;
+}
+export const CASCADE_ABILITY_CAP = 3;
+
 export const MAX_LIVES = 5;
 export const LIFE_REGEN_MS = 20 * 60_000;
 
@@ -69,6 +84,7 @@ export interface SaveData {
   lives: { count: number; nextAt: number };
   /** Kaskade-eigener Versuchs-Vorrat — siehe `CASCADE_MAX_ATTEMPTS`. */
   cascadeAttempts: { count: number; nextAt: number };
+  cascadeAbilities: CascadeAbilities;
   stats: {
     solved: number;
     totalMs: number;
@@ -98,6 +114,7 @@ const EMPTY: SaveData = {
   pendingAttempt: null,
   lives: { count: MAX_LIVES, nextAt: 0 },
   cascadeAttempts: { count: CASCADE_MAX_ATTEMPTS, nextAt: 0 },
+  cascadeAbilities: { shuffle: 0, clear: 0, time: 0, foresight: false },
   stats: {
     solved: 0,
     totalMs: 0,
@@ -135,6 +152,7 @@ export function load(): SaveData {
       pendingAttempt: parsed.pendingAttempt ?? null,
       lives: { ...EMPTY.lives, ...parsed.lives },
       cascadeAttempts: { ...EMPTY.cascadeAttempts, ...parsed.cascadeAttempts },
+      cascadeAbilities: { ...EMPTY.cascadeAbilities, ...parsed.cascadeAbilities },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -533,6 +551,31 @@ export function grantCascadeAttempt(): void {
   update((s) => {
     s.cascadeAttempts.count = Math.min(CASCADE_MAX_ATTEMPTS, s.cascadeAttempts.count + 1);
     if (s.cascadeAttempts.count >= CASCADE_MAX_ATTEMPTS) s.cascadeAttempts.nextAt = 0;
+  });
+}
+
+// ── Cascade abilities ────────────────────────────────────────────────────
+/** Legt `n` Stück einer Verbrauchs-Fähigkeit in den Vorrat, gedeckelt bei
+ *  `CASCADE_ABILITY_CAP` — ein Shop-Kauf über den Deckel hinaus verpufft
+ *  einfach (kein Fehler), sonst müsste der Shop den Restplatz vorrechnen. */
+export function addCascadeAbility(kind: "shuffle" | "clear" | "time", n: number): void {
+  update((s) => {
+    s.cascadeAbilities[kind] = Math.min(CASCADE_ABILITY_CAP, s.cascadeAbilities[kind] + n);
+  });
+}
+export function spendCascadeAbility(kind: "shuffle" | "clear" | "time"): boolean {
+  let ok = false;
+  update((s) => {
+    if (s.cascadeAbilities[kind] > 0) {
+      s.cascadeAbilities[kind] -= 1;
+      ok = true;
+    }
+  });
+  return ok;
+}
+export function unlockForesight(): void {
+  update((s) => {
+    s.cascadeAbilities.foresight = true;
   });
 }
 

@@ -1671,6 +1671,43 @@ $("na-video").addEventListener("click", () => {
   toast("Werbevideos kommen bald");
 });
 
+// ── Kaskaden-Fähigkeiten (in der Runde einsetzen) ───────────────────────────
+function renderCascadeAbilities(): void {
+  const a = store.load().cascadeAbilities;
+  $("ka-shuffle-c").textContent = nf(a.shuffle);
+  $("ka-clear-c").textContent = nf(a.clear);
+  $("ka-time-c").textContent = nf(a.time);
+  $<HTMLButtonElement>("ka-shuffle").disabled = a.shuffle <= 0;
+  $<HTMLButtonElement>("ka-clear").disabled = a.clear <= 0;
+  $<HTMLButtonElement>("ka-time").disabled = a.time <= 0;
+}
+function fireAbilityButton(kind: store.CascadeAbilityKind): void {
+  const el = $(`ka-${kind}`);
+  el.classList.remove("fire");
+  void el.offsetWidth;
+  el.classList.add("fire");
+}
+function useCascadeAbility(kind: store.CascadeAbilityKind): void {
+  if (!cascadeGame || cascadeGame.isOver) return;
+  if (!store.spendCascadeAbility(kind)) return; // nichts im Vorrat
+  fireAbilityButton(kind);
+  sfx.pickUp();
+  if (kind === "shuffle") {
+    cascadeGame.shuffleBelt();
+    toast("Band gemischt");
+  } else if (kind === "clear") {
+    const pos = cascadeGame.clearMostBlockedCell();
+    toast(pos ? "Zelle geräumt" : "Brett ist schon leer");
+  } else {
+    cascadeGame.addTime(10_000);
+    toast("+10 Sekunden");
+  }
+  renderCascadeAbilities();
+}
+for (const kind of ["shuffle", "clear", "time"] as const) {
+  $(`ka-${kind}`).addEventListener("click", () => useCascadeAbility(kind));
+}
+
 let cascadeToken: string | null = null;
 function startCascade(): void {
   if (!cascadeAttemptsGate(startCascade)) return;
@@ -1684,6 +1721,7 @@ function startCascade(): void {
   $("k-mult-col").hidden = false;
   $("k-best-wrap").hidden = false;
   $("k-best-wrap").classList.remove("burst");
+  $("k-abilities").hidden = false;
   $("k-best-label").textContent = "👑 Highscore";
   $("k-score-label").textContent = "Score";
   $<HTMLElement>("k-crown-badge").hidden = true;
@@ -1704,6 +1742,7 @@ function startCascade(): void {
   });
   const game = new CascadeState(`kaskade-${Date.now()}`);
   cascadeGame = game;
+  renderCascadeAbilities();
   const bestScore = store.load().cascade.bestScore;
   let newRecord = false;
   let lastMultTier = 1;
@@ -1965,6 +2004,8 @@ function startRescueLevel(level: RescueLevel): void {
   $("rs-scene").hidden = false;
   $("k-mult-col").hidden = true;
   $("k-best-wrap").hidden = true;
+  // Kaskaden-Fähigkeiten gehören zur Free-Play-Wirtschaft, nicht zum Story-Modus.
+  $("k-abilities").hidden = true;
   $("k-best-wrap").classList.remove("burst");
   $<HTMLImageElement>("rs-hero").src = `ui/chars/${level.hero}.webp`;
   $("rs-blurb").textContent = level.blurb;
@@ -2131,14 +2172,61 @@ function renderCollection(): void {
   );
 }
 
-const SHOP: Array<{ icon: string; label: string; cost: number; buy: () => void; soon?: boolean }> = [
+interface ShopItem {
+  icon: string;
+  label: string;
+  cost: number;
+  buy: () => void;
+  soon?: boolean;
+  /** Zusätzliche Sperre über "genug Splitter?" hinaus (z. B. "eh schon voll"). */
+  disabledWhen?: () => boolean;
+}
+const SHOP: ShopItem[] = [
   // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
   // (kommt später). Preise fallen mit der Stärke: Tipp > Zeit > Neu ordnen.
   { icon: "ui/hint.webp", label: "Hint ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
   { icon: "ui/hint.webp", label: "📺 Watch video → Hint", cost: 0, soon: true, buy: () => {} },
   { icon: "ui/time.webp", label: "More Time ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
   { icon: "ui/solvent.webp", label: "Shuffle ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
-  { icon: "ui/life.webp", label: "Refill Hearts", cost: 30, buy: () => store.refillLives() },
+  {
+    icon: "ui/life.webp",
+    label: "Refill Hearts",
+    cost: 30,
+    buy: () => store.refillLives(),
+    disabledWhen: () => store.load().lives.count >= store.MAX_LIVES,
+  },
+  // Kaskaden-Fähigkeiten (KONZEPT-kaskade-oekonomie.md §2) — Verbrauchsgut,
+  // gedeckelt bei CASCADE_ABILITY_CAP pro Typ (siehe `disabledWhen`), damit
+  // eine einzelne Grind-Session nie zu einem unfairen Dauervorteil in einer
+  // einzelnen Runde wird. Weitblick ist der einzige Einmalkauf.
+  {
+    icon: "ui/solvent.webp",
+    label: "🔀 Mischen ×3",
+    cost: 15,
+    buy: () => store.addCascadeAbility("shuffle", 3),
+    disabledWhen: () => store.load().cascadeAbilities.shuffle >= store.CASCADE_ABILITY_CAP,
+  },
+  {
+    icon: "💣",
+    label: "Klärfunke ×2",
+    cost: 20,
+    buy: () => store.addCascadeAbility("clear", 2),
+    disabledWhen: () => store.load().cascadeAbilities.clear >= store.CASCADE_ABILITY_CAP,
+  },
+  {
+    icon: "ui/time.webp",
+    label: "⏱️ Zeitphiole ×2",
+    cost: 12,
+    buy: () => store.addCascadeAbility("time", 2),
+    disabledWhen: () => store.load().cascadeAbilities.time >= store.CASCADE_ABILITY_CAP,
+  },
+  {
+    icon: "👁️",
+    label: "Weitblick (dauerhaft)",
+    cost: 25,
+    buy: () => store.unlockForesight(),
+    disabledWhen: () => store.load().cascadeAbilities.foresight,
+  },
 ];
 
 function renderShop(): void {
@@ -2150,13 +2238,11 @@ function renderShop(): void {
       row.className = "item";
       const btn = document.createElement("button");
       btn.className = "gold";
-      btn.textContent = item.soon ? "soon" : `${item.cost} ✦`;
-      btn.disabled =
-        item.soon ||
-        s.shards < item.cost ||
-        (item.icon === "ui/life.webp" && s.lives.count >= store.MAX_LIVES);
+      const locked = item.disabledWhen?.() ?? false;
+      btn.textContent = item.soon ? "soon" : locked ? "full" : `${item.cost} ✦`;
+      btn.disabled = item.soon || locked || s.shards < item.cost;
       btn.addEventListener("click", () => {
-        if (item.soon) return;
+        if (item.soon || item.disabledWhen?.()) return;
         if (store.spendShards(item.cost)) {
           item.buy();
           toast("Purchased");
@@ -2164,7 +2250,10 @@ function renderShop(): void {
           renderTopPills();
         }
       });
-      row.innerHTML = `<span class="lbl"><img class="shop-ic" src="${item.icon}" alt="" />${item.label}</span>`;
+      const iconHtml = item.icon.startsWith("ui/")
+        ? `<img class="shop-ic" src="${item.icon}" alt="" />`
+        : `<span class="shop-ic" style="display:grid;place-items:center;font-size:22px">${item.icon}</span>`;
+      row.innerHTML = `<span class="lbl">${iconHtml}${item.label}</span>`;
       row.append(btn);
       return row;
     }),

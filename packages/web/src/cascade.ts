@@ -1081,4 +1081,62 @@ export class CascadeState {
     for (const v of this.board) if (v !== 0) n += 1;
     return n;
   }
+
+  // ── Fähigkeiten (KONZEPT-kaskade-oekonomie.md §2) ───────────────────────
+  // Reiner Effekt, kein Bestandscheck/-abbau -- das erledigt der Aufrufer
+  // (app.ts) über `progress.ts`, genau wie schon bei den Kampagnen-Jokern
+  // (siehe `useJoker` in app.ts): CascadeState kennt keine Währung, nur den
+  // Spieleffekt.
+
+  /** Mischen: das komplette sichtbare Band neu würfeln, ohne die Fallzeit
+   *  der einzelnen Scherben zu berühren (kein verstecktes "+Zeit" obendrauf —
+   *  das ist die Zeitphiole). Nutzt dieselbe Garantie wie ein normaler Spawn:
+   *  jede neue Scherbe passt irgendwo (siehe `pickPlaceableName`). */
+  shuffleBelt(): void {
+    this.belt = this.belt.map((s) => ({ ...s, name: this.pickPlaceableName() }));
+  }
+
+  /** Klärfunke: eine einzelne Zelle sofort leeren -- das Werkzeug gegen ein
+   *  zu volles Brett. Löst absichtlich KEIN Clearing/Score/Kombi-Progress
+   *  aus, auch wenn die Zelle zufällig eine Reihe vervollständigen würde —
+   *  das ist ein Rettungswerkzeug, kein Platzierungs-Ersatz. */
+  clearCell(row: number, col: number): boolean {
+    if (row < 0 || col < 0 || row >= this.rows || col >= this.cols) return false;
+    if (row < this.shrunkRows) return false;
+    const i = this.idx(row, col);
+    if (this.board[i] === 0) return false;
+    this.board[i] = 0;
+    return true;
+  }
+
+  /** Klärfunke ohne manuelle Zielwahl: sucht selbst die Zelle, die am meisten
+   *  hilft -- die volltseste Reihe (die einer Vervollständigung am nächsten
+   *  ist), darin eine belegte Zelle. Gibt die geräumte Position zurück (für
+   *  einen kurzen Blitz in der View) oder `null`, wenn das Brett schon leer ist. */
+  clearMostBlockedCell(): Pos | null {
+    let bestRow = -1;
+    let bestFilled = -1;
+    for (let r = this.shrunkRows; r < this.rows; r++) {
+      let filled = 0;
+      for (let c = 0; c < this.cols; c++) if (this.board[this.idx(r, c)] !== 0) filled += 1;
+      if (filled > bestFilled && filled < this.cols) {
+        bestFilled = filled;
+        bestRow = r;
+      }
+    }
+    if (bestRow === -1 || bestFilled <= 0) return null;
+    for (let c = 0; c < this.cols; c++) {
+      if (this.board[this.idx(bestRow, c)] !== 0) {
+        this.board[this.idx(bestRow, c)] = 0;
+        return { row: bestRow, col: c };
+      }
+    }
+    return null;
+  }
+
+  /** Zeitphiole: sofortige, manuell ausgelöste Zeitgutschrift -- zusätzlich
+   *  zu, nicht statt, den passiven Challenge-/Kombi-/Perfect-Boni. */
+  addTime(ms: number): void {
+    if (!this.level) this.extraMs += ms;
+  }
 }
