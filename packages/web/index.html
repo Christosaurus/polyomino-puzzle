@@ -1430,15 +1430,16 @@
         border-radius: 5px;
         background: rgba(0, 0, 0, 0.18);
       }
-      /* Kombi-Angebot: liegt an derselben Stelle wie .challenge (gleiches
-         --k-pad), aber über die volle Breite -- die Karte ersetzt Challenge
-         UND Hold kurzzeitig, solange der Spieler noch entscheidet. Das Brett
-         selbst bleibt darunter frei bedienbar, es läuft also weiter. */
+      /* Kombi-Angebot: liegt an exakt derselben Stelle UND Breite wie
+         .challenge (gleiches --k-pad, --belt-w) -- deckt NUR den Challenge-
+         Platz ab, nicht Hold daneben. Voller Breite (bis über Hold) hätte
+         Hold verdeckt, während der Spieler noch entscheidet -- das Brett
+         selbst bleibt ohnehin frei bedienbar, es läuft also weiter. */
       .combo-offer {
         position: absolute;
         top: var(--k-pad, 8px);
         left: var(--k-pad, 8px);
-        right: var(--k-pad, 8px);
+        right: calc(var(--belt-w, 80px) + var(--k-pad, 8px));
         /* dieselbe Höhe wie Hold/Challenge -- vorher hing die Karte ohne
            feste Höhe frei überm Feld und passte nie exakt dazu. */
         height: var(--top-row-h, 64px);
