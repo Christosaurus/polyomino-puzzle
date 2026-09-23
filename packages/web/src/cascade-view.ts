@@ -1518,17 +1518,40 @@ export class CascadeView {
     // exakt unter der echten Fingerposition
     const t = this.boardCell(d.px, d.py - L.cell * DRAG_LIFT_CELLS, L);
     const raw: Pos = { row: t.row - d.grabR, col: t.col - d.grabC };
-    if (this.game.canPlace(d.shard, raw)) return raw;
-    // Die exakt getroffene Zelle passt nicht (Rand, schon belegt, knapp
-    // daneben getippt). Vorher sprang das hier auf JEDE freie Nachbarzelle —
-    // das führte genau zu den zwei gemeldeten Problemen: 1) man musste die
-    // Figur regelrecht aus dem Fangbereich "herausziehen", weil praktisch
-    // jede Nachbarzelle als Ausweichziel taugte, und 2) die Figur "sprang" im
-    // letzten Moment auf eine beliebige freie Zelle, die mit der Absicht des
-    // Spielers nichts zu tun hatte. Jetzt rastet es NUR ein, wenn eine der 4
-    // unmittelbaren Nachbarzellen wirklich eine Reihe/Spalte fertigmachen
-    // würde — ein bewusster Vorteil fürs Vollenden, kein genereller
-    // Toleranz-Magnet. Sonst bleibt es beim rohen Treffer (→ Ungültig-Anzeige).
+
+    // `snappedFor` wird nur aufgerufen, solange `overBoard()` true ist — also
+    // ist der Finger schon nah genug dran. Vorher konnte `raw` dabei trotzdem
+    // außerhalb des Rasters liegen (z. B. Spalte -1), und die Figur hing dann
+    // mit einem automatisch ungültigen Geist sichtbar NEBEN dem Feld, statt
+    // sich draufziehen zu lassen — fühlte sich wie ein Fehlwurf an, obwohl
+    // man eindeutig aufs Feld wollte. Darum wird die Zielposition zuerst so
+    // geklemmt, dass die Figur immer komplett im Raster liegt (nie über den
+    // Rand hinaus) — das Draufziehen wird dadurch spürbar großzügiger, ohne
+    // dass man je außerhalb des Feldes "platzieren" könnte.
+    const cells = this.game.cells(d.shard);
+    let minR = 0;
+    let maxR = 0;
+    let minC = 0;
+    let maxC = 0;
+    for (const [dr, dc] of cells) {
+      minR = Math.min(minR, dr);
+      maxR = Math.max(maxR, dr);
+      minC = Math.min(minC, dc);
+      maxC = Math.max(maxC, dc);
+    }
+    const clamped: Pos = {
+      row: Math.max(-minR, Math.min(this.game.rows - 1 - maxR, raw.row)),
+      col: Math.max(-minC, Math.min(this.game.cols - 1 - maxC, raw.col)),
+    };
+    if (this.game.canPlace(d.shard, clamped)) return clamped;
+    // Auch geklemmt noch ungültig (Rand-Zelle ist schon belegt) — vorher
+    // sprang das hier auf JEDE freie Nachbarzelle, das machte es 1) schwerer
+    // als gewollt, eine Figur aus der Nähe einer Lücke wegzuziehen, und 2)
+    // ließ Figuren im letzten Moment auf eine beliebige freie Zelle
+    // "springen", die mit der Absicht des Spielers nichts zu tun hatte. Jetzt
+    // rastet es NUR ein, wenn eine der 4 unmittelbaren Nachbarzellen wirklich
+    // eine Reihe/Spalte fertigmachen würde — ein bewusster Vorteil fürs
+    // Vollenden, kein genereller Toleranz-Magnet.
     const neighbors: Array<[number, number]> = [
       [0, -1],
       [0, 1],
@@ -1536,12 +1559,12 @@ export class CascadeView {
       [1, 0],
     ];
     for (const [dr, dc] of neighbors) {
-      const cand: Pos = { row: raw.row + dr, col: raw.col + dc };
+      const cand: Pos = { row: clamped.row + dr, col: clamped.col + dc };
       if (!this.game.canPlace(d.shard, cand)) continue;
       const lines = this.previewLines(d.shard, cand);
       if (lines.rows.length > 0 || lines.cols.length > 0) return cand;
     }
-    return raw;
+    return clamped;
   }
 
   private centroid(shard: Shard): { r: number; c: number } {
