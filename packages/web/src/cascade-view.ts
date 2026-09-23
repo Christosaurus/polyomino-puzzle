@@ -1537,8 +1537,12 @@ export class CascadeView {
   private snappedFor(d: Drag, L: Layout): Pos {
     // dieselbe Anhebung wie beim frei schwebenden Teil (DRAG_LIFT_CELLS) —
     // die Figur "landet" dort, wo sie sichtbar über dem Daumen schwebt, nicht
-    // exakt unter der echten Fingerposition
-    const t = this.boardCell(d.px, d.py - L.cell * DRAG_LIFT_CELLS, L);
+    // exakt unter der echten Fingerposition. Unrundierte Fraktion behalten
+    // (nicht nur `boardCell()`s gerundetes Ergebnis) -- der Magnet unten
+    // braucht sie, um zu wissen, wie NAH der Finger an einer Zellgrenze steht.
+    const fx = (d.px - L.boardX - L.cell / 2) / L.cell;
+    const fy = (d.py - L.cell * DRAG_LIFT_CELLS - L.boardY - L.cell / 2) / L.cell;
+    const t: Pos = { row: Math.round(fy), col: Math.round(fx) };
     const raw: Pos = { row: t.row - d.grabR, col: t.col - d.grabC };
 
     // `snappedFor` wird nur aufgerufen, solange `overBoard()` true ist — also
@@ -1572,16 +1576,51 @@ export class CascadeView {
       const lines = this.previewLines(d.shard, clamped);
       if (lines.rows.length > 0 || lines.cols.length > 0) return clamped;
     }
-    // Magnet aufs Fertigmachen: nicht erst, wenn die geklemmte Zelle belegt
-    // ist, sondern IMMER geprüft, auch wenn sie an sich schon gültig wäre,
-    // nur eben nichts räumt — ein Vorteil fürs Vollenden soll sich deutlich
-    // anfühlen, nicht nur als Rettung im Konfliktfall. Sucht im gesamten
-    // 8er-Umkreis (nicht nur die 4 Himmelsrichtungen) und nimmt die Zelle,
-    // die am meisten gleichzeitig räumt — bei Gleichstand die zuerst
-    // gefundene (Himmelsrichtungen vor Diagonalen, näher an `raw` zuerst).
-    // Bleibt trotzdem ein gezielter Vorteil, kein genereller Toleranz-Magnet:
-    // eine Nachbarzelle, die NICHTS räumt, wird nie bevorzugt.
-    const neighbors: Array<[number, number]> = [
+    // Magnet aufs Fertigmachen: geprüft, auch wenn die geklemmte Zelle an
+    // sich schon gültig wäre, nur eben nichts räumt — ein Vorteil fürs
+    // Vollenden soll sich deutlich anfühlen, nicht nur als Rettung im
+    // Konfliktfall. ABER nur in die Richtung(en), in die der Finger schon
+    // spürbar Richtung Zellgrenze lehnt (Fraktion > EDGE) — nicht als
+    // globaler 8er-Rundumschlag. Ohne diese Sperre konnte JEDE Zelle, auch
+    // exakt unter dem Finger, von einer besser räumenden Nachbarzelle
+    // "gestohlen" werden — legale Positionen wurden dadurch messbar
+    // unerreichbar (~4% in einem Playtest-Audit). Steht der Finger nahe der
+    // Mitte einer Zelle (Fraktion klein), bleibt genau diese Zelle immer
+    // erreichbar; erst nahe der Grenze darf die Nachbarzelle übernehmen.
+    const EDGE = 0.3;
+    const fracRow = fy - t.row;
+    const fracCol = fx - t.col;
+    const rowDirs = Math.abs(fracRow) > EDGE ? [Math.sign(fracRow)] : [0];
+    const colDirs = Math.abs(fracCol) > EDGE ? [Math.sign(fracCol)] : [0];
+    let best: Pos | null = null;
+    let bestCount = 0;
+    let bestDist = Infinity;
+    for (const dr of rowDirs) {
+      for (const dc of colDirs) {
+        if (dr === 0 && dc === 0) continue;
+        const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
+        if ((cand.row === clamped.row && cand.col === clamped.col) || !this.game.canPlace(d.shard, cand)) {
+          continue;
+        }
+        const lines = this.previewLines(d.shard, cand);
+        const count = lines.rows.length + lines.cols.length;
+        if (count === 0) continue;
+        const dist = Math.abs(dr) + Math.abs(dc);
+        if (count > bestCount || (count === bestCount && dist < bestDist)) {
+          bestCount = count;
+          bestDist = dist;
+          best = cand;
+        }
+      }
+    }
+    if (best) return best;
+    if (this.game.canPlace(d.shard, clamped)) return clamped;
+    // Geklemmte Zelle ist belegt UND der Finger lehnt nicht klar genug in
+    // eine Richtung (oder die einzige naheliegende Nachbarzelle räumt
+    // nichts) — als letzter Ausweg den vollen Umkreis nach IRGENDEINER
+    // räumenden, gültigen Nachbarzelle absuchen, damit ein Konflikt nicht
+    // einfach ungültig hängen bleibt, wenn direkt daneben eine Lösung liegt.
+    const allNeighbors: Array<[number, number]> = [
       [0, -1],
       [0, 1],
       [-1, 0],
@@ -1591,21 +1630,14 @@ export class CascadeView {
       [1, -1],
       [1, 1],
     ];
-    let best: Pos | null = null;
-    let bestCount = 0;
-    for (const [dr, dc] of neighbors) {
+    for (const [dr, dc] of allNeighbors) {
       const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
       if ((cand.row === clamped.row && cand.col === clamped.col) || !this.game.canPlace(d.shard, cand)) {
         continue;
       }
       const lines = this.previewLines(d.shard, cand);
-      const count = lines.rows.length + lines.cols.length;
-      if (count > bestCount) {
-        bestCount = count;
-        best = cand;
-      }
+      if (lines.rows.length > 0 || lines.cols.length > 0) return cand;
     }
-    if (best) return best;
     return clamped;
   }
 
