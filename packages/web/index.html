@@ -170,6 +170,17 @@
       .screen.play .board-wrap {
         margin-top: auto;
         margin-bottom: auto;
+        /* .board-wrap hat `overflow: hidden` (für Glow-Effekte etc.) -- per
+           Flexbox-Spec macht das die AUTOMATISCHE Mindesthöhe eines Flex-
+           Items 0 statt der Inhaltsgröße, und der Flex-Container darf es
+           dadurch beliebig unter die tatsächlich gebrauchte Höhe
+           zusammenquetschen, wenn oben zu viel HUD-Inhalt steht. Der Canvas
+           IN dem Wrap wird trotzdem auf die von computeLayout() berechnete
+           (größere) Höhe gepinnt -- das Ergebnis war ein am unteren Rand
+           abgeschnittenes Spielfeld, das JS nie mitbekam. `flex-shrink: 0`
+           verbietet das Zusammenquetschen; wird es wirklich zu eng, scrollt
+           `.screen` (hat schon `overflow-y: auto`) statt das Brett zu clippen. */
+        flex-shrink: 0;
       }
 
       /* ── Type ──────────────────────────────────────── */
@@ -1125,6 +1136,7 @@
       #k-best {
         font-size: 38px;
         font-weight: 900;
+        white-space: nowrap;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px rgba(255, 194, 59, 0.5);
       }
       /* Highscore geknackt: kurz aufblitzen und wegspringen, dann verschwindet
@@ -1142,6 +1154,7 @@
       #k-score-txt {
         font-size: 38px;
         font-weight: 900;
+        white-space: nowrap;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px color-mix(in srgb, var(--lumen) 55%, transparent);
       }
       #k-score-txt.new-record {
@@ -1753,10 +1766,11 @@
       .metric small {
         display: block;
         font-weight: 700;
-        font-size: 14px;
-        letter-spacing: 0.06em;
+        font-size: 12px;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
         color: var(--ink-dim);
+        white-space: nowrap;
       }
 
       /* ── Board frame ───────────────────────────────── */
