@@ -3053,6 +3053,7 @@
             <div><div class="big" id="cascade-best">0</div><div class="muted">Best Score</div></div>
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Most Lines</div></div>
           </div>
+          <p class="muted" id="cascade-attempts" style="margin:0;text-align:center"></p>
           <button class="go big" id="cascade-play">Start Cascade</button>
         </div>
         <div class="card mode-card" id="home-story-card">
@@ -3313,6 +3314,22 @@
             <button class="go big" id="kp-resume">Resume</button>
             <button id="kp-restart">Restart</button>
             <button class="stop" id="kp-quit">Quit</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kaskaden-Versuche leer: erscheint, bevor "Start Cascade"/"Play Again"
+           tatsaechlich eine Runde beginnt -- Farm-Bremse ohne die Reibung, die
+           ein Energie-Gate VOR jedem Tap haette (nur sichtbar, wenn der Vorrat
+           wirklich leer ist). -->
+      <div class="overlay" id="k-noattempts-overlay">
+        <div class="ocard">
+          <h3>Keine Versuche mehr</h3>
+          <button class="close" id="na-x">✕</button>
+          <p class="muted" id="na-sub" style="margin:0;text-align:center">Nächster Versuch in --:--</p>
+          <div class="btns" style="flex-direction:column">
+            <button class="go big" id="na-refill">✦ 15 Splitter → voll auffüllen</button>
+            <button id="na-video">📺 Werbevideo schauen → +1 Versuch</button>
           </div>
         </div>
       </div>

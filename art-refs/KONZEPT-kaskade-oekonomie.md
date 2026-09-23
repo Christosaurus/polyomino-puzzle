@@ -65,12 +65,18 @@ Das macht aus einem unsichtbaren Sicherheitsnetz einen spürbaren Spannungsbogen
 
 ## 4. Runden limitieren & Weiterspielen-Ökonomie (Ausgabe-Ebene B)
 
-Zwei getrennte Probleme, zwei getrennte, gezielte Lösungen — **kein** Energie-Gate vor dem Start (das würde die als Stärke gelobte Reibungslosigkeit zerstören):
+**Update nach Christians Rückmeldung:** Ohne echte Obergrenze kann man beliebig oft hintereinander neu starten und die Splitter-Auszahlung aus Abschnitt 1 unbegrenzt farmen — das ist ein Loch, kein Feature. Es gibt jetzt doch ein Energie-Gate, aber ein **Kaskade-eigenes**, bewusst großzügig getaktet, damit die gelobte Reibungslosigkeit ("1 Tap → Brett") für den Alltagsfall (2-3 Runden am Stück) erhalten bleibt und nur echtes Dauer-Farmen bremst:
 
-### 4a. Rundenlänge deckeln
+### 4a. Kaskaden-Versuche (Energie-Gate, Kaskade-eigen)
+- Eigener Vorrat, **getrennt von den Kampagnen-Herzen** (die haben ihre eigene, langsamere 20-Min-pro-Herz-Taktung für einen ganz anderen Spielrhythmus — beide Vorräte zu vermischen würde beide Modi verwässern).
+- Max. **5 Versuche**, ein Versuch pro gestarteter Runde (auch "Play Again" kostet einen) — regeneriert **1 Versuch alle 4 Minuten**, macht rechnerisch genau Christians Vorgabe ("alle 20 Min 5 Runden") als sanfte, kontinuierliche Aufladung statt eines einzigen ruckartigen Schwalls alle 20 Minuten. Ein kontinuierlicher Tropfen gibt außerdem öfter einen Grund zurückzuschauen ("ah, einer ist wieder da") statt nur alle 20 Minuten einmal.
+- Aufladen: (a) warten (gratis), (b) mit Splittern auffüllen — 15 ✦ für volle Auffüllung (günstiger als die Kampagnen-Herzen mit 30 ✦, weil hier durch die schnellere natürliche Regeneration ohnehin weniger Wartezeit "gekauft" wird), (c) **Werbevideo schauen → +1 Versuch**, exakt der von Christian gewünschte Monetarisierungs-Haken. Wiederverwendet dasselbe Platzhalter-Muster, das im Joker-Shop für "📺 Watch video → Hint" schon als `soon: true` existiert — echtes Ad-SDK (Capacitor AdMob o. ä.) ist ein eigener Integrationsschritt mit echtem Werbekonto, kommt als Folge-Baustein.
+- Nutzt dieselbe manipulationssichere Zeitbasis (`trustedNow()`), die schon die Kampagnen-Herzen vor Systemuhr-Vorstellen schützt — kein separater Mechanismus nötig.
+
+### 4b. Rundenlänge deckeln
 Der Playtest maß Laufzeiten von 195–360s bei 180s Grundzeit — Challenges/Kombis/Perfect/Mega-Boni addieren sich unbegrenzt. Fix: eine harte Obergrenze für die Summe aller Zeit-Boni pro Runde (`extraMs`), z. B. **+90s** (macht maximal ~270s statt bis zu 360s) — Runden bleiben vorhersehbar lang, ohne dass eine einzelne glückliche Session komplett aus dem Ruder läuft. Betrifft `CHALLENGE_TIME_BONUS_MS`, `COMBO_TIME_BONUS_MS`, den Perfect-Clear-Bonus und die manuelle Zeitphiole (Abschnitt 2) gemeinsam — alle zahlen auf denselben gedeckelten Topf ein.
 
-### 4b. Weiterspielen-Angebot beim Leben-Verlust (die "am Ende mehr Zeit/Herz kaufen"-Idee)
+### 4c. Weiterspielen-Angebot beim Leben-Verlust (die "am Ende mehr Zeit/Herz kaufen"-Idee)
 Ausgelöst **genau in dem Moment, in dem das letzte Leben verloren ginge** (nicht wenn die Uhr regulär abläuft — ein sauberes "Zeit ist um" bleibt ein sauberes Ende, das ist Genre-Standard und in Ordnung). Statt die Runde sofort zu beenden, erscheint ein Angebot:
 
 - **"+1 ❤ weiterspielen"** — Preis steigt PRO Nutzung *innerhalb derselben Runde*: 15 ✦ → 30 ✦ → 60 ✦, **maximal 3× pro Runde**. Der steigende Preis + die Obergrenze verhindern, dass eine einzelne Runde durch Dauer-Zukauf die Bestenliste sprengt — es bleibt eine "lohnt sich das jetzt?"-Entscheidung, kein Freikauf.
@@ -105,40 +111,42 @@ Der Playtest nennt das den größten verbleibenden Sog-Killer, unabhängig von W
 Reihenfolge nach Wirkung auf Sog ÷ Aufwand, alles außer explizit markiertem "Phase 2":
 
 **A — Wirtschaft (dieses Konzept umsetzen)**
-1. Neue Splitter-Auszahlungsformel (Abschnitt 1) — ersetzt `app.ts:1794`.
-2. Vier Fähigkeiten + Shop-Einträge + Lagerbestand in `progress.ts` (Abschnitt 2).
-3. Gefahr-Zustand bei vollem Brett + Klärfunke-Hervorhebung (Abschnitt 3).
-4. Rundenlängen-Deckel (`extraMs`-Obergrenze, Abschnitt 4a).
-5. Weiterspielen-Angebot beim Leben-Verlust (Abschnitt 4b).
+1. Kaskaden-Versuche (Energie-Gate, Abschnitt 4a) — `progress.ts` + Gate auf "Start Cascade"/"Play Again".
+2. Neue Splitter-Auszahlungsformel (Abschnitt 1) — ersetzt `app.ts:1794`.
+3. Vier Fähigkeiten + Shop-Einträge + Lagerbestand in `progress.ts` (Abschnitt 2).
+4. Gefahr-Zustand bei vollem Brett + Klärfunke-Hervorhebung (Abschnitt 3).
+5. Rundenlängen-Deckel (`extraMs`-Obergrenze, Abschnitt 4b).
+6. Weiterspielen-Angebot beim Leben-Verlust (Abschnitt 4c).
 
 **B — Meta/Retention**
-6. Bestenlisten-Rang im Ergebnis-Overlay (Abschnitt 5.1).
-7. Kaskade-eigene, mehrstufige Erfolgsleiter (Abschnitt 5.2).
-8. Wochen-Countdown auf der Startkarte (Abschnitt 5.3).
+7. Bestenlisten-Rang im Ergebnis-Overlay (Abschnitt 5.1).
+8. Kaskade-eigene, mehrstufige Erfolgsleiter (Abschnitt 5.2).
+9. Wochen-Countdown auf der Startkarte (Abschnitt 5.3).
 
 **C — Juice (ohne Sound)**
-9. Squash-and-Stretch-Landung.
-10. Wegfliegende Reihen (Schockwellen-Partikel wiederverwenden).
-11. Multiplikator-Badge.
+10. Squash-and-Stretch-Landung.
+11. Wegfliegende Reihen (Schockwellen-Partikel wiederverwenden).
+12. Multiplikator-Badge.
 
 **D — Noch offene Bugs aus dem Playtest (unabhängig von der Wirtschaft)**
-12. B9 — kein `visibilitychange`-Pausenhandler für Kaskade (App im Hintergrund = Runde verloren).
-13. B10 — langes Drücken auf eine Gürtel-Scherbe wirft sie versehentlich in Hold + Fehlerton.
-14. B11 — HUD-Highscore-Label ist falsch beschriftet, Rekord-Fanfare feuert beim allerersten Stein.
-15. B8 — "skip ›" überspringt nur einen von fünf Intro-Beats.
-16. B13 — Kaltstart lädt sechs ungenutzte Kampagnen-Hintergründe.
-17. B14 — drei Namen für denselben Modus ("Start Cascade" / "Cascade!" / "Shard Storm"), "MEGA-CLEAR!" vs. "ULTIMATE CLEAR!" kollidieren.
-18. B7 — Rettungslevel res07/res08 sind rechnerisch unlösbar (`targetRows` > `rows`).
-19. Gürtel-Lesbarkeit (15,5px vs. 45px Brettzelle — Genre-Standard 60–70%).
-20. Testabdeckung für `cascade.ts`/`cascade-view.ts` (aktuell keine einzige Testdatei deckt die beiden am häufigsten geänderten Dateien ab).
+13. B9 — kein `visibilitychange`-Pausenhandler für Kaskade (App im Hintergrund = Runde verloren).
+14. B10 — langes Drücken auf eine Gürtel-Scherbe wirft sie versehentlich in Hold + Fehlerton.
+15. B11 — HUD-Highscore-Label ist falsch beschriftet, Rekord-Fanfare feuert beim allerersten Stein.
+16. B8 — "skip ›" überspringt nur einen von fünf Intro-Beats.
+17. B13 — Kaltstart lädt sechs ungenutzte Kampagnen-Hintergründe.
+18. B14 — drei Namen für denselben Modus ("Start Cascade" / "Cascade!" / "Shard Storm"), "MEGA-CLEAR!" vs. "ULTIMATE CLEAR!" kollidieren.
+19. B7 — Rettungslevel res07/res08 sind rechnerisch unlösbar (`targetRows` > `rows`).
+20. Gürtel-Lesbarkeit (15,5px vs. 45px Brettzelle — Genre-Standard 60–70%).
+21. Testabdeckung für `cascade.ts`/`cascade-view.ts` (aktuell keine einzige Testdatei deckt die beiden am häufigsten geänderten Dateien ab).
+
+**E — Menü-Umbau (aus der vorherigen Session, nicht vergessen)**
+22. Bottom-Tabs neu: Shop (ganz links) · Bestenliste (Pokal) · Kaskade (Mitte) · Daily · Collection (ganz rechts) — nur Icon inaktiv, Icon+Text aktiv.
+23. Swipe-Animation zwischen Tabs + kurzer Haptik-Tick.
+24. Shop bekommt einen eigenen, neu gestalteten Screen (bisher Teil von Collection).
+25. Bestenliste bekommt einen eigenen Screen statt Overlay.
 
 **Phase 2 (bewusst zurückgestellt, nicht vergessen):**
 - Kaskade-eigener Tages-Bonus/Streak (Abschnitt 5.4).
 - Kosmetik-Shop als langfristige Splitter-Senke (Abschnitt 2, Punkt C).
+- Echtes Ad-SDK für den Werbevideo-Baustein (Abschnitt 4a) — Konto/Integration, eigener Schritt.
 - Design-/Sound-Politur (auf Christians ausdrücklichen Wunsch später).
-
----
-
-## Offene Entscheidung, die nur Christian treffen kann
-
-Alles oben geht davon aus, dass "Runden limitieren" NICHT als Energie-Gate vor dem Rundenstart gemeint war (das widerspräche dem als Stärke gelobten reibungslosen Einstieg), sondern als Rundenlängen-Deckel + gedeckeltes Weiterspielen. Falls tatsächlich ein Energie-Gate wie im Kampagnen-Modus (5 Herzen, Regeneration alle 20 Min) auch für Kaskade gewünscht ist — das wäre ein bewusster Kurswechsel gegen die eigene, gerade erst gewonnene Stärke des Spiels und sollte gesondert besprochen werden, bevor er umgesetzt wird.

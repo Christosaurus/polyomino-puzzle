@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginAttempt,
+  CASCADE_MAX_ATTEMPTS,
+  cascadeAttempts,
   claimDailyMilestone,
   claimMilestones,
   endAttempt,
@@ -12,6 +14,8 @@ import {
   recordDaily,
   recordFail,
   recordLevel,
+  refillCascadeAttempts,
+  spendCascadeAttempt,
   takePendingAttempt,
   trustedNow,
 } from "../src/progress.js";
@@ -195,6 +199,53 @@ describe("Systemuhr-Manipulation (Exploit 6)", () => {
     vi.spyOn(performance, "now").mockReturnValue(perf + 1_000);
     const second = recordDaily().daily;
     expect(second.streak).toBe(1); // derselbe Tag — kein Serien-Zuwachs
+  });
+});
+
+describe("Kaskaden-Versuche (Energie-Gate gegen unbegrenztes Splitter-Farmen)", () => {
+  it("Startvorrat ist voll", () => {
+    expect(cascadeAttempts().count).toBe(CASCADE_MAX_ATTEMPTS);
+  });
+
+  it("spendCascadeAttempt zählt runter, schlägt bei 0 fehl", () => {
+    for (let i = 0; i < CASCADE_MAX_ATTEMPTS; i++) expect(spendCascadeAttempt()).toBe(true);
+    expect(cascadeAttempts().count).toBe(0);
+    expect(spendCascadeAttempt()).toBe(false); // kein Versuch mehr da
+  });
+
+  it("regeneriert nach echt verstrichener Zeit (1 pro CASCADE_ATTEMPT_REGEN_MS)", () => {
+    const now = Date.now();
+    for (let i = 0; i < CASCADE_MAX_ATTEMPTS; i++) spendCascadeAttempt();
+    expect(cascadeAttempts().count).toBe(0);
+    const perf = performance.now();
+    // 4 Minuten echt verstrichen -- ein Versuch sollte zurück sein
+    vi.spyOn(Date, "now").mockReturnValue(now + 4 * 60_000 + 500);
+    vi.spyOn(performance, "now").mockReturnValue(perf + 4 * 60_000 + 500);
+    expect(cascadeAttempts().count).toBe(1);
+  });
+
+  it("regeneriert nicht durch Vorstellen der Systemuhr innerhalb der Sitzung", () => {
+    const now = Date.now();
+    for (let i = 0; i < CASCADE_MAX_ATTEMPTS; i++) spendCascadeAttempt();
+    const perf = performance.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 3 * 3_600_000); // +3h Wanduhr
+    vi.spyOn(performance, "now").mockReturnValue(perf + 500); // aber nur 500ms echt
+    expect(cascadeAttempts().count).toBe(0); // kein Gratis-Versuch durch Uhr-Sprung
+  });
+
+  it("refillCascadeAttempts füllt sofort auf den vollen Vorrat auf", () => {
+    for (let i = 0; i < CASCADE_MAX_ATTEMPTS; i++) spendCascadeAttempt();
+    refillCascadeAttempts();
+    expect(cascadeAttempts().count).toBe(CASCADE_MAX_ATTEMPTS);
+  });
+
+  it("regeneriert nie über den Deckel hinaus, egal wie lange die Pause war", () => {
+    spendCascadeAttempt(); // 4/5
+    const now = Date.now();
+    const perf = performance.now();
+    vi.spyOn(Date, "now").mockReturnValue(now + 5 * 60 * 60_000); // 5h echt vergangen
+    vi.spyOn(performance, "now").mockReturnValue(perf + 5 * 60 * 60_000);
+    expect(cascadeAttempts().count).toBe(CASCADE_MAX_ATTEMPTS);
   });
 });
 

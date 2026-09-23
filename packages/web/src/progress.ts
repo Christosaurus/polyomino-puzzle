@@ -21,6 +21,16 @@ export type Jokers = Record<JokerKind, number>;
 export const MAX_LIVES = 5;
 export const LIFE_REGEN_MS = 20 * 60_000;
 
+/** Eigener Energie-Vorrat NUR für Kaskade (Free Play), getrennt von den
+ *  Kampagnen-Herzen oben — beide dienen demselben Zweck (Rundenstarts
+ *  begrenzen), aber mit ganz unterschiedlichem Tempo für ganz unterschiedliche
+ *  Spielrhythmen. Ohne irgendeine Grenze ließe sich die Splitter-Auszahlung
+ *  pro Runde (siehe cascade.ts) durch endloses Neustarten unbegrenzt farmen.
+ *  5 Versuche, einer alle 4 Minuten nach — macht "alle 20 Minuten 5 Runden"
+ *  als sanften, kontinuierlichen Tropfen statt eines einzelnen Schwalls. */
+export const CASCADE_MAX_ATTEMPTS = 5;
+export const CASCADE_ATTEMPT_REGEN_MS = 4 * 60_000;
+
 export interface SaveData {
   levels: Record<string, LevelResult>;
   profile: { name: string; avatar: string };
@@ -57,6 +67,8 @@ export interface SaveData {
    */
   pendingAttempt: string | null;
   lives: { count: number; nextAt: number };
+  /** Kaskade-eigener Versuchs-Vorrat — siehe `CASCADE_MAX_ATTEMPTS`. */
+  cascadeAttempts: { count: number; nextAt: number };
   stats: {
     solved: number;
     totalMs: number;
@@ -85,6 +97,7 @@ const EMPTY: SaveData = {
   panes: 0,
   pendingAttempt: null,
   lives: { count: MAX_LIVES, nextAt: 0 },
+  cascadeAttempts: { count: CASCADE_MAX_ATTEMPTS, nextAt: 0 },
   stats: {
     solved: 0,
     totalMs: 0,
@@ -121,6 +134,7 @@ export function load(): SaveData {
       panes: parsed.panes ?? parsed.stats?.solved ?? 0,
       pendingAttempt: parsed.pendingAttempt ?? null,
       lives: { ...EMPTY.lives, ...parsed.lives },
+      cascadeAttempts: { ...EMPTY.cascadeAttempts, ...parsed.cascadeAttempts },
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -471,6 +485,54 @@ export function refillLives(): void {
   update((s) => {
     s.lives.count = MAX_LIVES;
     s.lives.nextAt = 0;
+  });
+}
+
+// ── Cascade attempts ─────────────────────────────────────────────────────
+/** Apply regen, return the live view — selbe Form/Logik wie `lives()`. */
+export function cascadeAttempts(now = trustedNow()): { count: number; msToNext: number } {
+  const d = load();
+  const l = d.cascadeAttempts;
+  if (l.count >= CASCADE_MAX_ATTEMPTS) return { count: CASCADE_MAX_ATTEMPTS, msToNext: 0 };
+  let { count, nextAt } = l;
+  if (nextAt === 0) nextAt = now + CASCADE_ATTEMPT_REGEN_MS;
+  while (count < CASCADE_MAX_ATTEMPTS && now >= nextAt) {
+    count += 1;
+    nextAt += CASCADE_ATTEMPT_REGEN_MS;
+  }
+  if (count !== l.count || nextAt !== l.nextAt) {
+    update((s) => {
+      s.cascadeAttempts.count = count;
+      s.cascadeAttempts.nextAt = count >= CASCADE_MAX_ATTEMPTS ? 0 : nextAt;
+    });
+  }
+  return { count, msToNext: count >= CASCADE_MAX_ATTEMPTS ? 0 : Math.max(0, nextAt - now) };
+}
+
+/** Try to consume a Kaskade attempt. Returns false if empty. */
+export function spendCascadeAttempt(now = trustedNow()): boolean {
+  const { count } = cascadeAttempts(now);
+  if (count <= 0) return false;
+  update((s) => {
+    if (s.cascadeAttempts.count >= CASCADE_MAX_ATTEMPTS) s.cascadeAttempts.nextAt = now + CASCADE_ATTEMPT_REGEN_MS;
+    s.cascadeAttempts.count = Math.max(0, s.cascadeAttempts.count - 1);
+  });
+  return true;
+}
+
+export function refillCascadeAttempts(): void {
+  update((s) => {
+    s.cascadeAttempts.count = CASCADE_MAX_ATTEMPTS;
+    s.cascadeAttempts.nextAt = 0;
+  });
+}
+
+/** Ein Versuch geschenkt, ohne Splitter zu kosten — der Haken für den
+ *  "Werbevideo ansehen"-Knopf (siehe SHOP in app.ts). */
+export function grantCascadeAttempt(): void {
+  update((s) => {
+    s.cascadeAttempts.count = Math.min(CASCADE_MAX_ATTEMPTS, s.cascadeAttempts.count + 1);
+    if (s.cascadeAttempts.count >= CASCADE_MAX_ATTEMPTS) s.cascadeAttempts.nextAt = 0;
   });
 }
 

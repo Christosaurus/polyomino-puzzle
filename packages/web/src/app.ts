@@ -483,6 +483,11 @@ function renderHome(): void {
   const s = store.load();
   $("cascade-best").textContent = nf(s.cascade.bestScore);
   $("cascade-cleared").textContent = nf(s.cascade.bestCleared);
+  const a = store.cascadeAttempts();
+  $("cascade-attempts").textContent =
+    a.count >= store.CASCADE_MAX_ATTEMPTS
+      ? `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche`
+      : `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche · nächster in ${fmt(a.msToNext)}`;
 }
 
 function openRegion(index: number): void {
@@ -1602,8 +1607,74 @@ function openLeaderboard(): void {
   $("lb-overlay").classList.add("show");
   void renderLeaderboard();
 }
+/** Merkt sich, was nach einem erfolgreichen Auffüllen im "keine Versuche
+ *  mehr"-Dialog eigentlich ausgeführt werden sollte (Runde starten). */
+let pendingCascadeStart: (() => void) | null = null;
+let attemptsCountdownTimer = 0;
+
+function renderCascadeAttemptsSub(): void {
+  const a = store.cascadeAttempts();
+  $("na-sub").innerHTML =
+    a.count > 0
+      ? "Wieder da! Du kannst jetzt loslegen."
+      : `Nächster Versuch in <b>${fmt(a.msToNext)}</b>.`;
+  const canPay = store.load().shards >= 15;
+  const refillBtn = $<HTMLButtonElement>("na-refill");
+  refillBtn.textContent = canPay ? "✦ 15 Splitter → voll auffüllen" : `✦ ${nf(store.load().shards)} / 15 Splitter`;
+  refillBtn.disabled = !canPay;
+}
+
+/** Kaskaden-Versuche sind ein Kaskade-eigener Energie-Vorrat (siehe
+ *  `KONZEPT-kaskade-oekonomie.md` §4a) — bremst endloses Neustarten-und-
+ *  Splitter-farmen, ohne den reibungslosen "1 Tap → Brett"-Einstieg fürs
+ *  normale 2-3-Runden-Spiel anzutasten (Vorrat reicht dafür locker). Gibt
+ *  `true` zurück und lässt den Aufrufer sofort weitermachen, wenn noch
+ *  etwas da ist; sonst öffnet sich der Auffüll-Dialog und `onProceed` läuft
+ *  erst, wenn der Spieler dort wirklich aufgefüllt hat. */
+function cascadeAttemptsGate(onProceed: () => void): boolean {
+  if (store.cascadeAttempts().count > 0) return true;
+  // andere Kaskade-Overlays weg, sonst liegen zwei Abdunkelungen übereinander
+  // (v. a. relevant, wenn der Dialog aus "Play Again" heraus im Ergebnis-
+  // Overlay ausgelöst wird)
+  $("k-overlay").classList.remove("show");
+  $("k-pause-overlay").classList.remove("show");
+  pendingCascadeStart = onProceed;
+  renderCascadeAttemptsSub();
+  $("k-noattempts-overlay").classList.add("show");
+  window.clearInterval(attemptsCountdownTimer);
+  attemptsCountdownTimer = window.setInterval(renderCascadeAttemptsSub, 1000);
+  return false;
+}
+function closeAttemptsGate(): void {
+  $("k-noattempts-overlay").classList.remove("show");
+  window.clearInterval(attemptsCountdownTimer);
+  attemptsCountdownTimer = 0;
+  pendingCascadeStart = null;
+}
+$("na-x").addEventListener("click", closeAttemptsGate);
+$("k-noattempts-overlay").addEventListener("click", (e) => {
+  if (e.target === $("k-noattempts-overlay")) closeAttemptsGate();
+});
+$("na-refill").addEventListener("click", () => {
+  if (!store.spendShards(15)) return;
+  store.refillCascadeAttempts();
+  toast("Versuche aufgefüllt");
+  renderTopPills();
+  const go = pendingCascadeStart;
+  closeAttemptsGate();
+  go?.();
+});
+$("na-video").addEventListener("click", () => {
+  // Echtes Ad-SDK ist ein eigener Integrationsschritt (Kontozugang, native
+  // Konfiguration) -- bis dahin ein ehrlicher Platzhalter statt eines toten
+  // Knopfs, analog zum bestehenden "📺 Watch video → Hint"-Stub im Shop.
+  toast("Werbevideos kommen bald");
+});
+
 let cascadeToken: string | null = null;
 function startCascade(): void {
+  if (!cascadeAttemptsGate(startCascade)) return;
+  store.spendCascadeAttempt();
   teardownGame();
   scenery.setTheme("garden");
   playMusic("cascade");
