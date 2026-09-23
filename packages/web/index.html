@@ -1231,7 +1231,7 @@
         display: grid;
         grid-template-columns: 1fr auto 1fr;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
         margin-top: -4px;
         padding: 0 4px;
       }
@@ -1246,41 +1246,19 @@
         align-items: center;
         justify-self: center;
       }
-      /* Jetzt unter der Uhr statt in der Score/Multiplikator-Zeile -- da ist
-         genug Platz übrig, um sie fast genauso groß wie vorher zu zeigen,
-         nur mit etwas weniger Überlappung (weniger "eng aneinander"). */
-      .k-hearts-top {
-        justify-content: center;
-        gap: 2px;
-        margin: 4px 0 0;
-      }
-      .k-hearts-top .k-life {
-        width: 44px;
-        height: 44px;
-      }
-      .k-hearts-top .k-life-mid {
-        width: 58px;
-        height: 58px;
-      }
-      .k-hearts-top .k-life:first-child {
-        margin-right: -4px;
-      }
-      .k-hearts-top .k-life:last-child {
-        margin-left: -4px;
-      }
       .k-life {
         width: 48px;
         height: 48px;
         filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
-        transition: opacity 0.25s ease, filter 0.25s ease, width 0.2s ease, height 0.2s ease;
+        transition: opacity 0.25s ease, filter 0.25s ease;
       }
       .k-life:first-child {
         transform: rotate(-12deg);
-        margin-right: -10px;
+        margin-right: -14px;
       }
       .k-life:last-child {
         transform: rotate(12deg);
-        margin-left: -10px;
+        margin-left: -14px;
       }
       .k-life-mid {
         width: 64px;
@@ -3245,14 +3223,6 @@
           <div class="clock" id="k-clock">3:00</div>
           <button class="icon" id="k-pause"><img class="icon-img" src="ui/pause.webp" alt="" /></button>
         </div>
-        <!-- Herzen direkt unter der Uhr statt in der Score/Multiplikator-Zeile
-             -- da war noch Platz, und es macht die Zeile darunter frei für
-             die Kaskaden-Fähigkeiten (siehe .k-abilities weiter unten). -->
-        <span class="k-hearts k-hearts-top">
-          <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
-          <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
-          <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
-        </span>
         <div class="rescue-scene" id="rs-scene" hidden>
           <div class="rescue-goal" id="rs-goal">
             <span class="rg-icon">🪨</span>
@@ -3273,8 +3243,13 @@
               <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
             </span>
           </span>
+          <span class="k-hearts">
+            <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
+            <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
+            <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
+          </span>
           <span class="mult-col" id="k-mult-col">
-            <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
+            <span class="metric"><small>Mult</small><span id="k-mult">×1.0</span></span>
             <div class="k-streak" id="k-streak"></div>
           </span>
         </div>
