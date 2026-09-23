@@ -1861,8 +1861,10 @@ function startCascade(): void {
     },
     onEnd: (r) => {
       store.recordCascade(r.score, r.cleared);
-      // Punkte → Lichtsplitter fürs Budget (kein Story-Fortschritt)
-      const shards = Math.min(40, 5 + Math.floor(r.score / 120));
+      // Lichtsplitter fürs Budget (kein Story-Fortschritt) — belohnt jetzt
+      // Spielweise (Clears/Challenges/Kombis/Perfects/Ketten), nicht mehr nur
+      // den Score mit starrem Deckel (siehe KONZEPT-kaskade-oekonomie.md §1).
+      const shards = r.shardsEarned;
       store.addShards(shards);
       const freshAch = syncAchievements();
       celebrate(freshAch);

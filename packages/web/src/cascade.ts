@@ -56,6 +56,11 @@ export interface CascadeResult {
   elapsedMs: number;
   /** Nur im Level-Modus aussagekräftig — Ziel erreicht, bevor Leben/Budget alle waren. */
   won: boolean;
+  /** Lichtsplitter, die diese Runde verdient hat — siehe `KONZEPT-kaskade-oekonomie.md`
+   *  §1: belohnt Spielweise (Clears/Challenges/Kombis/Perfects/Ketten), nicht
+   *  nur den Score, mit einem Teilnahme-Sockel und einem großzügigen, aber
+   *  echten Deckel gegen Ausreißer-Runden. */
+  shardsEarned: number;
 }
 
 /**
@@ -116,6 +121,23 @@ const CHALLENGE_TIME_BONUS_MS = 15_000;
 const MEGA_SCORE_BONUS = 500;
 const MEGA_MULT_BOOST = 1.5;
 const MEGA_TIME_BONUS_MS = 10_000;
+
+/**
+ * Lichtsplitter-Auszahlung — siehe `KONZEPT-kaskade-oekonomie.md` §1. Ersetzt
+ * die alte, rein score-basierte Formel (`min(40, 5 + score/120)` in app.ts),
+ * die bei Testscores von 10.000+ praktisch immer denselben Deckelbetrag
+ * zahlte und Kaskade damit keine wirkliche Ausgabemöglichkeit für Splitter
+ * gab. Belohnt jetzt Spielweise statt nur Score: ein Teilnahme-Sockel (nie
+ * eine Nullrunde) plus ein Betrag pro Ereignis, gedeckelt gegen Ausreißer.
+ */
+const SHARDS_BASE = 3;
+const SHARDS_PER_LINE = 0.3;
+const SHARDS_PER_CHALLENGE = 4;
+const SHARDS_PER_COMBO = 5;
+const SHARDS_PER_CHAIN_TIER = 1;
+const SHARDS_PER_PERFECT = 15;
+const SHARDS_PER_MEGA = 30;
+const SHARDS_ROUND_CAP = 150;
 
 /**
  * Kombi-Angebot: eine ANDERE Art Gelegenheit als die normale Challenge, an
@@ -222,6 +244,9 @@ export class CascadeState {
   perfectClears = 0;
   /** Wie oft die Schockwelle ausgelöst hat (siehe `triggerMegaClear`). */
   megaClears = 0;
+  /** Lichtsplitter-Summe für diese Runde — siehe die `SHARDS_*`-Konstanten
+   *  oben, ausgezahlt am Rundenende über `result().shardsEarned`. */
+  private shardsEarned = 0;
   misses = 0;
   /** A shard reaching the bottom unplaced costs one of these; hit 0 and the run ends. */
   lives: number;
@@ -538,6 +563,9 @@ export class CascadeState {
       bestChain: this.bestChain,
       elapsedMs: Math.round(this.elapsedMs()),
       won: this.won,
+      // Teilnahme-Sockel + gesammelte Ereignis-Beträge, gedeckelt gegen
+      // Ausreißer-Runden (siehe SHARDS_*-Konstanten oben).
+      shardsEarned: Math.round(Math.min(SHARDS_ROUND_CAP, SHARDS_BASE + this.shardsEarned)),
     };
   }
 
@@ -794,6 +822,7 @@ export class CascadeState {
     // man Zeit gewinnen könnte.
     if (!this.level) this.extraMs += MEGA_TIME_BONUS_MS;
     this.megaFlag = true;
+    this.shardsEarned += SHARDS_PER_MEGA;
   }
 
   cells(shard: Shard): ReadonlyArray<readonly [number, number]> {
@@ -886,6 +915,8 @@ export class CascadeState {
       this.freshClear = true;
       this.chain += 1;
       if (this.chain > this.bestChain) this.bestChain = this.chain;
+      this.shardsEarned += lines * SHARDS_PER_LINE;
+      if (this.chain >= 3) this.shardsEarned += SHARDS_PER_CHAIN_TIER;
     } else {
       this.chain = 0;
     }
@@ -907,6 +938,7 @@ export class CascadeState {
       this.comboOffer.progress += 1;
       if (this.comboOffer.progress >= this.comboOffer.target) {
         this.applyComboReward(this.comboOffer);
+        this.shardsEarned += SHARDS_PER_COMBO;
         this.comboOffer = null;
         this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
       }
@@ -925,6 +957,7 @@ export class CascadeState {
       this.score += 200 * this.multiplier;
       this.extraMs += 5000;
       this.perfectFlag = true;
+      this.shardsEarned += SHARDS_PER_PERFECT;
     }
     return rows;
   }
@@ -1038,6 +1071,7 @@ export class CascadeState {
     }
     this.extraMs += CHALLENGE_TIME_BONUS_MS;
     this.challengeWon = true;
+    this.shardsEarned += SHARDS_PER_CHALLENGE;
     this.challenge = null;
     this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
   }
