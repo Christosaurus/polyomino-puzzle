@@ -1446,8 +1446,8 @@
         z-index: 5;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 5px 10px;
+        gap: 6px;
+        padding: 5px 8px;
         border-radius: 14px;
         background: linear-gradient(165deg, rgba(58, 43, 158, 0.97), rgba(28, 20, 80, 0.97));
         border: 2px solid var(--gold);
@@ -1460,9 +1460,12 @@
       .combo-offer-icon {
         flex: none;
         /* skaliert mit der Kartenhöhe mit, statt eine feste Größe zu
-           riskieren, die bei kleinem --top-row-h überläuft. */
-        width: clamp(30px, calc(var(--top-row-h, 64px) - 14px), 52px);
-        height: clamp(30px, calc(var(--top-row-h, 64px) - 14px), 52px);
+           riskieren, die bei kleinem --top-row-h überläuft. Kleinerer Deckel
+           als früher (52->40px) -- die Karte trägt zusätzlich zwei Aktions-
+           knöpfe, die die Challenge-Karte nicht hat, und brauchte den Platz
+           für die Textspalte, sonst lief die Karte vertikal über (B1). */
+        width: clamp(26px, calc(var(--top-row-h, 64px) - 20px), 40px);
+        height: clamp(26px, calc(var(--top-row-h, 64px) - 20px), 40px);
         border-radius: 12px;
         background: var(--panel-inset);
         border: 2px solid var(--hairline);
@@ -1473,40 +1476,69 @@
         display: flex;
         flex-direction: column;
         justify-content: center;
-        gap: 2px;
+        gap: 1px;
       }
+      /* Nur noch zwei Zeilen (Titel inkl. Stückzahl, Belohnung) statt drei --
+         eine dritte Zeile ("Place Nx this piece") sprengte bei der schmalen
+         Spaltenbreite (Icon + zwei Aktionsknöpfe nehmen den Rest) fast immer
+         die Kartenhöhe, weil der Text in der schmalen Spalte umbrach (B1). */
       .combo-offer-title {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 900;
         color: var(--gold);
         text-shadow: 0 1px 0 var(--stroke);
-      }
-      .combo-offer-txt {
-        font-size: 12px;
-        font-weight: 700;
-        color: #fff;
-        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       /* Die Belohnung ist der wichtigste Teil der Anfrage -- muss sofort ins
          Auge springen, nicht nebenbei zu lesen sein. */
       .combo-offer-reward {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 900;
         color: var(--go);
         text-shadow: 0 0 10px rgba(102, 224, 95, 0.6), 0 1px 0 var(--stroke);
-        line-height: 1.1;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .combo-offer-actions {
         flex: none;
         display: flex;
-        gap: 6px;
+        gap: 4px;
+      }
+      /* Countdown fürs Annehmen/Ablehnen -- schmiegt sich an die Unterkante
+         der Karte, statt eine eigene Zeile im ohnehin engen Flex-Inhalt zu
+         beanspruchen (die Karte lief davon schon mal über, siehe B1). War
+         als `comboDecisionRemainingMs()` bisher totes Modell ohne Anzeige --
+         die Angebotskarte verschwand nach 8s kommentarlos. */
+      .combo-offer-bar {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 3px;
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+      .combo-offer-bar-fill {
+        height: 100%;
+        width: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--gold-lo), var(--gold));
+        transition: width 0.2s linear;
+      }
+      .combo-offer-bar-fill.low {
+        background: linear-gradient(90deg, var(--stop-lo), var(--stop));
       }
       .combo-btn {
-        width: clamp(26px, calc(var(--top-row-h, 64px) - 26px), 38px);
-        height: clamp(26px, calc(var(--top-row-h, 64px) - 26px), 38px);
+        width: clamp(22px, calc(var(--top-row-h, 64px) - 30px), 32px);
+        height: clamp(22px, calc(var(--top-row-h, 64px) - 30px), 32px);
         padding: 0;
-        border-radius: 10px;
-        font-size: 15px;
+        border-radius: 9px;
+        font-size: 13px;
         font-weight: 900;
         display: grid;
         place-items: center;
@@ -3164,14 +3196,14 @@
             <div class="combo-offer" id="k-combo-offer" hidden>
               <canvas class="combo-offer-icon" id="k-combo-icon" width="56" height="56"></canvas>
               <div class="combo-offer-body">
-                <div class="combo-offer-title">Combo!</div>
-                <div class="combo-offer-txt" id="k-combo-txt"></div>
+                <div class="combo-offer-title" id="k-combo-title">Combo!</div>
                 <div class="combo-offer-reward" id="k-combo-reward"></div>
               </div>
               <div class="combo-offer-actions">
                 <button class="combo-btn decline" id="k-combo-decline" aria-label="Decline combo">✕</button>
                 <button class="combo-btn accept" id="k-combo-accept" aria-label="Accept combo">✓</button>
               </div>
+              <div class="combo-offer-bar"><div class="combo-offer-bar-fill" id="k-combo-offer-bar"></div></div>
             </div>
             <canvas id="k-canvas"></canvas>
           </div>

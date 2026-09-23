@@ -8,6 +8,7 @@ import { CascadeState, type Pos, type Shard } from "./cascade.js";
 import { boardGrid, drawPieceBody, roundRect } from "./render.js";
 import { sfx } from "./sfx.js";
 import { shardByColorIndex, shardDef } from "./shards.js";
+import { nf } from "./format.js";
 
 const TAP_MOVE_PX = 10;
 const TAP_TIME_MS = 300;
@@ -264,7 +265,18 @@ export class CascadeView {
   }
 
   private kick = (): void => {
-    if (this.layoutLocked) return; // Spielfläche steht fest — kein Resize-Reflow mehr
+    if (this.layoutLocked) {
+      // Gesperrt heißt "kein Zittern der Adressleiste soll neu layouten" --
+      // ein ECHTER Resize danach (Rotation, Split-Screen, Browser-Zoom) darf
+      // die Zellgröße aber nicht für den Rest des Laufs falsch stehen lassen,
+      // sonst rechnen boardCell()/pt() dauerhaft mit einer Breite, die der
+      // Canvas gar nicht mehr hat -- Spalten verschieben sich, eine wird
+      // unerreichbar. Nur bei einer wirklich deutlichen Breitenänderung (nicht
+      // dem üblichen 1-2px-Zittern) wieder entsperren und neu vermessen.
+      const w = this.wrap.clientWidth;
+      if (this.lastMeasuredW === null || Math.abs(this.lastMeasuredW - w) < 24) return;
+      this.layoutLocked = false;
+    }
     this.layoutDirty = true;
     this.render();
   };
@@ -379,7 +391,7 @@ export class CascadeView {
           x: L.boardX + (this.game.cols * L.cell) / 2,
           y: L.boardY + popRow * L.cell,
           t: 0,
-          text: `+${clear.gain.toLocaleString("de-DE")}`,
+          text: `+${nf(clear.gain)}`,
           color: cssVar("--gold"),
         });
       }
@@ -1035,6 +1047,16 @@ export class CascadeView {
     const h = Math.round(L.cssH * dpr);
     if (this.canvas.width !== w) this.canvas.width = w;
     if (this.canvas.height !== h) this.canvas.height = h;
+    // Beide Seiten explizit pinnen, nicht nur die Höhe: `.board-wrap` ist ein
+    // schrumpfbares Flex-Item, und dessen Canvas-Kind rendert per CSS mit
+    // `width:100%` seines Wraps. Ändert sich die verfügbare Flex-Breite NACH
+    // dieser Messung (z. B. weil oben ein Abzeichen erscheint und den Wrap
+    // schmaler drückt), würde der Canvas kleiner gezeichnet als `L.cssW`,
+    // während `pt()`/`boardCell()` weiter mit `L.cssW` rechnen -- jeder Zug
+    // landet dann in der falschen Zelle, meist eine Reihe zu hoch. Mit einer
+    // festen Pixelbreite bleibt die tatsächliche Canvas-Box IMMER exakt so
+    // groß wie die Layout-Mathematik annimmt, unabhängig vom Flex-Container.
+    this.canvas.style.width = `${L.cssW}px`;
     this.canvas.style.height = `${L.cssH}px`;
     const ctx = this.ctx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

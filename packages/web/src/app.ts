@@ -8,7 +8,13 @@
 import { type Level, parseLevel, rngFromSeed } from "@polyomino/puzzle-core";
 import { ACHIEVEMENTS, syncAchievements, unlockedCount } from "./achievements.js";
 import { BEATS, type Beat, beatAfter, INTRO, SPEAKERS } from "./beats.js";
-import { type ChallengeKind, CHALLENGE_PREVIEW_MS, CHALLENGE_WINDOW_MS, CascadeState } from "./cascade.js";
+import {
+  type ChallengeKind,
+  CHALLENGE_PREVIEW_MS,
+  CHALLENGE_WINDOW_MS,
+  COMBO_DECISION_MS,
+  CascadeState,
+} from "./cascade.js";
 import { CascadeView } from "./cascade-view.js";
 import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
@@ -36,16 +42,13 @@ import { windowName } from "./windows.js";
 import { GameView } from "./view.js";
 import { shardDef } from "./shards.js";
 import { drawPieceBody } from "./render.js";
+import { nf, xf } from "./format.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const fmt = (ms: number): string => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
-/** Numbers in the game always with a thousands separator — "12,345" not "12345". */
-const nf = (n: number): string => Math.round(n).toLocaleString("en-US");
-/** Multiplier as-is — "×1.5" (don't round!). */
-const xf = (n: number | string): string => String(n);
 
 // iOS ignoriert `user-scalable=no`/`touch-action` als Homescreen-App gern
 // mal weiter und zoomt/springt trotzdem beim schnellen Doppeltippen (das
@@ -1764,8 +1767,14 @@ function startCascade(): void {
           drawPieceIcon($<HTMLCanvasElement>("k-combo-icon"), offer.shardName);
           lastComboOfferIcon = offer.shardName;
         }
-        $("k-combo-txt").textContent = `Place ${offer.target}× this piece`;
+        $("k-combo-title").textContent = `${offer.target}× Combo!`;
         $("k-combo-reward").textContent = offer.rewardLabel;
+        // Bedenkzeit-Countdown -- vorher unsichtbar, die Karte verschwand nach
+        // 8s kommentarlos, ohne dass man sah, dass sie überhaupt abläuft.
+        const decideRemain = game.comboDecisionRemainingMs();
+        const decideBar = $<HTMLElement>("k-combo-offer-bar");
+        decideBar.style.width = `${Math.max(0, Math.min(100, (decideRemain / COMBO_DECISION_MS) * 100))}%`;
+        decideBar.classList.toggle("low", decideRemain < 2500);
       } else {
         offerEl.hidden = true;
         lastComboOfferIcon = null;

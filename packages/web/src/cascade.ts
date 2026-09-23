@@ -17,6 +17,7 @@ import {
   shardDef,
   shardsFittingGap,
 } from "./shards.js";
+import { nf } from "./format.js";
 
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
@@ -149,12 +150,25 @@ export interface ComboOffer {
   deadline: number;
   /** Nur gültig, sobald `accepted` — die volle Fensterdauer, für die Balkenanzeige. */
   windowMs: number;
+  /** Wie viel Zeit das Sicherheitsnetz (Brett zu voll für die Zielfigur)
+   *  bereits zusätzlich gutgeschrieben hat — gedeckelt, siehe `tick()`. Ohne
+   *  Deckel könnte ein dauerhaft zu volles Brett die Deadline unbegrenzt vor
+   *  sich herschieben und damit für den Rest des Laufs jede neue Challenge
+   *  UND jedes neue Kombi-Angebot blockieren (beides teilt sich dieselbe
+   *  Zeitschiene). Irgendwann muss das Angebot ehrlich verfallen dürfen. */
+  safetyExtendedMs: number;
 }
 /** Anteil der Gelegenheiten, die ein Kombi-Angebot statt einer normalen
  *  Challenge sind. */
 const COMBO_CHANCE = 0.35;
-/** Zeit zum Annehmen, bevor ein Angebot von selbst verfällt (= ablehnen). */
-const COMBO_DECISION_MS = 8_000;
+/** Zeit zum Annehmen, bevor ein Angebot von selbst verfällt (= ablehnen) —
+ *  exportiert, damit die View den Countdown auf der Angebotskarte als Anteil
+ *  davon füllen kann (siehe `comboDecisionRemainingMs`). */
+export const COMBO_DECISION_MS = 8_000;
+/** Obergrenze für das Deadline-Sicherheitsnetz (siehe `tick()`) — ein
+ *  dauerhaft zu volles Brett darf ein Angebot eine Weile am Leben halten,
+ *  aber nicht für den Rest des Laufs jede neue Challenge blockieren. */
+const COMBO_SAFETY_CAP_MS = 15_000;
 const COMBO_TIME_BONUS_MS = 15_000;
 const COMBO_MULT_BOOST = 2;
 /** Schwierigkeitsstufen — Zielanzahl kommt NICHT mehr von hier, sondern aus
@@ -345,15 +359,24 @@ export class CascadeState {
     // sonst ist die Zusage ein leeres Versprechen.
     const offer = this.comboOffer;
     const favorName = offer?.accepted ? offer.shardName : undefined;
-    // Solange noch nicht genug Nachschub der Zielfigur erzeugt wurde, wird sie
-    // ERZWUNGEN statt nur bevorzugt gewichtet — eine Gewichtung allein kann
-    // auch bei Pech ausbleiben, und genau das ließ manche Angebote in der
-    // verfügbaren Zeit gar nicht zu schaffen sein. Nur erzwingen, wenn die
-    // Form gerade wirklich irgendwo aufs Brett passt (sonst käme eine
-    // Scherbe aufs Band, die niemand platzieren kann).
+    // Solange noch nicht genug Nachschub der Zielfigur erzeugt wurde, MUSS sie
+    // irgendwann erzwungen werden — eine Gewichtung allein kann bei Pech ganz
+    // ausbleiben. Aber nicht bei JEDER Gelegenheit erzwingen: das machte das
+    // Band für die Dauer eines Angebots zu einer Reihe identischer Teile
+    // (z. B. sechs Duos hintereinander) und nahm dem Kombi jede Spannung,
+    // weil die Zielquote dadurch faktisch 100 % wurde. Stattdessen nur mit
+    // 40 % Chance erzwingen — genug Nachschub kommt trotzdem durch, nur
+    // gestreckt über mehr, gemischtere Spawns — UND garantiert erzwingen,
+    // sobald die Restzeit knapp wird (weniger als 4s pro noch offenem
+    // Stück übrig), als Aufhol-Garantie, damit "muss in der Zeit erscheinen"
+    // trotzdem verlässlich stimmt.
     if (favorName && offer && offer.spawned < offer.target && this.canPlaceAnywhere(favorName)) {
-      offer.spawned += 1;
-      return favorName;
+      const remainingNeeded = offer.target - offer.spawned;
+      const mustCatchUp = this.elapsedMs() >= offer.deadline - remainingNeeded * 4_000;
+      if (mustCatchUp || this.rng.next() < 0.4) {
+        offer.spawned += 1;
+        return favorName;
+      }
     }
     // Steht ein Ultra-Clear kurz bevor (mehrere Reihen/Spalten brauchen
     // zusammen nur noch eine Handvoll Zellen), kommt mit erhöhter statt
@@ -458,6 +481,14 @@ export class CascadeState {
   get isPaused(): boolean {
     return this.pausedAt !== null;
   }
+  /** Wie viel Pausenzeit pro Lauf von der Uhr abgezogen wird, bevor sie
+   *  wieder ganz normal mitzählt — kurze Pausen (Anruf, Unterbrechung) sind
+   *  gratis, danach nicht mehr. Ohne Deckel wäre Pause unbegrenztes Gratis-
+   *  Nachdenken in einem Score-Attack-Modus mit Bestenliste: `elapsedMs()`
+   *  (== `runMs` an den Server) bliebe beliebig lange künstlich niedrig,
+   *  während echte Zeit vergeht — dieselbe Regel wie im Story-Modus
+   *  (`game.ts`), nur bisher hier gefehlt. */
+  private static readonly PAUSE_BUDGET_MS = 40_000;
   pause(): void {
     if (this.pausedAt === null && this.started !== null && this.endedAt === null) {
       this.pausedAt = performance.now();
@@ -465,7 +496,8 @@ export class CascadeState {
   }
   resume(): void {
     if (this.pausedAt !== null) {
-      this.pausedTotal += performance.now() - this.pausedAt;
+      const room = Math.max(0, CascadeState.PAUSE_BUDGET_MS - this.pausedTotal);
+      this.pausedTotal += Math.min(performance.now() - this.pausedAt, room);
       this.pausedAt = null;
     }
   }
@@ -579,10 +611,20 @@ export class CascadeState {
         // die Garantie stünde dann nur auf dem Papier. Statt die Uhr in so
         // einem Moment einfach weiterlaufen zu lassen, wird das Fenster in
         // kleinen Schritten geschoben, bis entweder genug Nachschub kam
-        // (`spawned >= target`) oder wieder Platz für die Figur ist.
-        if (c.spawned < c.target && this.elapsedMs() >= c.deadline - 3_000 && !this.canPlaceAnywhere(c.shardName)) {
+        // (`spawned >= target`), wieder Platz für die Figur ist, oder der
+        // Deckel erreicht ist — ohne Deckel könnte ein dauerhaft zu volles
+        // Brett das Angebot endlos am Leben halten und damit (`challenge`/
+        // `comboOffer` teilen sich dieselbe Zeitschiene) für den Rest des
+        // Laufs jede neue Challenge mit blockieren.
+        if (
+          c.spawned < c.target &&
+          c.safetyExtendedMs < COMBO_SAFETY_CAP_MS &&
+          this.elapsedMs() >= c.deadline - 3_000 &&
+          !this.canPlaceAnywhere(c.shardName)
+        ) {
           c.deadline += 3_000;
           c.windowMs += 3_000;
+          c.safetyExtendedMs += 3_000;
         }
         if (this.elapsedMs() >= c.deadline) {
           this.comboOffer = null;
@@ -639,6 +681,7 @@ export class CascadeState {
       accepted: false,
       deadline: 0,
       windowMs: 0,
+      safetyExtendedMs: 0,
     };
   }
 
@@ -704,19 +747,27 @@ export class CascadeState {
 
   private applyComboReward(offer: ComboOffer): void {
     this.comboWonHeart = false;
+    // `comboWonLabel` zeigt IMMER, was tatsächlich passiert ist, nie einfach
+    // das an der Angebotskarte versprochene `rewardLabel` — bei vollen Leben
+    // gibt's für eine "heart"-Belohnung Punkte statt eines Herzens, aber die
+    // Feier zeigte bisher trotzdem "+1 ❤" an, obwohl kein Herz dazukam.
     if (offer.reward === "time") {
       this.extraMs += COMBO_TIME_BONUS_MS;
+      this.comboWonLabel = offer.rewardLabel;
     } else if (offer.reward === "heart") {
       if (this.lives < CASCADE_LIVES) {
         this.lives += 1;
         this.comboWonHeart = true;
+        this.comboWonLabel = offer.rewardLabel;
       } else {
-        this.score += 250 * this.multiplier;
+        const bonus = 250 * this.multiplier;
+        this.score += bonus;
+        this.comboWonLabel = `+${nf(bonus)}`;
       }
     } else {
       this.multiplier = Math.min(6, this.multiplier + COMBO_MULT_BOOST);
+      this.comboWonLabel = offer.rewardLabel;
     }
-    this.comboWonLabel = offer.rewardLabel;
     this.comboWon = true;
   }
 
@@ -762,15 +813,21 @@ export class CascadeState {
 
   /**
    * Move a belt shard into the hold slot. Any shard already held goes straight
-   * back onto the belt at the top — unconditionally, no discard, no cap. You
-   * can shelter exactly one shard at a time and no more; grabbing a second one
-   * puts the first back in play where it can still ride off and cost a life.
-   * (This closes the old stall: hold two, cycle them, never lose a life.)
+   * back onto the belt — unconditionally, no discard, no cap. You can shelter
+   * exactly one shard at a time and no more; grabbing a second one puts the
+   * first back in play where it can still ride off and cost a life.
+   *
+   * The returned shard resumes at the SAME `y` it had when it went into hold,
+   * not back at the top. Resetting it to the top (the old behaviour) turned
+   * hold into a free, unlimited timer reset: park whichever shard is about to
+   * fall, it comes back with a full fresh trip every time — a skilled player
+   * could cycle two shards forever and never lose a life. Hold now only
+   * pauses a shard's clock while it's tucked away; it never rewinds it.
    */
   toHold(shard: Shard): void {
     this.belt = this.belt.filter((s) => s.id !== shard.id);
     if (this.hold) {
-      this.belt.unshift({ ...this.hold, y: 0.02 });
+      this.belt.unshift(this.hold);
     }
     this.hold = shard;
   }
