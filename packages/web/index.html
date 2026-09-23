@@ -1193,6 +1193,14 @@
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 12px color-mix(in srgb, var(--lumen) 45%, transparent);
         transition: color 0.25s ease;
+        /* Fixe Breite + rechtsbündig, sonst "springt" die Zahl (und mit ihr
+           das ganze "Mult"-Label links davon, weil die Zeile rechtsbündig
+           sitzt) bei jeder Nachkommastellen-Änderung -- der Multiplikator
+           zerfällt kontinuierlich jeden Frame, ohne Fixbreite wackelt jede
+           Ziffernbreiten-Differenz (z.B. "1" vs "6") die Anzeige seitlich. */
+        width: 62px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       #k-mult.tier-2 { color: var(--gold); }
       #k-mult.tier-3 { color: var(--mango); }
