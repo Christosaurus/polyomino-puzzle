@@ -1965,11 +1965,30 @@ function startCascade(): void {
         (ok) => {
           if (ok) {
             if ($("lb-overlay").classList.contains("show")) void renderLeaderboard();
+            // Bestenlisten-Rang im Ergebnis-Overlay (Abschnitt 5.1 im
+            // Ökonomie-Konzept) -- erst NACH dem Submit sinnvoll abfragbar,
+            // sonst zeigt sie höchstens den Rang von vor dieser Runde. Kein
+            // eigener "meine Platzierung"-Endpunkt im Backend, darum die
+            // Top-100 laden und die eigene `player_id` darin suchen -- reicht
+            // für den eigentlichen Zweck (Sog Richtung Top-Ränge), muss aber
+            // ehrlich leer bleiben, wenn der Rang weiter hinten liegt, statt
+            // eine erfundene Zahl zu zeigen.
+            void topCascade({ scope: "global", limit: 100 }).then((rows) => {
+              if (cascadeGame !== game) return; // längst in der nächsten Runde
+              const idx = rows.findIndex((row) => row.player_id === playerId());
+              if (idx < 0) return;
+              const rank = idx + 1;
+              const gap =
+                idx > 0 ? ` · noch <b>${nf(rows[idx - 1]!.score - r.score)}</b> bis Platz ${rank - 1}` : "";
+              $("k-rank").innerHTML = `🏆 Rang <b>#${rank}</b> diese Woche${gap}`;
+              $("k-rank").hidden = false;
+            });
           } else if (r.score > 0) {
             toast("⚠️ Score couldn't be added to the leaderboard this round");
           }
         },
       );
+      $("k-rank").hidden = true;
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "No Lives Left!" : "Time's Up!";
       $("k-result").innerHTML =
         `<b>${nf(r.score)}</b> points · ${nf(r.cleared)} lines` +

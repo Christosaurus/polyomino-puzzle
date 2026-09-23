@@ -3523,6 +3523,12 @@
         <div class="ocard">
           <h3 id="k-overlay-title">Time's Up!</h3>
           <div class="sub" id="k-result"></div>
+          <!-- Bestenlisten-Rang: erst nach dem Score-Submit bekannt (Netzwerk-
+               Roundtrip), also ein eigenes Element statt Teil von #k-result --
+               füllt sich asynchron nach, ohne das Overlay neu aufzubauen. Leer
+               + hidden, solange kein Rang feststeht (kein Netz, Rang > Top 100,
+               0-Punkte-Lauf). Abschnitt 5.1 im Ökonomie-Konzept. -->
+          <div class="sub" id="k-rank" hidden></div>
           <div class="btns">
             <button id="k-quit">Overview</button>
             <button class="go" id="k-again">Play Again</button>
