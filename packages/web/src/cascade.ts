@@ -22,6 +22,14 @@ import { nf } from "./format.js";
 export const CASCADE_ROWS = 8;
 export const CASCADE_COLS = 6;
 const DURATION_MS = 180_000; // 3:00 Grundzeit (Joker/Blitzstein legen noch drauf)
+/** Obergrenze für die Summe ALLER Zeit-Boni einer Runde (Challenge, Kombi,
+ *  Perfect/Mega-Clear, Zeitphiole) — Abschnitt 4b im Ökonomie-Konzept.
+ *  Der Playtest maß Laufzeiten von 195–360s bei 180s Grundzeit, weil sich
+ *  Boni unbegrenzt summierten; 90s Deckel macht maximal ~270s, Runden
+ *  bleiben vorhersehbar lang statt einzelne Glückssessions ausufern zu
+ *  lassen. Siehe `addExtraTime()` unten, der einzige Ort, an dem `extraMs`
+ *  wächst. */
+const EXTRA_MS_CAP = 90_000;
 const BASE_SPAWN_MS = 2200;
 const MIN_SPAWN_MS = 950;
 const BELT_TRAVEL_MS_START = 16_500; // time for a shard to ride top→bottom, at run start
@@ -537,6 +545,11 @@ export class CascadeState {
     if (this.level) return Infinity;
     return Math.max(0, DURATION_MS + this.extraMs - this.elapsedMs());
   }
+  /** Einziger Ort, an dem `extraMs` wächst — deckelt die Summe aller
+   *  Zeit-Boni einer Runde bei EXTRA_MS_CAP (Abschnitt 4b). */
+  private addExtraTime(ms: number): void {
+    this.extraMs = Math.min(EXTRA_MS_CAP, this.extraMs + ms);
+  }
   get isOver(): boolean {
     if (!this.isStarted) return false;
     if (this.lives <= 0) return true;
@@ -780,7 +793,7 @@ export class CascadeState {
     // gibt's für eine "heart"-Belohnung Punkte statt eines Herzens, aber die
     // Feier zeigte bisher trotzdem "+1 ❤" an, obwohl kein Herz dazukam.
     if (offer.reward === "time") {
-      this.extraMs += COMBO_TIME_BONUS_MS;
+      this.addExtraTime(COMBO_TIME_BONUS_MS);
       this.comboWonLabel = offer.rewardLabel;
     } else if (offer.reward === "heart") {
       if (this.lives < CASCADE_LIVES) {
@@ -820,7 +833,7 @@ export class CascadeState {
     this.multiplier = Math.min(6, this.multiplier + MEGA_MULT_BOOST);
     // Zeitbonus nur im Free Play — im Level-Modus läuft keine Uhr, gegen die
     // man Zeit gewinnen könnte.
-    if (!this.level) this.extraMs += MEGA_TIME_BONUS_MS;
+    if (!this.level) this.addExtraTime(MEGA_TIME_BONUS_MS);
     this.megaFlag = true;
     this.shardsEarned += SHARDS_PER_MEGA;
   }
@@ -955,7 +968,7 @@ export class CascadeState {
       // leere Brett (im Free Play ganz normal möglich) wurde übersehen.
       this.perfectClears += 1;
       this.score += 200 * this.multiplier;
-      this.extraMs += 5000;
+      this.addExtraTime(5000);
       this.perfectFlag = true;
       this.shardsEarned += SHARDS_PER_PERFECT;
     }
@@ -1069,7 +1082,7 @@ export class CascadeState {
     } else {
       this.score += 250 * this.multiplier;
     }
-    this.extraMs += CHALLENGE_TIME_BONUS_MS;
+    this.addExtraTime(CHALLENGE_TIME_BONUS_MS);
     this.challengeWon = true;
     this.shardsEarned += SHARDS_PER_CHALLENGE;
     this.challenge = null;
@@ -1137,6 +1150,6 @@ export class CascadeState {
   /** Zeitphiole: sofortige, manuell ausgelöste Zeitgutschrift -- zusätzlich
    *  zu, nicht statt, den passiven Challenge-/Kombi-/Perfect-Boni. */
   addTime(ms: number): void {
-    if (!this.level) this.extraMs += ms;
+    if (!this.level) this.addExtraTime(ms);
   }
 }
