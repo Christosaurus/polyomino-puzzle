@@ -1123,7 +1123,7 @@
         color: var(--gold);
       }
       #k-best {
-        font-size: 32px;
+        font-size: 38px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px rgba(255, 194, 59, 0.5);
       }
@@ -1140,7 +1140,7 @@
       /* Score & Multiplikator sind die wichtigsten Zahlen im Spiel — größer und
          mit einem sanften Leuchten, damit sie im Blick bleiben. */
       #k-score-txt {
-        font-size: 32px;
+        font-size: 38px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px color-mix(in srgb, var(--lumen) 55%, transparent);
       }
@@ -1159,7 +1159,7 @@
       .crown-badge {
         display: inline-block;
         margin-left: 5px;
-        font-size: 32px;
+        font-size: 38px;
         vertical-align: -2px;
         filter: drop-shadow(0 0 8px rgba(255, 194, 59, 0.7));
       }
@@ -1176,7 +1176,7 @@
         display: inline-block;
         position: relative;
         transform-origin: center;
-        font-size: 28px;
+        font-size: 34px;
         font-weight: 900;
         text-shadow: 0 2px 0 var(--stroke), 0 0 12px color-mix(in srgb, var(--lumen) 45%, transparent);
         transition: color 0.25s ease;
@@ -1246,22 +1246,27 @@
         align-items: center;
         justify-self: center;
       }
-      /* Jetzt unter der Uhr statt in der Score/Multiplikator-Zeile -- eigene,
-         kleinere Größe (die alte 48-64px-Kluster war für dort gedacht, wo
-         mehr Höhe zur Verfügung stand; hier direkt unterm Uhr-Pill ist
-         weniger Platz). Macht die Zeile darunter frei für die
-         Kaskaden-Fähigkeiten. */
+      /* Jetzt unter der Uhr statt in der Score/Multiplikator-Zeile -- da ist
+         genug Platz übrig, um sie fast genauso groß wie vorher zu zeigen,
+         nur mit etwas weniger Überlappung (weniger "eng aneinander"). */
       .k-hearts-top {
         justify-content: center;
-        margin: 2px 0 -2px;
+        gap: 2px;
+        margin: 4px 0 0;
       }
       .k-hearts-top .k-life {
-        width: 30px;
-        height: 30px;
+        width: 44px;
+        height: 44px;
       }
       .k-hearts-top .k-life-mid {
-        width: 38px;
-        height: 38px;
+        width: 58px;
+        height: 58px;
+      }
+      .k-hearts-top .k-life:first-child {
+        margin-right: -4px;
+      }
+      .k-hearts-top .k-life:last-child {
+        margin-left: -4px;
       }
       .k-life {
         width: 48px;
@@ -1770,8 +1775,8 @@
       .metric small {
         display: block;
         font-weight: 700;
-        font-size: 10px;
-        letter-spacing: 0.08em;
+        font-size: 14px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--ink-dim);
       }
@@ -1929,44 +1934,60 @@
       }
 
       /* ── Kaskaden-Fähigkeiten ──────────────────────── */
-      /* Sitzt anstelle der Herzen in der Score/Multiplikator-Zeile (.k-lives
-         ist ihr Grid-Rahmen, dieselben drei Spalten wie score-col/mult-col
-         daneben) -- die Herzen sind unter die Uhr gewandert, siehe
-         .k-hearts-top weiter oben. */
+      /* Eigene Zeile zwischen .k-lives und dem Brett -- volle Breite, kein
+         Gerangel mit Score/Highscore/Multiplier um Platz (siehe HTML-
+         Kommentar dort). */
       .k-abilities {
         display: flex;
         justify-content: center;
-        justify-self: center;
-        gap: 8px;
+        gap: 10px;
+        margin-top: 8px;
       }
       .k-ability {
+        --jc: var(--gold);
+        --jc-lo: var(--gold-lo);
         position: relative;
-        width: 40px;
-        height: 40px;
-        border-radius: 13px;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 82%, #fff), var(--gold-lo));
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--jc) 82%, #fff), var(--jc-lo));
         display: grid;
         place-items: center;
         box-shadow:
           inset 0 2px 0 rgba(255, 255, 255, 0.45),
           inset 0 -4px 0 rgba(0, 0, 0, 0.22),
-          0 4px 0 -1px var(--gold-lo);
+          0 5px 0 -1px var(--jc-lo);
+      }
+      /* eigene Farbe je Fähigkeit, damit sie sich auch ohne fertiges
+         Icon-Artwork klar unterscheiden -- dasselbe Muster wie #jk-hint/
+         #jk-time/#jk-solvent bei den Kampagnen-Jokern. */
+      #ka-shuffle {
+        --jc: var(--grape-bright, #8b6bff);
+        --jc-lo: var(--grape-bright-lo, #5a3fc4);
+      }
+      #ka-clear {
+        --jc: var(--pink, #ff5fa8);
+        --jc-lo: var(--pink-lo, #c23a7c);
+      }
+      #ka-time {
+        --jc: var(--sky, #45c1ff);
+        --jc-lo: var(--sky-lo, #2288c9);
       }
       .k-ability .jl {
-        font-size: 17px;
+        font-size: 26px;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
       }
       .k-ability .c {
         position: absolute;
-        top: -6px;
-        right: -6px;
-        min-width: 17px;
-        height: 17px;
-        padding: 0 4px;
+        top: -8px;
+        right: -8px;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 5px;
         border-radius: 999px;
         background: linear-gradient(180deg, #ff7a72, #db3a32);
         color: #fff;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 800;
         display: flex;
         align-items: center;
@@ -3252,21 +3273,26 @@
               <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
             </span>
           </span>
-          <div class="k-abilities" id="k-abilities">
-            <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
-              <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
-            </button>
-            <button class="k-ability" id="ka-clear" data-kind="clear">
-              <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
-            </button>
-            <button class="k-ability" id="ka-time" data-kind="time">
-              <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
-            </button>
-          </div>
           <span class="mult-col" id="k-mult-col">
             <span class="metric"><small>Multiplier</small><span id="k-mult">×1.0</span></span>
             <div class="k-streak" id="k-streak"></div>
           </span>
+        </div>
+        <!-- Eigene Zeile statt in .k-lives -- auf einem schmalen Screen (375px)
+             würde die Fähigkeiten-Reihe sonst mit Score/Highscore/Multiplier
+             um dieselbe horizontale Breite konkurrieren und "MULTIPLIER"
+             abschneiden. Hier drunter ist die volle Breite frei, und
+             (Christians Beobachtung) massig ungenutzte Höhe bis zum Brett. -->
+        <div class="k-abilities" id="k-abilities">
+          <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
+            <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
+          </button>
+          <button class="k-ability" id="ka-clear" data-kind="clear">
+            <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
+          </button>
+          <button class="k-ability" id="ka-time" data-kind="time">
+            <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
+          </button>
         </div>
         <div class="board-wrap" id="k-wrap">
           <div class="board-inner">
