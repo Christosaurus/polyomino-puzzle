@@ -1539,31 +1539,51 @@ export class CascadeView {
       minC = Math.min(minC, dc);
       maxC = Math.max(maxC, dc);
     }
-    const clamped: Pos = {
-      row: Math.max(-minR, Math.min(this.game.rows - 1 - maxR, raw.row)),
-      col: Math.max(-minC, Math.min(this.game.cols - 1 - maxC, raw.col)),
-    };
-    if (this.game.canPlace(d.shard, clamped)) return clamped;
-    // Auch geklemmt noch ungültig (Rand-Zelle ist schon belegt) — vorher
-    // sprang das hier auf JEDE freie Nachbarzelle, das machte es 1) schwerer
-    // als gewollt, eine Figur aus der Nähe einer Lücke wegzuziehen, und 2)
-    // ließ Figuren im letzten Moment auf eine beliebige freie Zelle
-    // "springen", die mit der Absicht des Spielers nichts zu tun hatte. Jetzt
-    // rastet es NUR ein, wenn eine der 4 unmittelbaren Nachbarzellen wirklich
-    // eine Reihe/Spalte fertigmachen würde — ein bewusster Vorteil fürs
-    // Vollenden, kein genereller Toleranz-Magnet.
+    const clampPos = (p: Pos): Pos => ({
+      row: Math.max(-minR, Math.min(this.game.rows - 1 - maxR, p.row)),
+      col: Math.max(-minC, Math.min(this.game.cols - 1 - maxC, p.col)),
+    });
+    const clamped = clampPos(raw);
+    // Räumt die geklemmte Zielzelle selbst schon eine Reihe/Spalte, ist sie
+    // klar die beste Wahl — kein Grund, anderswo zu suchen.
+    if (this.game.canPlace(d.shard, clamped)) {
+      const lines = this.previewLines(d.shard, clamped);
+      if (lines.rows.length > 0 || lines.cols.length > 0) return clamped;
+    }
+    // Magnet aufs Fertigmachen: nicht erst, wenn die geklemmte Zelle belegt
+    // ist, sondern IMMER geprüft, auch wenn sie an sich schon gültig wäre,
+    // nur eben nichts räumt — ein Vorteil fürs Vollenden soll sich deutlich
+    // anfühlen, nicht nur als Rettung im Konfliktfall. Sucht im gesamten
+    // 8er-Umkreis (nicht nur die 4 Himmelsrichtungen) und nimmt die Zelle,
+    // die am meisten gleichzeitig räumt — bei Gleichstand die zuerst
+    // gefundene (Himmelsrichtungen vor Diagonalen, näher an `raw` zuerst).
+    // Bleibt trotzdem ein gezielter Vorteil, kein genereller Toleranz-Magnet:
+    // eine Nachbarzelle, die NICHTS räumt, wird nie bevorzugt.
     const neighbors: Array<[number, number]> = [
       [0, -1],
       [0, 1],
       [-1, 0],
       [1, 0],
+      [-1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
     ];
+    let best: Pos | null = null;
+    let bestCount = 0;
     for (const [dr, dc] of neighbors) {
-      const cand: Pos = { row: clamped.row + dr, col: clamped.col + dc };
-      if (!this.game.canPlace(d.shard, cand)) continue;
+      const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
+      if ((cand.row === clamped.row && cand.col === clamped.col) || !this.game.canPlace(d.shard, cand)) {
+        continue;
+      }
       const lines = this.previewLines(d.shard, cand);
-      if (lines.rows.length > 0 || lines.cols.length > 0) return cand;
+      const count = lines.rows.length + lines.cols.length;
+      if (count > bestCount) {
+        bestCount = count;
+        best = cand;
+      }
     }
+    if (best) return best;
     return clamped;
   }
 
