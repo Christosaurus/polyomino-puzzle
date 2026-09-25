@@ -72,14 +72,23 @@ export const RESCUE_LEVELS: RescueLevel[] = [
     name: "The Abyss",
     blurb: "Almost at the end of the line — Mira can already hear you digging.",
     hero: "mira",
-    config: { rows: 8, cols: 6, shardBudget: 24, targetRows: 9, lives: 2 },
+    // Playtest-Bug B7: `targetRows` (9) lag ÜBER `rows` (8) -- rechnerisch
+    // unlösbar, weil das Level-Brett nur schrumpft (siehe cascade.ts,
+    // `clearFullRows()`: jede geräumte Reihe verkleinert das Feld dauerhaft,
+    // wächst nie nach). Mehr Reihen räumen als das Brett je hatte, geht
+    // nicht. `targetRows` darf `rows` nie überschreiten -- bei 8 Reihen ist
+    // "alle räumen" (wie schon res06) das erreichbare Maximum.
+    config: { rows: 8, cols: 6, shardBudget: 24, targetRows: 8, lives: 2 },
   },
   {
     id: "res08",
     name: "Umbra's Curse",
     blurb: "The heaviest cave-in of all. Get Anselm out of there.",
     hero: "anselm",
-    config: { rows: 8, cols: 6, shardBudget: 26, targetRows: 10, lives: 2 },
+    // Derselbe Bug wie res07 (targetRows 10 > rows 8), dieselbe Grenze.
+    // Als letztes Level bleibt die Eskalation über ein Leben weniger statt
+    // über eine unmögliche Reihenzahl.
+    config: { rows: 8, cols: 6, shardBudget: 26, targetRows: 8, lives: 1 },
   },
 ];
 

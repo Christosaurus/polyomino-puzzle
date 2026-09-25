@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CascadeState, type LevelConfig } from "../src/cascade.js";
+import { RESCUE_LEVELS } from "../src/rescue-levels.js";
 import { shardColorIndex } from "../src/shards.js";
 
 describe("Kaskade — Rundenlängen-Deckel (Abschnitt 4b im Ökonomie-Konzept)", () => {
@@ -116,5 +117,15 @@ describe("Kaskade — Zell-Snapshot für die Wegflieg-Funken eines normalen Clea
     // Zellen sind jetzt tatsächlich geleert -- der Snapshot war eine Kopie
     // von VOR dem Leeren, nicht eine Live-Referenz aufs Board.
     for (let c = 0; c < game.cols; c++) expect(game.board[0 * game.cols + c]).toBe(0);
+  });
+});
+
+describe("Rettungslevel — targetRows darf rows nie überschreiten (Playtest-Bug B7)", () => {
+  it("jedes Level ist rechnerisch erreichbar, weil das Brett beim Räumen nur schrumpft, nie nachwächst", () => {
+    for (const level of RESCUE_LEVELS) {
+      expect(level.config.targetRows, `${level.id}: targetRows > rows wäre unlösbar`).toBeLessThanOrEqual(
+        level.config.rows,
+      );
+    }
   });
 });
