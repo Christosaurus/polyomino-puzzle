@@ -1747,7 +1747,9 @@ function startCascade(): void {
   $("k-best-wrap").hidden = false;
   $("k-best-wrap").classList.remove("burst");
   $("k-abilities").hidden = false;
-  $("k-best-label").textContent = "👑 Highscore";
+  // Zeigt den Rückstand zum eigenen Bestwert, nicht den Bestwert selbst --
+  // "Highscore" als Label war darum schlicht falsch (Playtest-Bug B11).
+  $("k-best-label").textContent = "👑 To Best";
   $("k-score-label").textContent = "Score";
   $<HTMLElement>("k-crown-badge").hidden = true;
   $("k-crown-badge").classList.remove("pop");
@@ -1833,13 +1835,16 @@ function startCascade(): void {
         $("k-continue-overlay").classList.remove("show");
       }
       // Highscore-Slot zeigt nur noch die Differenz, nicht die absolute Zahl —
-      // "wie viel fehlt noch". Ohne eigenen Highscore (ganz erster Lauf) zählt
-      // schon der erste Punkt als neuer Rekord, sonst erst das Erreichen/
-      // Überholen des alten Bestwerts.
+      // "wie viel fehlt noch". Ganz erster Lauf (kein eigener Bestwert): "−"
+      // die ganze Runde über, KEINE Rekord-Fanfare -- die feuerte vorher
+      // schon beim allerersten Stein, weil jeder Score > 0 trivial "0 schlägt"
+      // (Playtest-Bug B11). Es gibt in der allerersten Runde schlicht noch
+      // nichts zu schlagen; die Fanfare macht erst ab der zweiten Runde Sinn,
+      // wenn wirklich ein alter Bestwert übertroffen wird.
       const hasBest = bestScore > 0;
       if (!newRecord) {
         $("k-best").textContent = hasBest ? nf(Math.max(0, bestScore - h.score)) : "−";
-        const beat = hasBest ? h.score >= bestScore : h.score > 0;
+        const beat = hasBest && h.score >= bestScore;
         if (beat) {
           newRecord = true;
           $("k-score-txt").classList.add("new-record");
@@ -1953,6 +1958,12 @@ function startCascade(): void {
       if (h.chain >= 2) streakEl.textContent = `🔥 ×${h.chain}`;
     },
     onEnd: (r) => {
+      // Unabhängig von der laufenden Mid-Run-Fanfare (die feuert bei der
+      // allerersten Runde bewusst NIE, siehe oben) -- am Rundenende zählt
+      // ehrlich, ob der Score den Bestwert VOR dieser Runde übertrifft. Ein
+      // Score von 0 ist dabei nie ein "Rekord", auch nicht gegen einen noch
+      // leeren Bestwert von 0.
+      const isNewRecord = bestScore > 0 ? r.score >= bestScore : r.score > 0;
       store.recordCascade(r.score, r.cleared, r.bestChain, r.perfectClears, r.megaClears, r.combosWon);
       // Lichtsplitter fürs Budget (kein Story-Fortschritt) — belohnt jetzt
       // Spielweise (Clears/Challenges/Kombis/Perfects/Ketten), nicht mehr nur
@@ -2002,7 +2013,7 @@ function startCascade(): void {
         (r.perfectClears ? ` · ${r.perfectClears}× perfect` : "") +
         (r.megaClears ? ` · 💥 ${r.megaClears}× Ultimate Clear` : "") +
         (r.bestChain >= 3 ? ` · 🔥 Chain ×${r.bestChain}` : "") +
-        (newRecord ? ` · 🏆 new record!` : "") +
+        (isNewRecord ? ` · 🏆 new record!` : "") +
         (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "");
       const ov = $("k-overlay");
       ov.classList.remove("show");

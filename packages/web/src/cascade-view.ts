@@ -11,7 +11,6 @@ import { shardByColorIndex, shardDef } from "./shards.js";
 import { nf } from "./format.js";
 
 const TAP_MOVE_PX = 10;
-const TAP_TIME_MS = 300;
 /** Eine gezogene Figur schwebt so viele Zellhöhen über dem echten Touchpoint —
  *  sonst sitzt der Daumen genau auf der Figur und man erkennt sie nicht. */
 // Wie weit die gezogene Figur über dem tatsächlichen Berührungspunkt
@@ -80,7 +79,6 @@ interface Drag {
   py: number;
   sx: number;
   sy: number;
-  t0: number;
   moved: boolean;
   grabR: number;
   grabC: number;
@@ -1749,7 +1747,6 @@ export class CascadeView {
       py: y,
       sx: x,
       sy: y,
-      t0: performance.now(),
       moved: false,
       grabR: cen.r,
       grabC: cen.c,
@@ -1773,8 +1770,12 @@ export class CascadeView {
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const L = this.layout;
 
-    // tap → rotate the shard in place
-    if (!d.moved && performance.now() - d.t0 < TAP_TIME_MS) {
+    // tap → rotate the shard in place. Nur an der Bewegung fest gemacht, NICHT
+    // zusätzlich an einem Zeitlimit (Playtest-Bug B10): ein längeres, aber
+    // ortsfestes Drücken wurde sonst als "konnte nicht platziert werden"
+    // gewertet und warf die Scherbe versehentlich mit Fehlerton in die
+    // Ablage, obwohl der Finger nie vom Fleck kam.
+    if (!d.moved) {
       this.game.rotate(d.shard);
       sfx.pickUp();
       return;
