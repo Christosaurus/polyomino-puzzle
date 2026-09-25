@@ -103,7 +103,6 @@ export class Scenery {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
-    this.loadPlates();
     this.seed();
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -151,19 +150,28 @@ export class Scenery {
     return this.theme === "menu" ? 0 : 1;
   }
 
-  private loadPlates(): void {
+  /** Lädt die zwei Bildplatten eines Themes NUR beim ersten tatsächlichen
+   *  Bedarf (nicht mehr alle sechs auf einmal im Konstruktor) — Playtest-Bug
+   *  B13: bisher lud jeder Kaltstart sechs Vollbild-Hintergründe der
+   *  (mittlerweile versteckten) Kampagne mit, obwohl die meisten
+   *  Kaskade-Spieler `garden`/`workshop`/`courtyard` nie zu sehen bekommen. */
+  private loadPlate(theme: SceneTheme): { night: HTMLImageElement; day: HTMLImageElement } | undefined {
+    const cached = this.plates.get(theme);
+    if (cached) return cached;
+    const srcs = PAINTED[theme];
+    if (!srcs) return undefined;
     const base = import.meta.env.BASE_URL;
-    for (const [theme, srcs] of Object.entries(PAINTED) as [SceneTheme, { night: string; day: string }][]) {
-      const night = new Image();
-      const day = new Image();
-      night.src = base + srcs.night;
-      day.src = base + srcs.day;
-      this.plates.set(theme, { night, day });
-    }
+    const night = new Image();
+    const day = new Image();
+    night.src = base + srcs.night;
+    day.src = base + srcs.day;
+    const plate = { night, day };
+    this.plates.set(theme, plate);
+    return plate;
   }
 
   private plateFor(theme: SceneTheme): { night: HTMLImageElement; day: HTMLImageElement } | null {
-    const p = this.plates.get(theme);
+    const p = this.loadPlate(theme);
     if (!p) return null;
     if (!p.night.complete || !p.night.naturalWidth || !p.day.complete || !p.day.naturalWidth) return null;
     return p;
