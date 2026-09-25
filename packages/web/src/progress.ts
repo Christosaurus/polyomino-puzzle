@@ -51,7 +51,20 @@ export interface SaveData {
   profile: { name: string; avatar: string };
   daily: { lastDayDone: string; streak: number; bestStreak: number; claimedMilestones: number[] };
   descent: { bestDepth: number; runs: number; seq: number };
-  cascade: { bestScore: number; bestCleared: number; runs: number };
+  cascade: {
+    bestScore: number;
+    bestCleared: number;
+    runs: number;
+    /** Läuft über alle Runden weiter, statt nur den besten Einzelwert zu
+     *  halten — Basis für die mehrstufige Kaskade-Erfolgsleiter (Abschnitt
+     *  5.2 im Ökonomie-Konzept), die auf "insgesamt X" statt nur auf einem
+     *  einzigen guten Lauf abzielt. */
+    totalCleared: number;
+    bestChain: number;
+    totalPerfectClears: number;
+    totalMegaClears: number;
+    totalCombosWon: number;
+  };
   /** Story-Modus (Kaskade-Level): id -> bester Sternestand + Score. */
   rescue: Record<string, { stars: number; best: number }>;
   achievements: string[];
@@ -101,7 +114,16 @@ const EMPTY: SaveData = {
   profile: { name: "", avatar: "grin" },
   daily: { lastDayDone: "", streak: 0, bestStreak: 0, claimedMilestones: [] },
   descent: { bestDepth: 0, runs: 0, seq: 0 },
-  cascade: { bestScore: 0, bestCleared: 0, runs: 0 },
+  cascade: {
+    bestScore: 0,
+    bestCleared: 0,
+    runs: 0,
+    totalCleared: 0,
+    bestChain: 0,
+    totalPerfectClears: 0,
+    totalMegaClears: 0,
+    totalCombosWon: 0,
+  },
   rescue: {},
   achievements: [],
   beatsSeen: [],
@@ -396,13 +418,27 @@ export function beginDescentRun(): number {
   return variant;
 }
 
-export function recordCascade(score: number, cleared: number): SaveData {
+export function recordCascade(
+  score: number,
+  cleared: number,
+  bestChain: number,
+  perfectClears: number,
+  megaClears: number,
+  combosWon: number,
+): SaveData {
   return update((d) => {
     d.cascade.runs += 1;
     d.cascade.bestScore = Math.max(d.cascade.bestScore, score);
     d.cascade.bestCleared = Math.max(d.cascade.bestCleared, cleared);
     // erhellt keine Story-Fenster mehr — Punkte zählen für Erfolge, die
     // Lichtsplitter fürs Herz-/Joker-Budget
+    // Laufende Summen für die mehrstufige Kaskade-Erfolgsleiter (Abschnitt
+    // 5.2) -- bewusst zusätzlich zu den Bestwerten oben, nicht statt ihnen.
+    d.cascade.totalCleared += cleared;
+    d.cascade.bestChain = Math.max(d.cascade.bestChain, bestChain);
+    d.cascade.totalPerfectClears += perfectClears;
+    d.cascade.totalMegaClears += megaClears;
+    d.cascade.totalCombosWon += combosWon;
   });
 }
 

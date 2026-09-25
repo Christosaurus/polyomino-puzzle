@@ -11,6 +11,7 @@ import {
   load,
   NO_BEST_MS,
   panes,
+  recordCascade,
   recordDaily,
   recordFail,
   recordLevel,
@@ -270,5 +271,20 @@ describe("Joker-Verknappung", () => {
     expect(load().jokers).toEqual(before);
     expect(load().lives.count).toBe(5);
     expect(grantRegionReward("garden")).toBe(false); // nur einmal
+  });
+});
+
+describe("recordCascade — laufende Summen für die Kaskade-Erfolgsleiter", () => {
+  it("summiert Reihen/Perfects/Megas/Kombis über mehrere Runden, statt nur den besten Wert zu halten", () => {
+    recordCascade(500, 10, 3, 1, 0, 1);
+    recordCascade(300, 7, 5, 0, 1, 2);
+    const c = load().cascade;
+    expect(c.runs).toBe(2);
+    expect(c.bestScore).toBe(500); // Bestwert bleibt wie bisher
+    expect(c.totalCleared).toBe(17); // 10 + 7, keine Bestwert-Logik
+    expect(c.bestChain).toBe(5); // Bestwert wie bei bestScore
+    expect(c.totalPerfectClears).toBe(1);
+    expect(c.totalMegaClears).toBe(1);
+    expect(c.totalCombosWon).toBe(3);
   });
 });

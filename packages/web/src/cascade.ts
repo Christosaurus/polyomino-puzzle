@@ -75,6 +75,9 @@ export interface CascadeResult {
    *  nur den Score, mit einem Teilnahme-Sockel und einem großzügigen, aber
    *  echten Deckel gegen Ausreißer-Runden. */
   shardsEarned: number;
+  /** Wie viele Kombi-Angebote diese Runde erfüllt wurden — für die
+   *  Kaskade-Erfolgsleiter (Abschnitt 5.2 im Ökonomie-Konzept). */
+  combosWon: number;
 }
 
 /**
@@ -361,6 +364,8 @@ export class CascadeState {
   private comboWon = false;
   private comboWonHeart = false;
   private comboWonLabel = "";
+  /** Wie viele Kombi-Angebote diese Runde erfüllt wurden — siehe `result()`. */
+  private combosWon = 0;
   /** Wie oft in dieser Runde schon "Weiterspielen" gekauft wurde — steuert
    *  Preis + Obergrenze, siehe CONTINUE_PRICES und `nextContinuePrice()`. */
   private continuesUsed = 0;
@@ -640,6 +645,7 @@ export class CascadeState {
       // Teilnahme-Sockel + gesammelte Ereignis-Beträge, gedeckelt gegen
       // Ausreißer-Runden (siehe SHARDS_*-Konstanten oben).
       shardsEarned: Math.round(Math.min(SHARDS_ROUND_CAP, SHARDS_BASE + this.shardsEarned)),
+      combosWon: this.combosWon,
     };
   }
 
@@ -1024,6 +1030,7 @@ export class CascadeState {
       if (this.comboOffer.progress >= this.comboOffer.target) {
         this.applyComboReward(this.comboOffer);
         this.shardsEarned += SHARDS_PER_COMBO;
+        this.combosWon += 1;
         this.comboOffer = null;
         this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
       }

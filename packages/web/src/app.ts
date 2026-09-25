@@ -1947,7 +1947,7 @@ function startCascade(): void {
       if (h.chain >= 2) streakEl.textContent = `🔥 ×${h.chain}`;
     },
     onEnd: (r) => {
-      store.recordCascade(r.score, r.cleared);
+      store.recordCascade(r.score, r.cleared, r.bestChain, r.perfectClears, r.megaClears, r.combosWon);
       // Lichtsplitter fürs Budget (kein Story-Fortschritt) — belohnt jetzt
       // Spielweise (Clears/Challenges/Kombis/Perfects/Ketten), nicht mehr nur
       // den Score mit starrem Deckel (siehe KONZEPT-kaskade-oekonomie.md §1).
