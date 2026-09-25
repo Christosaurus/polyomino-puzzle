@@ -408,9 +408,14 @@ export class CascadeView {
       // immer dieselbe Zeile. Mehrfach-Clear ist seltener/größer, geht vor.
       let comboShown = false;
       if (lineCount >= 2) {
+        // "QUAD CLEAR!" statt vorher "MEGA-CLEAR!" -- kollidierte namentlich
+        // mit dem viel selteneren, viel größeren Schockwellen-Moment weiter
+        // unten ("💥 ULTIMATE CLEAR!"), der intern genau "Mega Clear" heißt
+        // (Playtest-Bug B14). Bleibt in der DOUBLE/TRIPLE-Eskalationsfamilie,
+        // statt einen Namen zu recyceln, der schon fürs größere Ereignis steht.
         const MULTI_ROW_NAMES: Record<number, string> = { 2: "DOUBLE CLEAR!", 3: "TRIPLE CLEAR!" };
         this.comboPop = {
-          text: MULTI_ROW_NAMES[lineCount] ?? "MEGA-CLEAR!",
+          text: MULTI_ROW_NAMES[lineCount] ?? "QUAD CLEAR!",
           t: 0,
           color: cssVar("--sky"),
         };

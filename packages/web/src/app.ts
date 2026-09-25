@@ -2237,7 +2237,7 @@ function renderCollection(): void {
   const stats: [string, string][] = [
     ["Light Collected", nf(s.shards)],
     ["Memories", `${nf(memSeen)} / ${nf(allBeats.length)}`],
-    ["Shard Storm", nf(s.cascade.bestScore)],
+    ["Cascade", nf(s.cascade.bestScore)],
     ["Achievements", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
   $("stats").replaceChildren(
@@ -2416,7 +2416,7 @@ function openProfile(): void {
     ["ui/hint.webp", "Memories", `${nf(memSeen)} / ${nf(allB.length)}`],
     ["ui/solvent.webp", "No-undo streak", nf(s.stats.bestNoUndoStreak)],
     ["ui/descent.webp", "Anselm's Mine — deepest level", nf(s.descent.bestDepth)],
-    ["ui/cascade.webp", "Shard Storm — record", nf(s.cascade.bestScore)],
+    ["ui/cascade.webp", "Cascade — record", nf(s.cascade.bestScore)],
     ["ui/daily.webp", "Longest daily streak", nf(s.daily.bestStreak)],
     ["ui/hint.webp", "Achievements", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];

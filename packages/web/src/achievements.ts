@@ -26,7 +26,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "streak-7", name: "Week in the Light", hint: "7-day streak", icon: "🗓", done: (d) => d.daily.bestStreak >= 7 },
   { id: "streak-30", name: "A Month of Glasswork", hint: "30-day streak", icon: "📅", done: (d) => d.daily.bestStreak >= 30 },
 
-  { id: "cascade-lines-100", name: "Line Worker", hint: "Clear 100 lines total in the Shard Storm", icon: "🧱", done: (d) => d.cascade.totalCleared >= 100 },
+  { id: "cascade-lines-100", name: "Line Worker", hint: "Clear 100 lines total in Cascade", icon: "🧱", done: (d) => d.cascade.totalCleared >= 100 },
   { id: "cascade-lines-1000", name: "Line Foreman", hint: "1,000 lines cleared total", icon: "🏗", done: (d) => d.cascade.totalCleared >= 1000 },
   { id: "cascade-lines-10000", name: "Line Legend", hint: "10,000 lines cleared total", icon: "🗿", done: (d) => d.cascade.totalCleared >= 10_000 },
 
@@ -46,7 +46,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "cascade-combo-25", name: "Trusted Supplier", hint: "25 combo offers fulfilled", icon: "📦", done: (d) => d.cascade.totalCombosWon >= 25 },
   { id: "cascade-combo-100", name: "Never Late", hint: "100 combo offers fulfilled", icon: "🚚", done: (d) => d.cascade.totalCombosWon >= 100 },
 
-  { id: "cascade-runs-10", name: "Regular", hint: "Play 10 rounds of the Shard Storm", icon: "🎟", done: (d) => d.cascade.runs >= 10 },
+  { id: "cascade-runs-10", name: "Regular", hint: "Play 10 rounds of Cascade", icon: "🎟", done: (d) => d.cascade.runs >= 10 },
   { id: "cascade-runs-50", name: "Storm Chaser", hint: "50 rounds played", icon: "🌪", done: (d) => d.cascade.runs >= 50 },
   { id: "cascade-runs-200", name: "Storm Veteran", hint: "200 rounds played", icon: "🏆", done: (d) => d.cascade.runs >= 200 },
 ];
