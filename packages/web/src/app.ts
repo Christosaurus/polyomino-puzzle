@@ -2637,6 +2637,23 @@ $("kp-quit").addEventListener("click", () => {
   $("k-pause-overlay").classList.remove("show");
   cascadeQuit();
 });
+// Playtest-Bug B9: App in den Hintergrund geschickt (Homescreen-Taste,
+// App-Wechsel) lief die Runde einfach unsichtbar weiter -- kam man zurück,
+// war oft schon ein Leben (oder mehr) durchs Band weg. Derselbe Pause-Weg
+// wie der manuelle Pause-Knopf oben, nur automatisch ausgelöst -- kein
+// eigener Freeze-Mechanismus nötig, `cascadeGame.pause()` deckt das schon
+// (inkl. des bestehenden Budgets gegen Pause-Missbrauch). Bewusst KEIN
+// Auto-Resume beim Zurückkommen -- der Spieler tippt selbst "Weiter",
+// sonst rollt das Band schon los, während man noch gar nicht wieder
+// hinschaut.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  if ($("screen-kaskade").hidden) return;
+  if (!cascadeGame || cascadeGame.isOver || cascadeGame.isPaused || cascadeGame.awaitingContinueOffer) return;
+  $("k-pause-overlay").classList.add("show");
+  renderSettingsToggles($("k-settings-toggles"));
+  cascadeGame.pause();
+});
 $("jk-hint").addEventListener("click", () => useJoker("hint"));
 $("jk-time").addEventListener("click", () => useJoker("time"));
 $("jk-solvent").addEventListener("click", () => useJoker("solvent"));
