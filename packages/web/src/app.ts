@@ -409,6 +409,91 @@ function activeTabScreen(): Tab | null {
   return null;
 }
 
+/** Laufender Tab-Übergang, falls gerade einer animiert -- für einen sauberen
+ *  Abbruch, wenn der Spieler schnell nochmal wechselt, bevor der vorherige
+ *  fertig ist (sonst stapeln sich zwei halbfertige Übergänge). */
+let tabTransition: { outEl: HTMLElement; inEl: HTMLElement } | null = null;
+
+/**
+ * Beide Screens gleiten SYNCHRON gegeneinander (Christian: "wie eine Blase,
+ * die von links nach rechts wischt") -- der alte schiebt sich raus, während
+ * der neue gleichzeitig reinkommt, statt dass der alte einfach per `hidden`
+ * verschwindet und nur der neue reinfährt. Web-Animations-API statt CSS-
+ * Keyframes, weil zwei Elemente in genau derselben Zeitspanne choreografiert
+ * werden müssen und am Ende sauber (per Promise) aufgeräumt werden soll.
+ */
+function crossSlideTabs(fromTab: Tab, toTab: Tab, dir: "left" | "right"): void {
+  if (tabTransition) {
+    // Vorherigen Übergang hart abschließen statt überlappen zu lassen.
+    tabTransition.outEl.hidden = true;
+    tabTransition.outEl.classList.remove("tab-transit");
+    tabTransition.inEl.classList.remove("tab-transit");
+    for (const a of tabTransition.outEl.getAnimations()) a.cancel();
+    for (const a of tabTransition.inEl.getAnimations()) a.cancel();
+    tabTransition = null;
+  }
+
+  const outEl = $(`screen-${fromTab}`);
+  const inEl = $(`screen-${toTab}`);
+  inEl.hidden = false;
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !inEl.animate) {
+    outEl.hidden = true;
+    return;
+  }
+
+  outEl.classList.add("tab-transit");
+  inEl.classList.add("tab-transit");
+  tabTransition = { outEl, inEl };
+
+  const dist = 46; // px -- spürbar, aber bewusst nicht extrem (Christians Wunsch)
+  const outTo = dir === "right" ? -dist : dist;
+  const inFrom = dir === "right" ? dist : -dist;
+  // dieselbe leicht überschwingende Kurve wie --tap (CSS-Custom-Properties
+  // sind der Web-Animations-API nicht zugänglich, darum hier als Literal).
+  const easing = "cubic-bezier(0.2, 1.1, 0.4, 1)";
+  const dur = 260;
+
+  const outAnim = outEl.animate(
+    [
+      { transform: "translateX(0)", opacity: 1 },
+      { transform: `translateX(${outTo}px)`, opacity: 0 },
+    ],
+    { duration: dur, easing, fill: "forwards" },
+  );
+  // leichtes Aufplustern beim Reinkommen -- die "Blase", die sich niederlässt.
+  const inAnim = inEl.animate(
+    [
+      { transform: `translateX(${inFrom}px) scale(0.97)`, opacity: 0 },
+      { transform: "translateX(0) scale(1)", opacity: 1 },
+    ],
+    { duration: dur, easing, fill: "forwards" },
+  );
+
+  // `.finished` hängt am Dokument-Zeitgeber -- verliert der Tab zwischendurch
+  // den Fokus (App-Wechsel mitten im Übergang), kann das Auflösen ausbleiben
+  // oder sich sehr verzögern. Ein Timeout-Fallback stellt sicher, dass nie
+  // dauerhaft zwei Screens übereinander hängen bleiben.
+  let settled = false;
+  const finishTransition = (): void => {
+    if (settled) return;
+    settled = true;
+    outEl.hidden = true;
+    outEl.classList.remove("tab-transit");
+    inEl.classList.remove("tab-transit");
+    outAnim.cancel();
+    inAnim.cancel();
+    tabTransition = null;
+  };
+  void Promise.all([outAnim.finished, inAnim.finished])
+    .then(finishTransition)
+    .catch(() => {
+      // Abgebrochen (z. B. durch einen schnellen Folge-Wechsel) -- das
+      // Aufräumen übernimmt dann der nächste crossSlideTabs()-Aufruf oben.
+    });
+  window.setTimeout(finishTransition, dur + 250);
+}
+
 function setTab(tab: Tab): void {
   const from = activeTabScreen();
   for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")) {
@@ -424,20 +509,23 @@ function setTab(tab: Tab): void {
     void renderLeaderboard();
   }
   playMusic("menu"); // Browsing-Screens teilen sich das ruhige Thema
-  showScreen(tab);
-  // Swipe-Slide (E23): nur wenn wir tatsächlich von einem ANDEREN Haupt-Tab
-  // kommen -- von einem Drill-down zurück (from === null) oder auf denselben
-  // Tab (Doppeltipp) gibt's keine sinnvolle Richtung, dann einfach ohne
-  // Animation erscheinen statt zu raten.
-  if (from && from !== tab) {
-    const fromIdx = TAB_ORDER.indexOf(from);
-    const toIdx = TAB_ORDER.indexOf(tab);
-    if (fromIdx !== -1 && toIdx !== -1) {
-      const el = $(`screen-${tab}`);
-      el.classList.remove("tab-slide-r", "tab-slide-l");
-      void el.offsetWidth; // Reflow -- Animation bei jedem Wechsel neu starten
-      el.classList.add(toIdx > fromIdx ? "tab-slide-r" : "tab-slide-l");
-    }
+
+  const fromIdx = from ? TAB_ORDER.indexOf(from) : -1;
+  const toIdx = TAB_ORDER.indexOf(tab);
+  if (from && from !== tab && fromIdx !== -1 && toIdx !== -1) {
+    // Wechsel zwischen zwei Haupt-Tabs: animiert (E23). Dieselben
+    // Nebenwirkungen wie `showScreen()`, aber die beiden betroffenen Screens
+    // übernimmt `crossSlideTabs()` -- alle anderen SCREENS waren vorher
+    // schon hidden und bleiben es.
+    $("tabbar").hidden = false; // ein Tab-Wechsel ist nie "im Spiel"
+    teardownGame();
+    hideAllOverlays();
+    crossSlideTabs(from, tab, toIdx > fromIdx ? "right" : "left");
+  } else {
+    // Kommt von einem Drill-down (Region/Rescue/...) oder ist ein
+    // Doppeltipp auf denselben Tab -- keine sinnvolle Richtung, einfach
+    // ohne Animation zeigen statt zu raten.
+    showScreen(tab);
   }
 }
 

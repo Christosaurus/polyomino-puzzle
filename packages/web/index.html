@@ -165,35 +165,17 @@
            nur auf dem Brett selbst (das hat schon touch-action: none) */
         touch-action: manipulation;
       }
-      /* Swipe-Übergang zwischen den fünf Haupt-Tabs (Punkt E23) -- setTab()
-         setzt eine der beiden Klassen auf den neuen Screen, je nachdem ob er
-         in der Tab-Leiste rechts oder links vom vorherigen sitzt. Nur der
-         NEUE Screen animiert rein, der alte verschwindet einfach (per
-         `hidden`) -- kein Zwei-Screen-Choreografie-Aufwand nötig, sieht aber
-         schon nach "geblättert" statt "hart umgeschaltet" aus. */
-      @keyframes tab-slide-from-right {
-        from {
-          transform: translateX(18px);
-          opacity: 0;
-        }
-      }
-      @keyframes tab-slide-from-left {
-        from {
-          transform: translateX(-18px);
-          opacity: 0;
-        }
-      }
-      .screen.tab-slide-r {
-        animation: tab-slide-from-right 0.22s var(--tap);
-      }
-      .screen.tab-slide-l {
-        animation: tab-slide-from-left 0.22s var(--tap);
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .screen.tab-slide-r,
-        .screen.tab-slide-l {
-          animation: none;
-        }
+      /* Swipe-Übergang zwischen den fünf Haupt-Tabs (Punkt E23) -- während des
+         Wechsels liegen alter und neuer Screen kurz ÜBEREINANDER (statt der
+         alte per `hidden` einfach zu verschwinden) und gleiten synchron
+         gegeneinander, per Web-Animations-API in app.ts choreografiert
+         (Christian: "wie eine Blase, die von links nach rechts wischt" --
+         beide bewegen sich zusammen, nicht nur der neue). Diese Klasse hebt
+         für die Dauer der Animation nur die Positionierung auf `absolute`
+         an, die eigentliche Bewegung setzt `crossSlideTabs()` in app.ts. */
+      .screen.tab-transit {
+        position: absolute;
+        inset: 0;
       }
       /* let the board panel float in the middle of the free space between the
          HUD/difficulty strip and the joker foot, instead of hugging the top */
