@@ -787,7 +787,21 @@ function playSequence(beats: Beat[], done: () => void): void {
   const next = (): void => {
     const b = rest.shift();
     if (!b) return done();
-    playCutscene(b, next, { alreadyOpen: opened, keepOpenAfter: rest.length > 0 });
+    // `onSkipAll`: "skip" soll die GANZE Kette abbrechen, nicht nur den
+    // aktuell laufenden Beat (Playtest-Bug B8 -- bei 5 Intro-Beats musste
+    // man bisher 5x auf "skip" tippen). Statt `next` (würde einfach den
+    // nächsten Beat aus `rest` ziehen und weiterspielen) direkt zur
+    // Sequenz-`done` springen -- und die noch offenen Beats gleich mit als
+    // gesehen verbuchen, sonst tauchen sie beim nächsten App-Start wieder
+    // auf, obwohl der Spieler die ganze Intro schon explizit übersprungen hat.
+    playCutscene(b, next, {
+      alreadyOpen: opened,
+      keepOpenAfter: rest.length > 0,
+      onSkipAll: () => {
+        for (const r of rest) store.markBeatSeen(r.id);
+        done();
+      },
+    });
     opened = true;
   };
   next();
@@ -802,9 +816,9 @@ function playSequence(beats: Beat[], done: () => void): void {
 function playCutscene(
   beat: Beat,
   done: () => void,
-  opts: { alreadyOpen?: boolean; keepOpenAfter?: boolean } = {},
+  opts: { alreadyOpen?: boolean; keepOpenAfter?: boolean; onSkipAll?: () => void } = {},
 ): void {
-  const { alreadyOpen = false, keepOpenAfter = false } = opts;
+  const { alreadyOpen = false, keepOpenAfter = false, onSkipAll } = opts;
   const sp = SPEAKERS[beat.speaker];
   const scene = $("cutscene");
   scene.dataset.speaker = beat.speaker;
@@ -876,9 +890,9 @@ function playCutscene(
     type(beat.lines[line]!);
   };
 
-  const finish = (): void => {
+  const finish = (forceClose = false, callback: () => void = done): void => {
     window.clearTimeout(typeT); // sonst tippt die letzte Zeile in die nächste Szene
-    if (!keepOpenAfter) {
+    if (!keepOpenAfter || forceClose) {
       scene.classList.remove("show");
       scene.hidden = true;
       duckMusic(false);
@@ -886,13 +900,20 @@ function playCutscene(
     scene.removeEventListener("click", onClick);
     $("cs-skip").removeEventListener("click", onSkip);
     store.markBeatSeen(beat.id);
-    done();
+    callback();
   };
   const onClick = (e: MouseEvent): void => {
     if ((e.target as HTMLElement).id === "cs-skip") return;
     advance();
   };
-  const onSkip = (): void => finish();
+  // "skip" bricht bei einer Kette (playSequence) die GANZE Kette ab, statt
+  // nur diesen einen Beat zu beenden und `done` (= der nächste Beat in der
+  // Kette) aufzurufen (Playtest-Bug B8 -- bei 5 Intro-Beats musste man
+  // bisher 5x tippen). Die Bühne schließt dabei immer (`forceClose`), egal
+  // ob eigentlich noch weitere Beats anstehen, sonst bliebe sie nach einem
+  // Voll-Skip offen hängen. Ohne Kette (kein `onSkipAll`) bleibt "skip" wie
+  // bisher: nur diesen einen Beat beenden, `done` normal aufrufen.
+  const onSkip = (): void => finish(true, onSkipAll);
 
   scene.addEventListener("click", onClick);
   $("cs-skip").addEventListener("click", onSkip);
