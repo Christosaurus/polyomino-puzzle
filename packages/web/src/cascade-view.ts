@@ -620,7 +620,16 @@ export class CascadeView {
     // Auf einem Hochkant-Handy mit 8 Reihen ist meist die Höhe der engere
     // Faktor — vorher blieb dann der Rest der Breite als Lücke zwischen
     // Feld und Gürtel einfach ungenutzt liegen.
-    const MIN_BELT_W = 62;
+    // War 62 -- Playtest-Bug "Gürtel-Lesbarkeit": auf breiten, kurzen Handys
+    // bindet die BREITE (nicht die Höhe), das Brett frisst dann die ganze
+    // Breite bis auf genau diese Mindestbreite, und der Gürtel (samt seiner
+    // Scherben, siehe `shardCell` unten) landet in genau diesem Fall an
+    // seiner absoluten Untergrenze -- 15,5px Scherben gegen 45px Brettzellen.
+    // 76 statt 62 gibt dem Gürtel in diesem Fall spürbar mehr Luft; die
+    // Brettzelle wird dadurch nur um ~(76-62)/cols Pixel kleiner, und nur in
+    // genau diesem breite-bindet-Fall -- im (häufigeren) höhe-bindet-Fall
+    // hat der Gürtel ohnehin schon mehr als dieses Minimum übrig.
+    const MIN_BELT_W = 76;
     const MAX_BELT_W = 150;
     const heightCell = Math.floor(availH / this.game.rows);
     const widthCellAtMinBelt = Math.floor((cssW - MIN_BELT_W - pad * 3) / this.game.cols);
