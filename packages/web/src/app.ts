@@ -536,6 +536,10 @@ function teardownGame(): void {
   cascadeView = null;
   cascadeGame = null;
   activeGame = null;
+  // Falls die Runde mitten im Dreh-Tutorial verlassen wurde (Tab-Wechsel,
+  // Zurück-Wisch) -- Overlay nicht über dem nächsten Screen hängen lassen.
+  $("k-rotate-tut").classList.remove("show");
+  $("k-rotate-tut").hidden = true;
   if (clockTimer) window.clearInterval(clockTimer);
   clockTimer = 0;
   if (graceTimer) window.clearTimeout(graceTimer);
@@ -2170,14 +2174,67 @@ function startCascade(): void {
   maybeHintRotate();
 }
 
-/** Einmaliger Hinweis, dass Antippen eine Figur dreht — sonst findet das
- *  kaum jemand von allein. Feuert beim ersten Einstieg in irgendeinen
- *  Kaskade-Modus (Free Play oder Story-Level), danach nie wieder. */
+/** Wie oft die Tutorial-Scherbe angetippt werden muss, bevor die Runde
+ *  losgeht. */
+const ROTATE_TUTORIAL_TAPS = 2;
+
+/** Dreh-Tutorial vor der ALLERERSTEN je gespielten Runde (Free Play oder
+ *  Story-Level), danach nie wieder — sonst findet kaum jemand von allein
+ *  heraus, dass Antippen eine Figur dreht. */
 function maybeHintRotate(): void {
   if (!store.markHintSeen("rotate-tip")) return;
-  // erst nachdem ein eventueller Ziel-Toast (Story-Level, ~7s) durch ist —
-  // sonst überschreiben sich die beiden auf dem allerersten Level
-  window.setTimeout(() => toast("💡 Tap rotates a piece"), 7300);
+  // kurze Verzögerung, damit der Screen-Wechsel/die Cross-Slide-Animation
+  // fertig ist, bevor sich alles verdunkelt
+  window.setTimeout(startRotateTutorial, 500);
+}
+
+/** Friert die Runde ein (kein `game.start()`, siehe
+ *  `CascadeView.beginRotateTutorial`) und legt nur die oberste Band-Scherbe
+ *  in einem runden, weich ausgeblendeten Spotlight frei — kreisende Pfeile
+ *  auf der Scherbe + ein antippender Zeiger zeigen die Geste. Erst nachdem
+ *  der Spieler die Scherbe ein paar Mal angetippt (= gedreht) hat, endet das
+ *  Tutorial und die Runde startet sofort. */
+function startRotateTutorial(): void {
+  const view = cascadeView;
+  const game = cascadeGame;
+  if (!view || !game || $("screen-kaskade").hidden) return; // Runde inzwischen verlassen
+
+  const canvas = $<HTMLCanvasElement>("k-canvas");
+  const hint = $("k-rotate-tut");
+  const place = (): void => {
+    const p = view.tutorialShardPoint;
+    if (!p) return;
+    const r = canvas.getBoundingClientRect();
+    hint.style.setProperty("--tx", `${r.left + p.x}px`);
+    hint.style.setProperty("--ty", `${r.top + p.y}px`);
+    hint.style.setProperty("--tr", `${p.r}px`);
+  };
+
+  let taps = 0;
+  view.beginRotateTutorial(() => {
+    taps += 1;
+    if (taps >= ROTATE_TUTORIAL_TAPS) finish();
+  });
+  place();
+  if (!view.tutorialShardPoint) {
+    // kein Band da (sollte nie passieren) -- Tutorial überspringen, die
+    // Runde startet ganz normal beim ersten echten Tap.
+    view.endRotateTutorial();
+    return;
+  }
+
+  hint.hidden = false;
+  void hint.offsetWidth; // reflow erzwingen, damit die Fade-Transition greift
+  hint.classList.add("show");
+  window.addEventListener("resize", place);
+
+  function finish(): void {
+    window.removeEventListener("resize", place);
+    hint.classList.remove("show");
+    window.setTimeout(() => (hint.hidden = true), 300);
+    view!.endRotateTutorial();
+    game!.start();
+  }
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
@@ -2873,9 +2930,11 @@ async function boot(): Promise<void> {
     refreshLight();
     renderHome();
     playMusic("menu");
-    maybePlayIntro(() => {
-      /* Home steht schon; die Cutscene lag nur davor */
-    });
+    // Intro-Cutscene erstmal raus -- Kaskade braucht (Stand jetzt) keine
+    // Einführung mehr. `maybePlayIntro`/`playSequence`/`playCutscene` und
+    // `beats.ts` bleiben unangetastet liegen (derselbe "Einstiegspunkt weg,
+    // Code bleibt"-Ansatz wie beim Story-Modus), falls sie später wieder
+    // gebraucht werden.
   } catch (err) {
     toast(`Level data couldn't be loaded (${(err as Error).message}).`);
   }

@@ -138,6 +138,12 @@ export class CascadeView {
   private lastMeasuredW: number | null = null;
   private lastMeasuredTop: number | null = null;
   private drag: Drag | null = null;
+  /** Dreh-Tutorial (nur vor der allerersten je gespielten Runde, siehe
+   *  `beginRotateTutorial`): solange gesetzt, reagiert im Band nur diese eine
+   *  Scherbe, jede Berührung dreht sie statt sie zu platzieren, und
+   *  `game.start()` bleibt aus -- die Runde steht bewusst still. */
+  private tutorialShardId: number | null = null;
+  private onTutorialTap: (() => void) | null = null;
   private running = false;
   private raf = 0;
   private last = 0;
@@ -228,6 +234,40 @@ export class CascadeView {
     window.addEventListener("resize", this.kick);
     window.visualViewport?.addEventListener("resize", this.kick);
     this.start();
+  }
+
+  /** Band-Rechteck in CSS-Pixeln relativ zur Canvas-Ecke -- für den
+   *  Rotations-Hinweis, der eine DOM-Aussparung exakt übers Band legt.
+   *  `null`, solange noch kein Frame gelayoutet wurde. */
+  get beltRect(): { x: number; y: number; w: number; h: number } | null {
+    const L = this.layout;
+    if (!L) return null;
+    return { x: L.beltX, y: L.beltTop, w: L.beltW, h: L.beltH };
+  }
+
+  /** Startet das Dreh-Tutorial: nur die oberste Band-Scherbe reagiert noch auf
+   *  Eingaben, jede Berührung dreht sie (nie platzieren), `game.start()`
+   *  bleibt aus. `onTap` feuert bei jeder erfolgreichen Drehung -- app.ts
+   *  zählt mit und beendet das Tutorial (via `endRotateTutorial()` +
+   *  explizitem `game.start()`) nach ein paar Wiederholungen. */
+  beginRotateTutorial(onTap: () => void): void {
+    const topmost = [...this.game.belt].sort((a, b) => a.y - b.y)[0] ?? null;
+    this.tutorialShardId = topmost ? topmost.id : null;
+    this.onTutorialTap = onTap;
+  }
+  endRotateTutorial(): void {
+    this.tutorialShardId = null;
+    this.onTutorialTap = null;
+  }
+  /** Bildschirmposition (Canvas-relative CSS-Pixel) + sinnvoller Spotlight-
+   *  Radius für die Tutorial-Scherbe. `null` ohne aktives Tutorial oder
+   *  solange kein Layout steht. */
+  get tutorialShardPoint(): { x: number; y: number; r: number } | null {
+    const L = this.layout;
+    if (this.tutorialShardId === null || !L) return null;
+    const row = this.beltRows(L).find((row) => row.shard.id === this.tutorialShardId);
+    if (!row) return null;
+    return { x: L.beltX + L.beltW / 2, y: row.cy, r: Math.max(50, Math.min(L.bandH, L.beltW) * 0.62) };
   }
 
   destroy(): void {
@@ -1724,6 +1764,28 @@ export class CascadeView {
     if (!this.layout || this.game.isOver || this.game.isPaused) return;
     const L = this.layout;
     const { x, y } = this.pt(e);
+
+    if (this.tutorialShardId !== null) {
+      // Dreh-Tutorial aktiv: Ablage + Brett bleiben tot, nur die eine
+      // freigestellte Band-Scherbe reagiert -- `game.start()` bewusst NICHT
+      // aufgerufen, die Runde steht still, bis app.ts das Tutorial beendet.
+      if (x < L.beltX - 28) return;
+      let nearest: Shard | null = null;
+      let best = Infinity;
+      for (const row of this.beltRows(L)) {
+        const dist = Math.abs(y - row.cy);
+        if (dist < best) {
+          best = dist;
+          nearest = row.shard;
+        }
+      }
+      if (!nearest || nearest.id !== this.tutorialShardId) return;
+      this.canvas.setPointerCapture(e.pointerId);
+      const cen = this.centroid(nearest);
+      this.drag = { shard: nearest, from: "belt", px: x, py: y, sx: x, sy: y, moved: false, grabR: cen.r, grabC: cen.c };
+      return;
+    }
+
     this.game.start();
 
     let shard: Shard | null = null;
@@ -1783,6 +1845,18 @@ export class CascadeView {
     this.drag = null;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const L = this.layout;
+
+    if (this.tutorialShardId !== null) {
+      // Dreh-Tutorial: JEDE Berührung der freigestellten Scherbe dreht sie --
+      // auch ein leichtes Verrutschen zählt als Dreh-Tap, nie als
+      // Platzierung (die Runde ist absichtlich noch nicht gestartet).
+      if (d.shard.id === this.tutorialShardId) {
+        this.game.rotate(d.shard);
+        sfx.pickUp();
+        this.onTutorialTap?.();
+      }
+      return;
+    }
 
     // tap → rotate the shard in place. Nur an der Bewegung fest gemacht, NICHT
     // zusätzlich an einem Zeitlimit (Playtest-Bug B10): ein längeres, aber

@@ -2137,6 +2137,134 @@
           opacity: 0;
         }
       }
+      .rotate-tut {
+        position: fixed;
+        inset: 0;
+        z-index: 46;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.35s ease;
+        /* --tx/--ty/--tr (Zentrum + Radius der freigestellten Scherbe) kommen
+           als echte Pixelwerte aus app.ts, aus der Canvas-Layout-Position der
+           Tutorial-Scherbe -- siehe `CascadeView.tutorialShardPoint`. */
+        --tx: 50%;
+        --ty: 50%;
+        --tr: 60px;
+        background: radial-gradient(
+          circle at var(--tx) var(--ty),
+          rgba(6, 8, 20, 0) 0,
+          rgba(6, 8, 20, 0) var(--tr),
+          rgba(6, 8, 20, 0.88) calc(var(--tr) + 48px)
+        );
+      }
+      .rotate-tut.show {
+        opacity: 1;
+      }
+      .rt-arrows,
+      .rt-hand {
+        position: absolute;
+        top: var(--ty);
+        left: var(--tx);
+        transform: translate(-50%, -50%);
+      }
+      .rt-arrows {
+        width: calc(var(--tr) * 1.8);
+        height: calc(var(--tr) * 1.8);
+        color: #ffd24a;
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+        animation: rt-spin 2.2s linear infinite;
+      }
+      .rt-arrows svg {
+        width: 100%;
+        height: 100%;
+      }
+      .rt-arrows .rt-arc {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 7;
+        stroke-linecap: round;
+      }
+      .rt-arrows .rt-head {
+        fill: currentColor;
+      }
+      @keyframes rt-spin {
+        to {
+          transform: translate(-50%, -50%) rotate(360deg);
+        }
+      }
+      .rt-hand {
+        width: 40px;
+        height: 46px;
+        filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
+        animation: rt-approach 2.4s ease-in-out infinite;
+      }
+      .rt-hand svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .rt-hand path,
+      .rt-hand rect {
+        fill: #fff6e0;
+        stroke: #1a1330;
+        stroke-width: 3;
+        stroke-linejoin: round;
+      }
+      .rt-ripple {
+        position: absolute;
+        left: 50%;
+        top: 66%;
+        width: 14px;
+        height: 14px;
+        margin: -7px 0 0 -7px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.85);
+        opacity: 0;
+        animation: rt-ripple 2.4s ease-out infinite;
+      }
+      @keyframes rt-approach {
+        0% {
+          transform: translate(calc(-50% - 24px), calc(-50% - 28px)) scale(0.9);
+        }
+        38% {
+          transform: translate(-50%, -50%) scale(1.05);
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(0.85);
+        }
+        64% {
+          transform: translate(-50%, -50%) scale(1);
+        }
+        100% {
+          transform: translate(calc(-50% - 24px), calc(-50% - 28px)) scale(0.9);
+        }
+      }
+      @keyframes rt-ripple {
+        0%,
+        36% {
+          opacity: 0;
+          transform: scale(0.4);
+        }
+        46% {
+          opacity: 0.9;
+          transform: scale(1);
+        }
+        64% {
+          opacity: 0;
+          transform: scale(1.9);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.9);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rt-arrows,
+        .rt-hand,
+        .rt-ripple {
+          animation: none;
+        }
+      }
       .ocard {
         position: relative;
         width: 100%;
@@ -3601,6 +3729,37 @@
             <button class="go big" id="kc-accept">✦ 15 → weiterspielen</button>
             <button id="kc-decline">Runde beenden</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Dreh-Tutorial: nur vor der ALLERERSTEN je gespielten Runde. Die
+           Runde bleibt bewusst eingefroren (kein `game.start()`, siehe
+           `CascadeView.beginRotateTutorial`) -- nur ein rundes, weich
+           ausgeblendetes Spotlight um die oberste Band-Scherbe bleibt hell,
+           der Rest wird dunkel. Kreisende Pfeile AUF der Scherbe + ein
+           antippender Zeiger zeigen die Geste; sobald der Spieler die Scherbe
+           ein paar Mal angetippt (= gedreht) hat, verschwindet das Tutorial
+           und die Runde startet sofort. Position/Radius kommen aus
+           `cascadeView.tutorialShardPoint` + der echten Canvas-Position. -->
+      <div class="rotate-tut" id="k-rotate-tut" hidden>
+        <div class="rt-arrows" id="rt-arrows">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <path class="rt-arc" d="M50 14 A36 36 0 1 1 17.5 32" />
+            <path class="rt-head" d="M50 3 L62 17 L38 17 Z" />
+            <path class="rt-arc" d="M50 86 A36 36 0 1 1 82.5 68" />
+            <path class="rt-head" d="M50 97 L38 83 L62 83 Z" />
+          </svg>
+        </div>
+        <div class="rt-hand" id="rt-hand">
+          <svg viewBox="0 0 60 68" aria-hidden="true">
+            <path d="M8 44h34a13 13 0 0 1 13 13v0a13 13 0 0 1-13 13H21A13 13 0 0 1 8 57Z" />
+            <rect x="22" y="4" width="12" height="42" rx="6" />
+            <rect x="34" y="30" width="8" height="16" rx="4" />
+            <rect x="42" y="32" width="8" height="14" rx="4" />
+            <rect x="49" y="36" width="7" height="10" rx="3.5" />
+            <rect x="2" y="44" width="16" height="11" rx="5.5" transform="rotate(-18 10 49)" />
+          </svg>
+          <span class="rt-ripple"></span>
         </div>
       </div>
 
