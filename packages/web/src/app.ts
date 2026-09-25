@@ -113,7 +113,7 @@ function drawPieceIcon(canvas: HTMLCanvasElement, name: string): void {
   );
 }
 
-type Tab = "home" | "daily" | "descent" | "collection";
+type Tab = "home" | "daily" | "descent" | "collection" | "shop" | "leaderboard";
 const SCREENS = [
   "home",
   "region",
@@ -121,6 +121,8 @@ const SCREENS = [
   "descent",
   "rescue",
   "collection",
+  "shop",
+  "leaderboard",
   "play",
   "kaskade",
 ] as const;
@@ -396,7 +398,19 @@ function showScreen(name: ScreenName): void {
   }
 }
 
+/** Reihenfolge der fünf Haupt-Tabs in der Tab-Leiste (Punkt E22) -- bestimmt
+ *  die Swipe-Richtung UND welche Seite der Slide-Übergang beim Tab-Wechsel
+ *  reinkommt (Punkt E23). */
+const TAB_ORDER: readonly Tab[] = ["shop", "leaderboard", "home", "daily", "collection"];
+/** Welcher der fünf Haupt-Tabs gerade sichtbar ist, `null` bei einem
+ *  Drill-down (Region/Rescue/...), der nicht über `setTab()` lief. */
+function activeTabScreen(): Tab | null {
+  for (const t of TAB_ORDER) if (!$(`screen-${t}`).hidden) return t;
+  return null;
+}
+
 function setTab(tab: Tab): void {
+  const from = activeTabScreen();
   for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")) {
     btn.classList.toggle("on", btn.dataset.tab === tab);
   }
@@ -404,8 +418,27 @@ function setTab(tab: Tab): void {
   if (tab === "daily") renderDaily();
   if (tab === "descent") renderDescent();
   if (tab === "collection") renderCollection();
+  if (tab === "shop") renderShop();
+  if (tab === "leaderboard") {
+    lbScope = "country";
+    void renderLeaderboard();
+  }
   playMusic("menu"); // Browsing-Screens teilen sich das ruhige Thema
   showScreen(tab);
+  // Swipe-Slide (E23): nur wenn wir tatsächlich von einem ANDEREN Haupt-Tab
+  // kommen -- von einem Drill-down zurück (from === null) oder auf denselben
+  // Tab (Doppeltipp) gibt's keine sinnvolle Richtung, dann einfach ohne
+  // Animation erscheinen statt zu raten.
+  if (from && from !== tab) {
+    const fromIdx = TAB_ORDER.indexOf(from);
+    const toIdx = TAB_ORDER.indexOf(tab);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      const el = $(`screen-${tab}`);
+      el.classList.remove("tab-slide-r", "tab-slide-l");
+      void el.offsetWidth; // Reflow -- Animation bei jedem Wechsel neu starten
+      el.classList.add(toIdx > fromIdx ? "tab-slide-r" : "tab-slide-l");
+    }
+  }
 }
 
 function teardownGame(): void {
@@ -1631,11 +1664,6 @@ async function renderLeaderboard(): Promise<void> {
   }
 }
 
-function openLeaderboard(): void {
-  lbScope = "country";
-  $("lb-overlay").classList.add("show");
-  void renderLeaderboard();
-}
 /** Merkt sich, was nach einem erfolgreichen Auffüllen im "keine Versuche
  *  mehr"-Dialog eigentlich ausgeführt werden sollte (Runde starten). */
 let pendingCascadeStart: (() => void) | null = null;
@@ -2002,7 +2030,9 @@ function startCascade(): void {
       void submitCascadeScore(r.score, r.cleared, store.playerName(), r.elapsedMs, cascadeToken).then(
         (ok) => {
           if (ok) {
-            if ($("lb-overlay").classList.contains("show")) void renderLeaderboard();
+            // Bestenliste ist jetzt ein eigener Tab/Screen statt Overlay --
+            // nur neu laden, wenn er gerade tatsächlich offen ist.
+            if (!$("screen-leaderboard").hidden) void renderLeaderboard();
             // Bestenlisten-Rang im Ergebnis-Overlay (Abschnitt 5.1 im
             // Ökonomie-Konzept) -- erst NACH dem Submit sinnvoll abfragbar,
             // sonst zeigt sie höchstens den Rang von vor dieser Runde. Kein
@@ -2248,7 +2278,6 @@ function renderCollection(): void {
       return d;
     }),
   );
-  renderShop();
 
   // Erinnerungen — die gespielten Story-Beats, nachlesbar
   const seen = new Set(store.beatsSeen());
@@ -2470,6 +2499,38 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>("#tabbar button")
     setTab(btn.dataset.tab as Tab);
   });
 }
+// ── Swipe zwischen Tabs (Punkt E23) ──────────────────────────────────────
+// Zusätzlich zum Antippen: eine abgeschlossene horizontale Geste wechselt
+// zum Nachbar-Tab in TAB_ORDER, mit demselben kurzen Haptik-Tick wie ein
+// normaler Tab-Wechsel. Reagiert bewusst erst beim Loslassen (kein
+// Live-Mitziehen mit dem Finger) -- normales vertikales Scrollen in
+// Collection & Co. löst dadurch nie versehentlich einen Tab-Wechsel aus.
+let swipeX = 0;
+let swipeY = 0;
+let swipeTracking = false;
+$("app").addEventListener("pointerdown", (e: PointerEvent) => {
+  // Weder im Spiel (Tab-Leiste ist dann ausgeblendet) noch mit einem
+  // offenen Dialog obendrauf (sonst wechselt man den Tab unsichtbar hinter
+  // dessen Rücken).
+  if ($("tabbar").hidden || document.querySelector(".overlay.show")) return;
+  swipeX = e.clientX;
+  swipeY = e.clientY;
+  swipeTracking = true;
+});
+$("app").addEventListener("pointerup", (e: PointerEvent) => {
+  if (!swipeTracking) return;
+  swipeTracking = false;
+  const dx = e.clientX - swipeX;
+  const dy = e.clientY - swipeY;
+  if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // zu kurz oder eher vertikal
+  const from = activeTabScreen();
+  if (!from) return; // Drill-down (Region/Rescue/...), keine Tab-Navigation
+  const idx = TAB_ORDER.indexOf(from);
+  const next = TAB_ORDER[dx < 0 ? idx + 1 : idx - 1]; // nach links wischen -> nächster Tab
+  if (!next) return; // schon am Rand
+  sfx.vibrate(10);
+  setTab(next);
+});
 $("region-back").addEventListener("click", () => setTab("home"));
 $("home-avatar").addEventListener("click", openProfile);
 const closeProfile = (): void => $("profile-overlay").classList.remove("show");
@@ -2628,11 +2689,6 @@ $("daily-play").addEventListener("click", playDaily);
 $("descent-play").addEventListener("click", startDescent);
 $("cascade-play").addEventListener("click", startCascade);
 $("rescue-open").addEventListener("click", openRescue);
-$("lb-open").addEventListener("click", openLeaderboard);
-$("lb-x").addEventListener("click", () => $("lb-overlay").classList.remove("show"));
-$("lb-overlay").addEventListener("click", (e) => {
-  if (e.target === $("lb-overlay")) $("lb-overlay").classList.remove("show");
-});
 for (const id of ["lb-tab-country", "lb-tab-global"]) {
   $(id).addEventListener("click", () => {
     const next = $(id).dataset.scope as "country" | "global";

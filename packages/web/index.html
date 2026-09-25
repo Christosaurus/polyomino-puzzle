@@ -165,6 +165,36 @@
            nur auf dem Brett selbst (das hat schon touch-action: none) */
         touch-action: manipulation;
       }
+      /* Swipe-Übergang zwischen den fünf Haupt-Tabs (Punkt E23) -- setTab()
+         setzt eine der beiden Klassen auf den neuen Screen, je nachdem ob er
+         in der Tab-Leiste rechts oder links vom vorherigen sitzt. Nur der
+         NEUE Screen animiert rein, der alte verschwindet einfach (per
+         `hidden`) -- kein Zwei-Screen-Choreografie-Aufwand nötig, sieht aber
+         schon nach "geblättert" statt "hart umgeschaltet" aus. */
+      @keyframes tab-slide-from-right {
+        from {
+          transform: translateX(18px);
+          opacity: 0;
+        }
+      }
+      @keyframes tab-slide-from-left {
+        from {
+          transform: translateX(-18px);
+          opacity: 0;
+        }
+      }
+      .screen.tab-slide-r {
+        animation: tab-slide-from-right 0.22s var(--tap);
+      }
+      .screen.tab-slide-l {
+        animation: tab-slide-from-left 0.22s var(--tap);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .screen.tab-slide-r,
+        .screen.tab-slide-l {
+          animation: none;
+        }
+      }
       /* let the board panel float in the middle of the free space between the
          HUD/difficulty strip and the joker foot, instead of hugging the top */
       .screen.play .board-wrap {
@@ -488,21 +518,10 @@
       }
 
       /* ── Bestenliste (Clash-of-Clans-Aufbau, Lumen-Look) ── */
-      .lb-sheet {
-        max-width: 460px;
-        gap: 12px;
-        padding: 14px 14px 18px;
-      }
       .lb-title {
-        align-self: flex-start;
         font-weight: 800;
         font-size: 20px;
         margin: 0 0 2px;
-      }
-      .lb-sheet .close {
-        top: 10px;
-        right: 10px;
-        z-index: 3;
       }
       .lb-tabs {
         display: grid;
@@ -546,8 +565,6 @@
         flex-direction: column;
         gap: 4px;
         min-height: 120px;
-        max-height: 52dvh;
-        overflow-y: auto;
       }
       .lb-row {
         display: grid;
@@ -3160,6 +3177,16 @@
         display: flex;
         filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
       }
+      /* Icon-only, solange der Tab nicht aktiv ist -- erst beim aktiven Tab
+         kommt das Label dazu (Punkt E22). Fünf Tabs statt vorher drei
+         brauchen den Platz, den ein dauerhaft sichtbares Label frisst. */
+      #tabbar button .lbl {
+        display: none;
+        font-size: 11px;
+      }
+      #tabbar button.on .lbl {
+        display: block;
+      }
       #tabbar button.on {
         color: #fff;
       }
@@ -3243,7 +3270,6 @@
           <canvas class="talkarte-fx"></canvas>
         </div>
         <div class="topbar">
-          <button class="icon" id="lb-open" aria-label="Leaderboard">🏆</button>
           <span class="pill" id="home-lives"><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <span class="pill" id="home-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
           <span class="grow"></span>
@@ -3329,12 +3355,19 @@
       <section class="screen" id="screen-collection" hidden>
         <h1>Collection</h1>
         <div class="statgrid" id="stats"></div>
-        <h2 style="margin-top:6px">Supplies <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
-        <div class="shop" id="shop"></div>
         <h2 style="margin-top:6px">Memories</h2>
         <div id="memories"></div>
         <h2 style="margin-top:6px">Achievements</h2>
         <div id="achievements"></div>
+      </section>
+
+      <!-- Shop, jetzt ein eigener Screen/Tab statt in Collection versteckt
+           (Punkt E24). Rendering/Kauf-Logik unverändert in app.ts
+           (`renderShop()`/`SHOP`), nur der Anzeigeort ist neu. -->
+      <section class="screen" id="screen-shop" hidden>
+        <h1>Shop</h1>
+        <h2 style="margin-top:6px">Supplies <span class="pill" id="shop-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span></h2>
+        <div class="shop" id="shop"></div>
       </section>
 
       <section class="screen play" id="screen-play" hidden>
@@ -3497,19 +3530,20 @@
         </div>
       </div>
 
-      <div class="overlay" id="lb-overlay">
-        <div class="ocard sheet lb-sheet">
-          <button class="close" id="lb-x">✕</button>
-          <div class="lb-title">🏆 Leaderboard</div>
-          <div class="lb-tabs">
-            <button class="lb-tab on" id="lb-tab-country" data-scope="country">My Country</button>
-            <button class="lb-tab" id="lb-tab-global" data-scope="global">Global</button>
-          </div>
-          <div class="lb-sub" id="lb-sub"></div>
-          <ol class="lb-rows" id="lb-rows"></ol>
-          <div class="lb-self" id="lb-self" hidden></div>
+      <!-- Bestenliste, jetzt ein eigener Screen/Tab statt Overlay hinterm
+           Pokal-Icon oben auf Home (Punkt E25) -- Rendering unverändert
+           (`renderLeaderboard()`), nur kein Dialog mehr, den man schließen
+           muss; die Tab-Leiste selbst ist die Navigation. -->
+      <section class="screen" id="screen-leaderboard" hidden>
+        <div class="lb-title">🏆 Leaderboard</div>
+        <div class="lb-tabs">
+          <button class="lb-tab on" id="lb-tab-country" data-scope="country">My Country</button>
+          <button class="lb-tab" id="lb-tab-global" data-scope="global">Global</button>
         </div>
-      </div>
+        <div class="lb-sub" id="lb-sub"></div>
+        <ol class="lb-rows" id="lb-rows"></ol>
+        <div class="lb-self" id="lb-self" hidden></div>
+      </section>
 
       <div class="overlay" id="pause-overlay">
         <div class="ocard">
@@ -3588,10 +3622,18 @@
         </div>
       </div>
 
+      <!-- Fünf Tabs (Punkt E22): Shop/Bestenliste ganz links/2., Kaskade in
+           der Mitte, Daily/Collection rechts -- Shop war bisher Teil von
+           Collection, Bestenliste ein Overlay hinterm Pokal-Icon oben; beide
+           sind jetzt eigene Screens/Tabs. Inaktive Tabs zeigen nur das Icon,
+           das Label steckt in einem eigenen `.lbl`-Span, den CSS nur beim
+           aktiven Tab einblendet (icon-only-bis-aktiv). -->
       <nav id="tabbar">
-        <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span>Daily</button>
-        <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span>Cascade!</button>
-        <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span>Collection</button>
+        <button data-tab="shop"><span class="ic">🛍️</span><span class="lbl">Shop</span></button>
+        <button data-tab="leaderboard"><span class="ic">🏆</span><span class="lbl">Ranks</span></button>
+        <button data-tab="home" class="on"><span class="ic"><img class="icon-img" src="ui/play.webp" alt="" /></span><span class="lbl">Cascade!</span></button>
+        <button data-tab="daily"><span class="ic"><img class="icon-img" src="ui/daily.webp" alt="" /></span><span class="lbl">Daily</span></button>
+        <button data-tab="collection"><span class="ic"><img class="icon-img" src="ui/collection.webp" alt="" /></span><span class="lbl">Collection</span></button>
       </nav>
 
       <div class="toast" id="toast"></div>
