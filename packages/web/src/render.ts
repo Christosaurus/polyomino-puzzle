@@ -12,6 +12,11 @@ export interface TileOpts {
   alpha?: number;
   /** Extra scale about the piece centre (placement pop). */
   scale?: number;
+  /** Non-uniform scale override for a squash-and-stretch impact (e.g. wide +
+   *  flat on landing, springing back to round). Falls back to `scale` when
+   *  omitted, so existing uniform-pop call sites are unaffected. */
+  scaleX?: number;
+  scaleY?: number;
   /** Unused for spheres; kept for call-site compatibility. */
   depth?: number;
   /** Coloured outer glow radius. */
@@ -125,6 +130,8 @@ export function drawPieceBody(
   if (cells.length === 0) return;
   const alpha = opts.alpha ?? 1;
   const scale = opts.scale ?? 1;
+  const scaleX = opts.scaleX ?? scale;
+  const scaleY = opts.scaleY ?? scale;
   const base = opts.tint ?? color;
   const R = cell * 0.5; // ball radius (balls just touch across a cell)
   const neck = cell * 0.44;
@@ -148,7 +155,7 @@ export function drawPieceBody(
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(pcx, pcy);
-  ctx.scale(scale, scale);
+  ctx.scale(scaleX, scaleY);
   ctx.translate(-pcx, -pcy);
 
   // ── one soft shadow for the whole piece ──

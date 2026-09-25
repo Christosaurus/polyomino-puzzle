@@ -390,14 +390,9 @@ export class CascadeView {
     const clear = this.game.consumeFreshClear();
     if (clear && this.layout) {
       const L = this.layout;
-      for (const r of clear.rows) {
-        this.flash.push({ row: r, t: 0 });
-        this.spawnRowBurst(r, L);
-      }
-      for (const c of clear.cols) {
-        this.flashCols.push({ col: c, t: 0 });
-        this.spawnColBurst(c, L);
-      }
+      for (const r of clear.rows) this.flash.push({ row: r, t: 0 });
+      for (const c of clear.cols) this.flashCols.push({ col: c, t: 0 });
+      this.spawnLineClearChunks(clear.cells, L);
       const lineCount = clear.rows.length + clear.cols.length;
       if (lineCount > 0) sfx.rowClear(lineCount);
       if (clear.gain >= 12 && lineCount > 0) {
@@ -745,13 +740,70 @@ export class CascadeView {
   }
 
   /**
-   * Die Schockwelle: jede weggewischte Zelle zerspringt in mehrere kleine
-   * Kugel-Splitter (nicht ein einzelner Funke) und wird radial aus der
-   * Brettmitte heraus katapultiert — über das lila Panel hinaus, quer über
-   * den ganzen Screen. Läuft auf der Vollbild-Ebene `#k-shockwave-fx`
-   * (siehe `fxCanvas`), NICHT auf dem Board-Canvas, weil `.board-wrap` per
+   * Jede übergebene Zelle zerspringt in mehrere kleine Kugel-Splitter (nicht
+   * ein einzelner Funke), radial von `originX/Y` weg katapultiert — über das
+   * lila Panel hinaus, auf der Vollbild-Ebene `#k-shockwave-fx` (siehe
+   * `fxCanvas`), NICHT auf dem Board-Canvas, weil `.board-wrap` per
    * `overflow:hidden` alles kappen würde, was über seinen Rand hinausgeht.
+   * Von `spawnShockwave()` (Mega-Clear, volle Wucht) UND von
+   * `spawnLineClearChunks()` (normaler Clear, kleiner skaliert) genutzt —
+   * dieselbe Technik, nur andere `opts`, statt zwei Partikelsysteme zu
+   * pflegen (Abschnitt 6 im Ökonomie-Konzept: "größter Effekt-
+   * Wiederverwendungs-Gewinn im Projekt").
    */
+  private spawnColorChunks(
+    cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
+    L: Layout,
+    originX: number,
+    originY: number,
+    opts: {
+      chunksPerCell: number;
+      speedMin: number;
+      speedMax: number;
+      distFactor: number;
+      upBias: number;
+      sizeMin: number;
+      sizeMax: number;
+      lifeMin: number;
+      lifeMax: number;
+    },
+  ): void {
+    const rect = this.canvas.getBoundingClientRect();
+    for (const { row, col, colorIndex } of cells) {
+      const x = rect.left + L.boardX + (col + 0.5) * L.cell;
+      const y = rect.top + L.boardY + (row + 0.5) * L.cell;
+      const dx = x - originX;
+      const dy = y - originY;
+      const dist = Math.hypot(dx, dy) || 1;
+      const baseAng = Math.atan2(dy, dx);
+      const color = shardByColorIndex(colorIndex).color;
+      // Eine Kugel zerspringt in mehrere kleine Kugeln, keine Würfel (die
+      // Spielteile SIND Kugeln, siehe drawPieceBody) — "Glas, das zersplittert,
+      // nur abgerundet". Start eng um die ursprüngliche Position gebündelt
+      // (0.22 statt breiter Streuung), damit auch in Zeitlupe klar bleibt:
+      // DIESE eine Kugel ist es, die hier auseinanderfliegt, nicht irgendein
+      // zufälliges Partikelchaos. Alle Splitter behalten die Farbe der
+      // Ursprungskugel, bis auf einen weißen Glanz-Splitter fürs Funkeln.
+      for (let i = 0; i < opts.chunksPerCell; i++) {
+        const ang = baseAng + (Math.random() - 0.5) * 0.7;
+        const sp = opts.speedMin + Math.random() * (opts.speedMax - opts.speedMin) + dist * opts.distFactor;
+        this.fxChunks.push({
+          x: x + (Math.random() - 0.5) * L.cell * 0.22,
+          y: y + (Math.random() - 0.5) * L.cell * 0.22,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp - opts.upBias,
+          t: 0,
+          max: opts.lifeMin + Math.random() * (opts.lifeMax - opts.lifeMin),
+          color: i === 0 ? "#ffffff" : color,
+          size: L.cell * (opts.sizeMin + Math.random() * (opts.sizeMax - opts.sizeMin)),
+          rot: Math.random() * Math.PI,
+          spin: (Math.random() - 0.5) * 26,
+        });
+      }
+    }
+  }
+
+  /** Mega-Clear: volle Wucht, plus der Ring, der den ganzen Screen erreicht. */
   private spawnShockwave(
     cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
     L: Layout,
@@ -779,39 +831,46 @@ export class CascadeView {
     this.fxMaxR = maxR;
     this.fxRingT = 0;
 
-    const CHUNKS_PER_CELL = 6;
-    for (const { row, col, colorIndex } of cells) {
-      const x = rect.left + L.boardX + (col + 0.5) * L.cell;
-      const y = rect.top + L.boardY + (row + 0.5) * L.cell;
-      const dx = x - originX;
-      const dy = y - originY;
-      const dist = Math.hypot(dx, dy) || 1;
-      const baseAng = Math.atan2(dy, dx);
-      const color = shardByColorIndex(colorIndex).color;
-      // Eine Kugel zerspringt in mehrere kleine Kugeln, keine Würfel (die
-      // Spielteile SIND Kugeln, siehe drawPieceBody) — "Glas, das zersplittert,
-      // nur abgerundet". Start eng um die ursprüngliche Position gebündelt
-      // (0.22 statt breiter Streuung), damit auch in Zeitlupe klar bleibt:
-      // DIESE eine Kugel ist es, die hier auseinanderfliegt, nicht irgendein
-      // zufälliges Partikelchaos. Alle Splitter behalten die Farbe der
-      // Ursprungskugel, bis auf einen weißen Glanz-Splitter fürs Funkeln.
-      for (let i = 0; i < CHUNKS_PER_CELL; i++) {
-        const ang = baseAng + (Math.random() - 0.5) * 0.7;
-        const sp = 420 + Math.random() * 420 + dist * 0.7;
-        this.fxChunks.push({
-          x: x + (Math.random() - 0.5) * L.cell * 0.22,
-          y: y + (Math.random() - 0.5) * L.cell * 0.22,
-          vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp - 220,
-          t: 0,
-          max: FX_CHUNK_S_MIN + Math.random() * (FX_CHUNK_S_MAX - FX_CHUNK_S_MIN),
-          color: i === 0 ? "#ffffff" : color,
-          size: L.cell * (0.16 + Math.random() * 0.18),
-          rot: Math.random() * Math.PI,
-          spin: (Math.random() - 0.5) * 26,
-        });
-      }
-    }
+    this.spawnColorChunks(cells, L, originX, originY, {
+      chunksPerCell: 6,
+      speedMin: 420,
+      speedMax: 840,
+      distFactor: 0.7,
+      upBias: 220,
+      sizeMin: 0.16,
+      sizeMax: 0.34,
+      lifeMin: FX_CHUNK_S_MIN,
+      lifeMax: FX_CHUNK_S_MAX,
+    });
+  }
+
+  /**
+   * Normaler Reihen-/Spalten-Clear: dieselbe Kugel-Splitter-Technik wie die
+   * Schockwelle, nur spürbar kleiner/ruhiger und ohne den Vollbild-Ring —
+   * der bleibt dem seltenen Mega-Clear vorbehalten, sonst verliert der große
+   * Moment seine Sonderstellung. Ersetzt die frühere generische goldene
+   * Funkendusche: Splitter tragen jetzt die tatsächliche Farbe der
+   * geräumten Scherben, statt immer gleich golden zu sein.
+   */
+  private spawnLineClearChunks(
+    cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
+    L: Layout,
+  ): void {
+    if (!cells.length) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const originX = rect.left + L.boardX + (this.game.cols * L.cell) / 2;
+    const originY = rect.top + L.boardY + (this.game.rows * L.cell) / 2;
+    this.spawnColorChunks(cells, L, originX, originY, {
+      chunksPerCell: 2,
+      speedMin: 90,
+      speedMax: 310,
+      distFactor: 0.25,
+      upBias: 90,
+      sizeMin: 0.1,
+      sizeMax: 0.22,
+      lifeMin: 0.35,
+      lifeMax: 0.6,
+    });
   }
 
   /**
@@ -912,52 +971,6 @@ export class CascadeView {
     }
   }
 
-  /** A burst of little four-point stars along a row that just cleared. */
-  private spawnRowBurst(row: number, L: Layout): void {
-    const gold = cssVar("--gold");
-    const y = L.boardY + (row + 0.5) * L.cell;
-    const n = 20;
-    for (let i = 0; i < n; i++) {
-      const x = L.boardX + ((i + 0.5) / n) * this.game.cols * L.cell + (Math.random() - 0.5) * L.cell;
-      const ang = Math.random() * Math.PI * 2;
-      const sp = 70 + Math.random() * 220;
-      this.sparks.push({
-        x,
-        y: y + (Math.random() - 0.5) * L.cell * 0.6,
-        vx: Math.cos(ang) * sp,
-        vy: Math.sin(ang) * sp - 60,
-        t: 0,
-        max: 0.45 + Math.random() * 0.45,
-        color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : "#ffe08a",
-        size: 3 + Math.random() * 4.5,
-        rot: Math.random() * Math.PI,
-        spin: (Math.random() - 0.5) * 14,
-      });
-    }
-  }
-
-  private spawnColBurst(col: number, L: Layout): void {
-    const gold = cssVar("--gold");
-    const x = L.boardX + (col + 0.5) * L.cell;
-    const n = 20;
-    for (let i = 0; i < n; i++) {
-      const y = L.boardY + ((i + 0.5) / n) * this.game.rows * L.cell + (Math.random() - 0.5) * L.cell;
-      const ang = Math.random() * Math.PI * 2;
-      const sp = 70 + Math.random() * 220;
-      this.sparks.push({
-        x: x + (Math.random() - 0.5) * L.cell * 0.6,
-        y,
-        vx: Math.cos(ang) * sp,
-        vy: Math.sin(ang) * sp - 60,
-        t: 0,
-        max: 0.45 + Math.random() * 0.45,
-        color: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? gold : "#ffe08a",
-        size: 3 + Math.random() * 4.5,
-        rot: Math.random() * Math.PI,
-        spin: (Math.random() - 0.5) * 14,
-      });
-    }
-  }
 
   /** Steinfarben in Lumen-Palette — meist kühles Traube/Iris, ab und zu ein
    *  goldener Splitter darunter (Funkeln im Geröll, wie in den Referenzbildern). */
@@ -1162,9 +1175,17 @@ export class CascadeView {
         const v = this.game.board[r * this.game.cols + c];
         if (v && v > 0) {
           const pp = this.placePop;
-          let opts: { scale: number; glow: number } | undefined;
+          let opts: { scaleX: number; scaleY: number; glow: number } | undefined;
           if (pp && r === pp.r && c >= pp.c && c < pp.c + 4 && r < pp.r + 3) {
-            opts = { scale: 1 + 0.14 * Math.sin((pp.t / 0.28) * Math.PI), glow: 10 };
+            // Squash-and-Stretch statt reinem Größer-Pulsieren: bei der
+            // Landung (t=0) erst breit+flach (Aufprall), schwingt durch die
+            // runde Neutralform in schmal+hoch (Nachschwung), klingt dann
+            // sauber auf 1:1 aus -- klassisches Animationsprinzip, macht die
+            // Landung spürbar statt die Figur einfach "erscheinen" zu lassen.
+            const k = pp.t / 0.28;
+            const wobble = Math.cos(k * Math.PI * 2.2) * (1 - k);
+            const squash = 0.16 * wobble;
+            opts = { scaleX: 1 + squash, scaleY: 1 - squash, glow: 10 };
           }
           drawPieceBody(ctx, [[r, c]], L.boardX, L.boardY, L.cell, shardByColorIndex(v).color, opts);
         }

@@ -297,6 +297,12 @@ export class CascadeState {
    *  Farbe) — für die View, die daraus die Wegflieg-Funken baut, bevor die
    *  Zellen selbst schon längst wieder 0 sind. */
   private megaCells: Array<{ row: number; col: number; colorIndex: number }> = [];
+  /** Snapshot der Zellen aus einem normalen Reihen-/Spalten-Clear (Position +
+   *  Farbe), fürs Wegflieg-Funken der View (Abschnitt 6 im Ökonomie-Konzept —
+   *  dieselbe Idee wie `megaCells`, nur für den häufigen Fall statt den
+   *  seltenen Mega-Clear). Vor dem Leeren der Zellen befüllt, siehe
+   *  `clearFullRows()`. */
+  private clearedCells: Array<{ row: number; col: number; colorIndex: number }> = [];
 
   /** The rows/cols cleared by the last placement, once — for the view's burst/flash/pop. */
   consumeFreshClear(): {
@@ -305,6 +311,7 @@ export class CascadeState {
     gain: number;
     chain: number;
     collapsedRows: number;
+    cells: Array<{ row: number; col: number; colorIndex: number }>;
   } | null {
     if (!this.freshClear) return null;
     this.freshClear = false;
@@ -316,6 +323,7 @@ export class CascadeState {
       gain: Math.round(this.score - this.clearScoreBase),
       chain: this.chain,
       collapsedRows,
+      cells: [...this.clearedCells],
     };
   }
   /** Neue Multiplikator-Stufe (2..6), einmalig — oder `null`. Für Screen-Shake + Fanfare. */
@@ -1118,6 +1126,28 @@ export class CascadeState {
       }
     }
     if (clearedRows.size === 0 && clearedCols.size === 0) return { rows: 0, cols: 0 };
+
+    // Snapshot VOR dem Leeren -- fürs Wegflieg-Funken der View (dieselbe
+    // Zelle kann sowohl in einer geräumten Reihe als auch Spalte liegen,
+    // darum über ein Set dedupliziert statt doppelt aufzunehmen).
+    this.clearedCells = [];
+    const seen = new Set<number>();
+    for (const r of clearedRows) {
+      for (let c = 0; c < this.cols; c++) {
+        const i = this.idx(r, c);
+        if (seen.has(i)) continue;
+        seen.add(i);
+        this.clearedCells.push({ row: r, col: c, colorIndex: this.board[i]! });
+      }
+    }
+    for (const c of clearedCols) {
+      for (let r = 0; r < this.rows; r++) {
+        const i = this.idx(r, c);
+        if (seen.has(i)) continue;
+        seen.add(i);
+        this.clearedCells.push({ row: r, col: c, colorIndex: this.board[i]! });
+      }
+    }
 
     // Spalten zuerst direkt leeren — unabhängig vom Modus, kein Kollaps.
     for (const c of clearedCols) for (let r = 0; r < this.rows; r++) this.board[this.idx(r, c)] = 0;
