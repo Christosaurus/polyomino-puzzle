@@ -3259,6 +3259,11 @@
             <div style="text-align:right"><div class="big" id="cascade-cleared">0</div><div class="muted">Most Lines</div></div>
           </div>
           <p class="muted" id="cascade-attempts" style="margin:0;text-align:center"></p>
+          <!-- Wochen-Countdown (Abschnitt 5.3): sichtbar auf der Startkarte,
+               nicht nur hinter dem Pokal-Tab versteckt -- reiner Lesehinweis,
+               kein eigener Timer nötig, wird bei jedem renderHome() (u.a.
+               Rückkehr zum Home-Tab) frisch berechnet. -->
+          <p class="muted" id="cascade-week-countdown" style="margin:0;text-align:center;font-size:12px"></p>
           <button class="go big" id="cascade-play">Start Cascade</button>
         </div>
         <!-- Story Mode (Rettungslevel) ist für's Erste bewusst nicht erreichbar

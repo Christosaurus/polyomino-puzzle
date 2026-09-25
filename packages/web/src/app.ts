@@ -25,6 +25,7 @@ import { countryName, detectCountry, flag } from "./countries.js";
 import {
   isoWeek,
   type LeaderRow,
+  msUntilWeekReset,
   playerId,
   startCascadeRun,
   submitCascadeScore,
@@ -490,6 +491,11 @@ function renderHome(): void {
     a.count >= store.CASCADE_MAX_ATTEMPTS
       ? `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche`
       : `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche · nächster in ${fmt(a.msToNext)}`;
+  const resetMs = msUntilWeekReset();
+  const resetDays = Math.floor(resetMs / 86_400_000);
+  const resetHours = Math.floor((resetMs % 86_400_000) / 3_600_000);
+  $("cascade-week-countdown").textContent =
+    `🏆 Bestenliste: Reset in ${resetDays > 0 ? `${resetDays}T ` : ""}${resetHours}h`;
 }
 
 function openRegion(index: number): void {

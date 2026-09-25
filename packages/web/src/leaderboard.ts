@@ -36,6 +36,20 @@ export function isoWeek(date = new Date()): string {
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
 
+/**
+ * Millisekunden bis zum nächsten Wochen-Reset der Bestenliste (Montag 00:00
+ * UTC — derselbe Wochen-Begriff wie `isoWeek()` oben). Für die
+ * Countdown-Anzeige auf der Startkarte (Abschnitt 5.3 im Ökonomie-Konzept):
+ * der Playtest nannte die Bestenliste selbst gut, aber unsichtbar, solange
+ * man nicht extra den Pokal-Tab öffnet.
+ */
+export function msUntilWeekReset(date = new Date()): number {
+  const day = date.getUTCDay() || 7; // Mo=1 … So=7
+  const daysUntilMonday = day === 1 ? 7 : 8 - day; // heute schon Montag? Reset ist dann schon durch, erst nächste Woche wieder
+  const next = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + daysUntilMonday);
+  return next - date.getTime();
+}
+
 const PID_KEY = "lumen.pid";
 /** Stabile Spieler-id (unabhängig vom Spielstand, damit ein Save-Reset die
  *  Bestenlisten-Identität nicht verwaist). */
