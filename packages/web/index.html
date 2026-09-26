@@ -2193,27 +2193,21 @@
         }
       }
       .rt-hand {
-        width: 40px;
-        height: 46px;
+        width: 58px;
+        height: 62px;
+        transform: translate(-27%, -4%);
         filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
         animation: rt-approach 2.4s ease-in-out infinite;
       }
-      .rt-hand svg {
+      .rt-hand img {
         width: 100%;
         height: 100%;
         display: block;
       }
-      .rt-hand path,
-      .rt-hand rect {
-        fill: #fff6e0;
-        stroke: #1a1330;
-        stroke-width: 3;
-        stroke-linejoin: round;
-      }
       .rt-ripple {
         position: absolute;
-        left: 50%;
-        top: 66%;
+        left: 27%;
+        top: 4%;
         width: 14px;
         height: 14px;
         margin: -7px 0 0 -7px;
@@ -2224,19 +2218,19 @@
       }
       @keyframes rt-approach {
         0% {
-          transform: translate(calc(-50% - 24px), calc(-50% - 28px)) scale(0.9);
+          transform: translate(calc(-27% + 26px), calc(-4% + 34px)) scale(0.9);
         }
         38% {
-          transform: translate(-50%, -50%) scale(1.05);
+          transform: translate(-27%, -4%) scale(1.05);
         }
         50% {
-          transform: translate(-50%, -50%) scale(0.85);
+          transform: translate(-27%, -4%) scale(0.85);
         }
         64% {
-          transform: translate(-50%, -50%) scale(1);
+          transform: translate(-27%, -4%) scale(1);
         }
         100% {
-          transform: translate(calc(-50% - 24px), calc(-50% - 28px)) scale(0.9);
+          transform: translate(calc(-27% + 26px), calc(-4% + 34px)) scale(0.9);
         }
       }
       @keyframes rt-ripple {
@@ -3751,14 +3745,7 @@
           </svg>
         </div>
         <div class="rt-hand" id="rt-hand">
-          <svg viewBox="0 0 60 68" aria-hidden="true">
-            <path d="M8 44h34a13 13 0 0 1 13 13v0a13 13 0 0 1-13 13H21A13 13 0 0 1 8 57Z" />
-            <rect x="22" y="4" width="12" height="42" rx="6" />
-            <rect x="34" y="30" width="8" height="16" rx="4" />
-            <rect x="42" y="32" width="8" height="14" rx="4" />
-            <rect x="49" y="36" width="7" height="10" rx="3.5" />
-            <rect x="2" y="44" width="16" height="11" rx="5.5" transform="rotate(-18 10 49)" />
-          </svg>
+          <img src="ui/hand.png" alt="" draggable="false" />
           <span class="rt-ripple"></span>
         </div>
       </div>
