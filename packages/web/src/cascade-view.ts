@@ -80,6 +80,9 @@ interface Drag {
   sx: number;
   sy: number;
   moved: boolean;
+  /** Anhebung der Figur über dem Finger in Zellen -- pro Figur, damit auch
+   *  hohe Figuren fast komplett ÜBER dem Finger schweben (Brett bleibt sichtbar). */
+  lift: number;
   grabR: number;
   grabC: number;
 }
@@ -1734,7 +1737,7 @@ export class CascadeView {
     // sich festlegt, statt es erst danach zu erfahren.
     if (this.drag) {
       const snap = this.snappedFor(this.drag, L);
-      if (this.overBoard(this.drag.px, this.drag.py, L) && this.game.canPlace(this.drag.shard, snap)) {
+      if (this.overBoard(this.drag.px, this.drag.py, L, this.drag.lift) && this.game.canPlace(this.drag.shard, snap)) {
         const preview = this.previewLines(this.drag.shard, snap);
         if (preview.rows.length || preview.cols.length) this.drawLinePreview(preview, L);
       }
@@ -1990,7 +1993,7 @@ export class CascadeView {
   private drawDrag(L: Layout): void {
     const d = this.drag!;
     const snap = this.snappedFor(d, L);
-    if (this.overBoard(d.px, d.py, L)) {
+    if (this.overBoard(d.px, d.py, L, d.lift)) {
       const ok = this.game.canPlace(d.shard, snap);
       const cells = this.game
         .cells(d.shard)
@@ -2013,7 +2016,7 @@ export class CascadeView {
     } else {
       // big, follows the finger — deutlich über dem Touchpoint, sonst sitzt
       // der Daumen genau auf der Figur und man erkennt sie gar nicht
-      this.drawShard(d.shard, d.px, d.py - L.cell * DRAG_LIFT_CELLS, L.cell * 1.05, true);
+      this.drawShard(d.shard, d.px, d.py - L.cell * d.lift, L.cell * 1.05, true);
     }
   }
 
@@ -2022,7 +2025,7 @@ export class CascadeView {
     const r = this.canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  private overBoard(x: number, y: number, L: Layout): boolean {
+  private overBoard(x: number, y: number, L: Layout, lift = DRAG_LIFT_CELLS): boolean {
     // Die untere Grenze muss den Anheb-Versatz (DRAG_LIFT_CELLS) mit abdecken:
     // snappedFor() rechnet die Zielzeile aus `py - cell*DRAG_LIFT_CELLS` — um
     // unten auf die letzte Reihe zu treffen, muss der Finger also spürbar
@@ -2033,7 +2036,7 @@ export class CascadeView {
       x >= L.boardX - L.cell * 0.6 &&
       y >= L.boardY - L.cell * 0.6 &&
       x < L.boardX + L.cell * (this.game.cols + 0.6) &&
-      y < L.boardY + L.cell * (this.game.rows + DRAG_LIFT_CELLS + 0.6)
+      y < L.boardY + L.cell * (this.game.rows + lift + 0.6)
     );
   }
   private boardCell(x: number, y: number, L: Layout): Pos {
@@ -2042,26 +2045,39 @@ export class CascadeView {
       col: Math.round((x - L.boardX - L.cell / 2) / L.cell),
     };
   }
+  /** Anhebung für diese Figur: Mindestens `DRAG_LIFT_CELLS`, bei hohen Figuren
+   *  so viel mehr, dass ihre Unterkante noch ~0,9 Zellen ÜBER dem Finger liegt --
+   *  der Finger verdeckt dann nicht die Figur/das Zielfeld, man sieht das Brett. */
+  private liftFor(shard: Shard): number {
+    const cells = this.game.cells(shard);
+    const cen = this.centroid(shard);
+    let maxR = 0;
+    for (const [dr] of cells) maxR = Math.max(maxR, dr);
+    return Math.max(DRAG_LIFT_CELLS, maxR - cen.r + 0.5 + 0.9);
+  }
+
+  /**
+   * Wohin die gezogene Figur einrastet. Unter Zeitdruck verklickt man sich
+   * leicht -- das Einrasten ist darum bewusst großzügig und bevorzugt gute Züge:
+   *  - Die Figur hängt `d.lift` Zellen ÜBER dem Finger (Zielzelle = Schwerpunkt).
+   *  - Alle gültigen Positionen im Umfeld (3x3 um die gerundete Zielzelle)
+   *    werden bewertet: eine Position, die Reihen/Spalten RÄUMT, gewinnt (je
+   *    mehr, desto besser), wenn sie höchstens ~1,2 Zellen vom echten
+   *    Finger-Ziel entfernt liegt; danach zählt Kontakt zu Wand und Steinen
+   *    (sauberer Anschluss), danach die Nähe.
+   *  - Ist die Zielzelle selbst belegt, rastet die Figur auf die nächste gültige
+   *    Position (bis ~1,6 Zellen) ein, statt als Fehlwurf zu enden.
+   *  - Ist die Zielzelle gültig und nichts in der Nähe räumt, bleibt es genau
+   *    dort -- jede legale Position bleibt erreichbar.
+   */
   private snappedFor(d: Drag, L: Layout): Pos {
-    // dieselbe Anhebung wie beim frei schwebenden Teil (DRAG_LIFT_CELLS) —
-    // die Figur "landet" dort, wo sie sichtbar über dem Daumen schwebt, nicht
-    // exakt unter der echten Fingerposition. Unrundierte Fraktion behalten
-    // (nicht nur `boardCell()`s gerundetes Ergebnis) -- der Magnet unten
-    // braucht sie, um zu wissen, wie NAH der Finger an einer Zellgrenze steht.
     const fx = (d.px - L.boardX - L.cell / 2) / L.cell;
-    const fy = (d.py - L.cell * DRAG_LIFT_CELLS - L.boardY - L.cell / 2) / L.cell;
+    const fy = (d.py - L.cell * d.lift - L.boardY - L.cell / 2) / L.cell;
     const t: Pos = { row: Math.round(fy), col: Math.round(fx) };
     const raw: Pos = { row: t.row - d.grabR, col: t.col - d.grabC };
+    // unrundetes Ziel (obere linke Zelle der Figur) für echte Abstände
+    const rawF = { row: fy - d.grabR, col: fx - d.grabC };
 
-    // `snappedFor` wird nur aufgerufen, solange `overBoard()` true ist — also
-    // ist der Finger schon nah genug dran. Vorher konnte `raw` dabei trotzdem
-    // außerhalb des Rasters liegen (z. B. Spalte -1), und die Figur hing dann
-    // mit einem automatisch ungültigen Geist sichtbar NEBEN dem Feld, statt
-    // sich draufziehen zu lassen — fühlte sich wie ein Fehlwurf an, obwohl
-    // man eindeutig aufs Feld wollte. Darum wird die Zielposition zuerst so
-    // geklemmt, dass die Figur immer komplett im Raster liegt (nie über den
-    // Rand hinaus) — das Draufziehen wird dadurch spürbar großzügiger, ohne
-    // dass man je außerhalb des Feldes "platzieren" könnte.
     const cells = this.game.cells(d.shard);
     let minR = 0;
     let maxR = 0;
@@ -2073,80 +2089,53 @@ export class CascadeView {
       minC = Math.min(minC, dc);
       maxC = Math.max(maxC, dc);
     }
+    // Zielposition immer so klemmen, dass die Figur komplett im Raster liegt.
     const clampPos = (p: Pos): Pos => ({
       row: Math.max(-minR, Math.min(this.game.rows - 1 - maxR, p.row)),
       col: Math.max(-minC, Math.min(this.game.cols - 1 - maxC, p.col)),
     });
     const clamped = clampPos(raw);
-    // Räumt die geklemmte Zielzelle selbst schon eine Reihe/Spalte, ist sie
-    // klar die beste Wahl — kein Grund, anderswo zu suchen.
-    if (this.game.canPlace(d.shard, clamped)) {
-      const lines = this.previewLines(d.shard, clamped);
-      if (lines.rows.length > 0 || lines.cols.length > 0) return clamped;
-    }
-    // Magnet aufs Fertigmachen: geprüft, auch wenn die geklemmte Zelle an
-    // sich schon gültig wäre, nur eben nichts räumt — ein Vorteil fürs
-    // Vollenden soll sich deutlich anfühlen, nicht nur als Rettung im
-    // Konfliktfall. ABER nur in die Richtung(en), in die der Finger schon
-    // spürbar Richtung Zellgrenze lehnt (Fraktion > EDGE) — nicht als
-    // globaler 8er-Rundumschlag. Ohne diese Sperre konnte JEDE Zelle, auch
-    // exakt unter dem Finger, von einer besser räumenden Nachbarzelle
-    // "gestohlen" werden — legale Positionen wurden dadurch messbar
-    // unerreichbar (~4% in einem Playtest-Audit). Steht der Finger nahe der
-    // Mitte einer Zelle (Fraktion klein), bleibt genau diese Zelle immer
-    // erreichbar; erst nahe der Grenze darf die Nachbarzelle übernehmen.
-    const EDGE = 0.3;
-    const fracRow = fy - t.row;
-    const fracCol = fx - t.col;
-    const rowDirs = Math.abs(fracRow) > EDGE ? [Math.sign(fracRow)] : [0];
-    const colDirs = Math.abs(fracCol) > EDGE ? [Math.sign(fracCol)] : [0];
-    let best: Pos | null = null;
-    let bestCount = 0;
-    let bestDist = Infinity;
-    for (const dr of rowDirs) {
-      for (const dc of colDirs) {
-        if (dr === 0 && dc === 0) continue;
-        const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
-        if ((cand.row === clamped.row && cand.col === clamped.col) || !this.game.canPlace(d.shard, cand)) {
-          continue;
+    const primaryValid = this.game.canPlace(d.shard, clamped);
+
+    // Kontakt: Kanten der Figur, die an Wand oder belegte Zellen stoßen.
+    const contactOf = (p: Pos): number => {
+      const mine = new Set(cells.map(([dr, dc]) => (p.row + dr) * 1000 + (p.col + dc)));
+      let n = 0;
+      for (const [dr, dc] of cells) {
+        for (const [ar, ac] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const r = p.row + dr + ar;
+          const c = p.col + dc + ac;
+          if (mine.has(r * 1000 + c)) continue;
+          if (r < 0 || c < 0 || r >= this.game.rows || c >= this.game.cols || this.game.filled(r, c)) n++;
         }
+      }
+      return n;
+    };
+
+    const R_CLEAR = 1.2;
+    const R_FALLBACK = 1.6;
+    let best: Pos | null = null;
+    let bestScore = -Infinity;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
+        if (!this.game.canPlace(d.shard, cand)) continue;
         const lines = this.previewLines(d.shard, cand);
         const count = lines.rows.length + lines.cols.length;
-        if (count === 0) continue;
-        const dist = Math.abs(dr) + Math.abs(dc);
-        if (count > bestCount || (count === bestCount && dist < bestDist)) {
-          bestCount = count;
-          bestDist = dist;
+        const isPrimary = cand.row === clamped.row && cand.col === clamped.col;
+        // Ohne Räumen nur die Zielzelle selbst -- oder, wenn die belegt ist, der
+        // nächste gültige Nachbar (Rettung vor dem Fehlwurf).
+        if (count === 0 && !isPrimary && primaryValid) continue;
+        const dist = Math.hypot(cand.row - rawF.row, cand.col - rawF.col);
+        if (dist > (count > 0 ? R_CLEAR : R_FALLBACK)) continue;
+        const score = count * 10 + contactOf(cand) * 0.3 - dist * 4;
+        if (score > bestScore) {
+          bestScore = score;
           best = cand;
         }
       }
     }
-    if (best) return best;
-    if (this.game.canPlace(d.shard, clamped)) return clamped;
-    // Geklemmte Zelle ist belegt UND der Finger lehnt nicht klar genug in
-    // eine Richtung (oder die einzige naheliegende Nachbarzelle räumt
-    // nichts) — als letzter Ausweg den vollen Umkreis nach IRGENDEINER
-    // räumenden, gültigen Nachbarzelle absuchen, damit ein Konflikt nicht
-    // einfach ungültig hängen bleibt, wenn direkt daneben eine Lösung liegt.
-    const allNeighbors: Array<[number, number]> = [
-      [0, -1],
-      [0, 1],
-      [-1, 0],
-      [1, 0],
-      [-1, -1],
-      [-1, 1],
-      [1, -1],
-      [1, 1],
-    ];
-    for (const [dr, dc] of allNeighbors) {
-      const cand = clampPos({ row: clamped.row + dr, col: clamped.col + dc });
-      if ((cand.row === clamped.row && cand.col === clamped.col) || !this.game.canPlace(d.shard, cand)) {
-        continue;
-      }
-      const lines = this.previewLines(d.shard, cand);
-      if (lines.rows.length > 0 || lines.cols.length > 0) return cand;
-    }
-    return clamped;
+    return best ?? clamped;
   }
 
   private centroid(shard: Shard): { r: number; c: number } {
@@ -2182,7 +2171,7 @@ export class CascadeView {
       if (!nearest || nearest.id !== this.tutorialShardId) return;
       this.canvas.setPointerCapture(e.pointerId);
       const cen = this.centroid(nearest);
-      this.drag = { shard: nearest, from: "belt", px: x, py: y, sx: x, sy: y, moved: false, grabR: cen.r, grabC: cen.c };
+      this.drag = { shard: nearest, from: "belt", px: x, py: y, sx: x, sy: y, moved: false, lift: this.liftFor(nearest), grabR: cen.r, grabC: cen.c };
       if (this.tutorialGap) sfx.pickUp();
       return;
     }
@@ -2225,6 +2214,7 @@ export class CascadeView {
       sx: x,
       sy: y,
       moved: false,
+      lift: this.liftFor(shard),
       grabR: cen.r,
       grabC: cen.c,
     };
@@ -2264,7 +2254,7 @@ export class CascadeView {
       // Finger): wer der Hand folgt oder direkt auf die Lücke tippt, soll
       // nicht an einer Zelle Versatz scheitern. Passt es, rastet die Scherbe
       // exakt in die Lücke ein und der normale Platzier-Pfad läuft unten.
-      const snapT = d.moved && this.overBoard(d.px, d.py, L) ? this.snappedFor(d, L) : null;
+      const snapT = d.moved && this.overBoard(d.px, d.py, L, d.lift) ? this.snappedFor(d, L) : null;
       if (
         !snapT ||
         Math.abs(snapT.row - this.tutorialGap.row) > 2 ||
@@ -2287,7 +2277,7 @@ export class CascadeView {
       return;
     }
 
-    if (this.overBoard(d.px, d.py, L)) {
+    if (this.overBoard(d.px, d.py, L, d.lift)) {
       const snap = forcedSnap ?? this.snappedFor(d, L);
       const rows = this.game.place(d.shard, snap);
       if (rows >= 0) {
