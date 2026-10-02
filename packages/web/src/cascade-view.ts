@@ -18,7 +18,7 @@ const TAP_MOVE_PX = 10;
 // für das an den Rastern einschnappende Ziel selbst, damit der Daumen nicht
 // genau die Zielzellen verdeckt und man den Rest des Spielfelds im Blick
 // behält.
-const DRAG_LIFT_CELLS = 1.6;
+export const DRAG_LIFT_CELLS = 1.6;
 /** "+N"-Pops und die große Kette/Tier-Einblendung bleiben spürbar länger stehen,
  *  bevor sie wegfallen/-faden — sonst wirkt der Erfolg zu flüchtig. */
 const POP_LIFE_S = 1.8;
@@ -2246,6 +2246,7 @@ export class CascadeView {
     this.drag = null;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     const L = this.layout;
+    let forcedSnap: Pos | null = null;
 
     if (this.tutorialShardId !== null) {
       if (d.shard.id !== this.tutorialShardId) return;
@@ -2258,13 +2259,21 @@ export class CascadeView {
         this.onTutorialTap?.();
         return;
       }
-      // Schritt 2: nur das Ziehen genau in die vorbereitete Lücke zählt, alles
-      // andere springt zurück. Passt es, läuft der normale Platzier-Pfad unten.
+      // Schritt 2: nur das Ziehen in die vorbereitete Lücke zählt, alles andere
+      // springt zurück. Bewusst großzügig (±2 Zeilen, ±1 Spalte; die Scherbe schwebt ja über dem
+      // Finger): wer der Hand folgt oder direkt auf die Lücke tippt, soll
+      // nicht an einer Zelle Versatz scheitern. Passt es, rastet die Scherbe
+      // exakt in die Lücke ein und der normale Platzier-Pfad läuft unten.
       const snapT = d.moved && this.overBoard(d.px, d.py, L) ? this.snappedFor(d, L) : null;
-      if (!snapT || snapT.row !== this.tutorialGap.row || snapT.col !== this.tutorialGap.col) {
+      if (
+        !snapT ||
+        Math.abs(snapT.row - this.tutorialGap.row) > 2 ||
+        Math.abs(snapT.col - this.tutorialGap.col) > 1
+      ) {
         if (d.moved) sfx.invalid();
         return;
       }
+      forcedSnap = this.tutorialGap;
     }
 
     // tap → rotate the shard in place. Nur an der Bewegung fest gemacht, NICHT
@@ -2279,7 +2288,7 @@ export class CascadeView {
     }
 
     if (this.overBoard(d.px, d.py, L)) {
-      const snap = this.snappedFor(d, L);
+      const snap = forcedSnap ?? this.snappedFor(d, L);
       const rows = this.game.place(d.shard, snap);
       if (rows >= 0) {
         if (d.from === "belt") this.game.removeFromBelt(d.shard.id);

@@ -17,7 +17,7 @@ import {
   COMBO_DECISION_MS,
   CascadeState,
 } from "./cascade.js";
-import { CascadeView } from "./cascade-view.js";
+import { CascadeView, DRAG_LIFT_CELLS } from "./cascade-view.js";
 import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
@@ -2287,7 +2287,7 @@ function maybeHintRotate(): void {
   if (!forced && !store.markHintSeen("rotate-tip")) return;
   // kurze Verzögerung, damit der Screen-Wechsel/die Cross-Slide-Animation
   // fertig ist, bevor sich alles verdunkelt
-  window.setTimeout(startRotateTutorial, 500);
+  startRotateTutorial();
 }
 
 /** Zweiteiliges Tutorial vor der ALLERERSTEN Runde. Die Runde bleibt dabei
@@ -2325,7 +2325,9 @@ function startRotateTutorial(): void {
     hint.style.setProperty("--hx0", `${tx}px`);
     hint.style.setProperty("--hy0", `${ty}px`);
     hint.style.setProperty("--hdx", `${gx - tx}px`);
-    hint.style.setProperty("--hdy", `${gy - ty}px`);
+    // Die Scherbe schwebt beim Ziehen DRAG_LIFT_CELLS über dem Finger -- der
+    // Finger (die Hand) muss also entsprechend TIEFER landen als die Lücke.
+    hint.style.setProperty("--hdy", `${gy - ty + g.cell * DRAG_LIFT_CELLS}px`);
     const ring = $("rt-gap");
     ring.style.left = `${r.left + g.x - 4}px`;
     ring.style.top = `${r.top + g.y - 4}px`;
@@ -2359,18 +2361,24 @@ function startRotateTutorial(): void {
     hint.classList.add("step2");
     place();
   });
-  place();
-  if (!view.tutorialShardPoint) {
-    // kein Band da (sollte nie passieren) -- Tutorial überspringen, die
-    // Runde startet ganz normal beim ersten echten Tap.
-    view.endRotateTutorial();
-    return;
-  }
-
-  hint.hidden = false;
-  void hint.offsetWidth; // reflow erzwingen, damit die Fade-Transition greift
-  hint.classList.add("show");
-  window.addEventListener("resize", place);
+  // Das Tutorial ist ab SOFORT scharf (Eingaben aufs Band eingeschränkt,
+  // `game.start()` bleibt aus) -- nur das Overlay erscheint leicht verzögert,
+  // damit der Screen-Wechsel/die Cross-Slide-Animation fertig ist. Sonst
+  // könnte ein früher Tap in diesem Fenster die Runde schon starten.
+  window.setTimeout(() => {
+    if (cascadeView !== view || $("screen-kaskade").hidden) return; // Runde inzwischen verlassen
+    place();
+    if (!view.tutorialShardPoint) {
+      // kein Band/Layout da (sollte nie passieren) -- Tutorial überspringen,
+      // die Runde startet ganz normal beim ersten echten Tap.
+      view.endRotateTutorial();
+      return;
+    }
+    hint.hidden = false;
+    void hint.offsetWidth; // reflow erzwingen, damit die Fade-Transition greift
+    hint.classList.add("show");
+    window.addEventListener("resize", place);
+  }, 500);
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────
