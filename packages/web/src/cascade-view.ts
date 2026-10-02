@@ -1502,21 +1502,7 @@ export class CascadeView {
       for (const s of this.game.belt) {
         urgency = Math.max(urgency, (s.y - BELT_DANGER_Y) / (1 - BELT_DANGER_Y));
       }
-      if (urgency > 0) {
-        const u = Math.min(1, urgency);
-        const hz = 1.6 + u * 3.2;
-        const pulse = 0.5 + 0.5 * Math.sin((this.nowMs / 1000) * hz * Math.PI * 2);
-        const alpha = 0.12 + u * 0.38 * (0.35 + 0.65 * pulse);
-        ctx.save();
-        roundRect(ctx, L.beltX, L.beltTop, L.beltW, L.beltH, 16);
-        ctx.clip();
-        const g = ctx.createLinearGradient(0, L.beltTop + L.beltH, 0, L.beltTop + L.beltH * 0.5);
-        g.addColorStop(0, `rgba(255, 80, 60, ${alpha.toFixed(3)})`);
-        g.addColorStop(1, "rgba(255, 80, 60, 0)");
-        ctx.fillStyle = g;
-        ctx.fillRect(L.beltX, L.beltTop, L.beltW, L.beltH);
-        ctx.restore();
-      }
+      if (urgency > 0) this.drawBeltFlames(L, Math.min(1, urgency));
     }
     for (const { shard, cy } of this.beltRows(L)) {
       if (this.drag && this.drag.shard.id === shard.id) continue;
@@ -1567,6 +1553,61 @@ export class CascadeView {
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, L.cssW, L.cssH);
     }
+  }
+
+  /** Flammenzungen am unteren Bandrand + weiches Glühen darüber. `u` (0..1)
+   *  wächst, je näher die gefährdetste Scherbe dem Abfall kommt: die Flammen
+   *  werden höher, heller und flackern schneller. */
+  private drawBeltFlames(L: Layout, u: number): void {
+    const ctx = this.ctx;
+    const t = this.nowMs / 1000;
+    const baseY = L.beltTop + L.beltH;
+    ctx.save();
+    roundRect(ctx, L.beltX, L.beltTop, L.beltW, L.beltH, 16);
+    ctx.clip();
+
+    // Glut-Glühen: pulsiert langsam, schneller und stärker mit u.
+    const pulse = 0.5 + 0.5 * Math.sin(t * (1.8 + u * 3) * Math.PI * 2);
+    const glow = ctx.createLinearGradient(0, baseY, 0, baseY - L.beltH * (0.35 + 0.3 * u));
+    glow.addColorStop(0, `rgba(255, 110, 40, ${(0.18 + 0.3 * u * (0.5 + 0.5 * pulse)).toFixed(3)})`);
+    glow.addColorStop(1, "rgba(255, 70, 30, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(L.beltX, L.beltTop, L.beltW, L.beltH);
+
+    // Flammenzungen: jede mit eigener Phase, zwei überlagerte Sinus-Flackerer.
+    const n = 5;
+    const w = L.beltW / n;
+    const flickerSpeed = 6 + u * 7;
+    const maxH = L.beltH * (0.12 + 0.38 * u);
+    for (let i = 0; i < n; i++) {
+      const ph = i * 1.9;
+      const flick = 0.72 + 0.26 * Math.sin(t * flickerSpeed + ph) + 0.16 * Math.sin(t * flickerSpeed * 1.9 + ph * 2.3);
+      const h = maxH * flick;
+      const cx = L.beltX + w * (i + 0.5);
+      const sway = Math.sin(t * 3.1 + ph) * w * 0.22;
+      const a = 0.5 + 0.45 * u;
+      // äußere (rot-orange) und innere (gelbe) Zunge
+      for (const [wid, hh, core] of [[0.62, 1, false], [0.32, 0.6, true]] as const) {
+        const tipY = baseY - h * hh;
+        ctx.beginPath();
+        ctx.moveTo(cx - w * wid, baseY + 2);
+        ctx.quadraticCurveTo(cx - w * wid * 0.25, baseY - h * hh * 0.55, cx + sway * hh, tipY);
+        ctx.quadraticCurveTo(cx + w * wid * 0.3, baseY - h * hh * 0.5, cx + w * wid, baseY + 2);
+        ctx.closePath();
+        const g = ctx.createLinearGradient(0, baseY, 0, tipY);
+        if (core) {
+          g.addColorStop(0, `rgba(255, 240, 150, ${a.toFixed(3)})`);
+          g.addColorStop(1, "rgba(255, 190, 70, 0)");
+        } else {
+          g.addColorStop(0, `rgba(255, 150, 40, ${a.toFixed(3)})`);
+          g.addColorStop(0.55, `rgba(255, 85, 35, ${(a * 0.8).toFixed(3)})`);
+          g.addColorStop(1, "rgba(220, 40, 30, 0)");
+        }
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   /** Reihen/Spalten, die durch `shard` an `pos` vollständig gefüllt würden. */
