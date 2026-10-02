@@ -3023,14 +3023,56 @@ $("kp-quit").addEventListener("click", () => {
 // Auto-Resume beim Zurückkommen -- der Spieler tippt selbst "Weiter",
 // sonst rollt das Band schon los, während man noch gar nicht wieder
 // hinschaut.
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) return;
+/** Läuft gerade eine Runde? Dann pausieren (Overlay + `pause()`), ohne Auto-Resume. */
+function autoPauseIfPlaying(): void {
   if ($("screen-kaskade").hidden) return;
   if (!cascadeGame || cascadeGame.isOver || cascadeGame.isPaused || cascadeGame.awaitingContinueOffer) return;
   $("k-pause-overlay").classList.add("show");
   renderSettingsToggles($("k-settings-toggles"));
   cascadeGame.pause();
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) autoPauseIfPlaying();
 });
+
+// ── Android-App (Capacitor): Zurück-Taste + App-Wechsel ────────────────────
+/** Hardware-Zurück-Taste, damit sie sich wie in einer richtigen App verhält,
+ *  statt die App mitten in der Runde zu schließen: Overlay zu → Runde
+ *  pausieren → zurück auf Home → erst dort die App beenden. */
+function handleBackButton(exitApp: () => void): void {
+  const shown = [...document.querySelectorAll<HTMLElement>(".overlay.show")];
+  const top = shown[shown.length - 1];
+  if (top) {
+    // Weiterspielen-Angebot ist eine echte Ja/Nein-Entscheidung -- nicht wegklickbar
+    if (top.id === "k-continue-overlay") return;
+    if (top.id === "k-pause-overlay") closeKPause();
+    else if (top.id === "k-overlay") $("k-quit").click();
+    else top.querySelector<HTMLElement>(".close")?.click();
+    return;
+  }
+  // Tutorial läuft: Zurück ignorieren (sonst steht die Runde eingefroren da)
+  if (cascadeView?.tutorialShardPoint) return;
+  // In einer laufenden Runde: pausieren statt verlassen
+  if (!$("screen-kaskade").hidden && cascadeGame && !cascadeGame.isOver) {
+    $("k-pause").click();
+    return;
+  }
+  if (!$("tabbar").hidden) {
+    if (activeTabScreen() === "home") exitApp();
+    else setTab("home");
+    return;
+  }
+  setTab("home"); // Drill-down-Screens: zurück auf Home
+}
+if ((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()) {
+  void import("@capacitor/app").then(({ App }) => {
+    void App.addListener("backButton", () => handleBackButton(() => void App.exitApp()));
+    // App in den Hintergrund (Home-Taste, App-Wechsel): Runde pausieren
+    void App.addListener("appStateChange", ({ isActive }) => {
+      if (!isActive) autoPauseIfPlaying();
+    });
+  });
+}
 $("jk-hint").addEventListener("click", () => useJoker("hint"));
 $("jk-time").addEventListener("click", () => useJoker("time"));
 $("jk-solvent").addEventListener("click", () => useJoker("solvent"));
