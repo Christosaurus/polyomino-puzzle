@@ -2168,8 +2168,8 @@
         transform: translate(-50%, -50%);
       }
       .rt-arrows {
-        width: calc(var(--tr) * 1.8);
-        height: calc(var(--tr) * 1.8);
+        width: calc(var(--tr) * 2.5);
+        height: calc(var(--tr) * 2.5);
         color: #ffd24a;
         filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
         animation: rt-spin 2.2s linear infinite;
@@ -2186,6 +2186,9 @@
       }
       .rt-arrows .rt-head {
         fill: currentColor;
+        stroke: currentColor;
+        stroke-width: 3;
+        stroke-linejoin: round;
       }
       @keyframes rt-spin {
         to {
@@ -3738,10 +3741,12 @@
       <div class="rotate-tut" id="k-rotate-tut" hidden>
         <div class="rt-arrows" id="rt-arrows">
           <svg viewBox="0 0 100 100" aria-hidden="true">
-            <path class="rt-arc" d="M50 14 A36 36 0 1 1 17.5 32" />
-            <path class="rt-head" d="M50 3 L62 17 L38 17 Z" />
-            <path class="rt-arc" d="M50 86 A36 36 0 1 1 82.5 68" />
-            <path class="rt-head" d="M50 97 L38 83 L62 83 Z" />
+            <!-- Zwei getrennte Pfeile, je ~130° Bogen auf r=34, punktsymmetrisch,
+                 mit je ~50° Lücke dazwischen (keine Überlappung). -->
+            <path class="rt-arc" d="M19.19 35.63 A34 34 0 0 1 80.81 35.63" />
+            <path class="rt-head" d="M85.04 44.69 L88.06 32.25 L73.56 39.01 Z" />
+            <path class="rt-arc" d="M80.81 64.37 A34 34 0 0 1 19.19 64.37" />
+            <path class="rt-head" d="M14.96 55.31 L11.94 67.75 L26.44 60.99 Z" />
           </svg>
         </div>
         <div class="rt-hand" id="rt-hand">
