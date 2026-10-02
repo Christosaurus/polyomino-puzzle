@@ -119,6 +119,10 @@ export const sfx = {
     tone(300, 420, "sawtooth", 0.05, 0, 90);
     tone(150, 500, "sine", 0.04, 60, 70);
   },
+  /** Kleines Blip pro platzender Zelle -- steigt Ganzton für Ganzton an. */
+  cellPop(step: number): void {
+    tone(520 * Math.pow(1.1225, Math.min(10, Math.max(0, step))), 70, "sine", 0.03);
+  },
   /** Satter Bass-Schlag unter Mehrfach-Clears und Ketten (`power` 0..1). */
   thump(power = 1): void {
     tone(120, 170, "sine", 0.1 * power, 0, 46);

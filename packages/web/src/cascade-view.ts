@@ -122,6 +122,13 @@ const BELT_SAVE_Y = 0.82;
 const LIFE_FLASH_S = 0.45;
 /** Dauer des kurzen Zoom-Punchs beim Räumen. */
 const PUNCH_S = 0.28;
+/** Laufzeit des Lichtkopfs durch eine geräumte Reihe/Spalte (Sek.) -- die
+ *  Zellen poppen genau dann, wenn er sie erreicht. */
+const CLEAR_SWEEP_S = 0.225;
+/** Dauer des Pop-Ausbruchs einer einzelnen geräumten Zelle. */
+const GHOST_S = 0.28;
+/** Räum-Animation: wechselt zufällig (nie zweimal derselbe Stil hintereinander). */
+type ClearStyle = "sweepR" | "sweepL" | "burst" | "bar";
 
 export class CascadeView {
   private canvas: HTMLCanvasElement;
@@ -162,8 +169,20 @@ export class CascadeView {
   private running = false;
   private raf = 0;
   private last = 0;
-  private flash: { row: number; t: number }[] = [];
-  private flashCols: { col: number; t: number }[] = [];
+  private flash: { row: number; t: number; style: ClearStyle }[] = [];
+  private flashCols: { col: number; t: number; style: ClearStyle }[] = [];
+  /** Geräumte Zellen, die noch kurz stehen bleiben und nacheinander poppen. */
+  private ghosts: Array<{
+    row: number;
+    col: number;
+    colorIndex: number;
+    delay: number;
+    t: number;
+    popped: boolean;
+    /** Reihenfolge-Index für den aufsteigenden Ton (nur erste Linie), sonst -1. */
+    tick: number;
+  }> = [];
+  private lastClearStyle: ClearStyle | null = null;
   private sparks: Spark[] = [];
   /** short-lived "+N" score pops */
   private pops: { x: number; y: number; t: number; text: string; color: string; s?: number }[] = [];
@@ -507,6 +526,7 @@ export class CascadeView {
     if (this.fxChunks.length) {
       for (const s of this.fxChunks) {
         s.t += dt;
+        if (s.t < 0) continue; // wartet noch auf seine Zelle (Räum-Verzögerung)
         s.x += s.vx * dt;
         s.y += s.vy * dt;
         s.vy += 340 * dt; // etwas mehr Schwerkraft als die Board-Funken — fallen sichtbar
@@ -533,6 +553,36 @@ export class CascadeView {
       s.rot += s.spin * dt;
     }
     this.sparks = this.sparks.filter((s) => s.t < s.max);
+    if (this.ghosts.length && this.layout) {
+      const L = this.layout;
+      const gold = cssVar("--gold");
+      for (const g of this.ghosts) {
+        g.t += dt;
+        if (!g.popped && g.t >= g.delay) {
+          g.popped = true;
+          const x = L.boardX + (g.col + 0.5) * L.cell;
+          const y = L.boardY + (g.row + 0.5) * L.cell;
+          for (let i = 0; i < 2; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const sp = 60 + Math.random() * 140;
+            this.sparks.push({
+              x,
+              y,
+              vx: Math.cos(ang) * sp,
+              vy: Math.sin(ang) * sp - 60,
+              t: 0,
+              max: 0.35 + Math.random() * 0.3,
+              color: i === 0 ? "#ffffff" : gold,
+              size: 2.5 + Math.random() * 3.5,
+              rot: Math.random() * Math.PI,
+              spin: (Math.random() - 0.5) * 14,
+            });
+          }
+          if (g.tick >= 0) sfx.cellPop(g.tick);
+        }
+      }
+      this.ghosts = this.ghosts.filter((g) => g.t < g.delay + GHOST_S);
+    }
     for (const p of this.pops) p.t += dt;
     this.pops = this.pops.filter((p) => p.t < POP_LIFE_S);
     if (this.placePop && (this.placePop.t += dt) > 0.28) this.placePop = null;
@@ -548,9 +598,41 @@ export class CascadeView {
     const clear = this.game.consumeFreshClear();
     if (clear && this.layout) {
       const L = this.layout;
-      for (const r of clear.rows) this.flash.push({ row: r, t: 0 });
-      for (const c of clear.cols) this.flashCols.push({ col: c, t: 0 });
-      this.spawnLineClearChunks(clear.cells, L);
+      const style = this.pickClearStyle();
+      for (const r of clear.rows) this.flash.push({ row: r, t: 0, style });
+      for (const c of clear.cols) this.flashCols.push({ col: c, t: 0, style });
+      // Position der Zelle entlang ihrer Linie (0..1) -> Verzögerung, mit der
+      // sie poppt, sobald der Lichtkopf sie erreicht.
+      const rowSet = new Set(clear.rows);
+      const fracOf = (row: number, col: number): number =>
+        rowSet.has(row)
+          ? this.game.cols > 1 ? col / (this.game.cols - 1) : 0.5
+          : this.game.rows > 1 ? row / (this.game.rows - 1) : 0.5;
+      const delayOf = (row: number, col: number): number => {
+        const f = fracOf(row, col);
+        if (style === "sweepR") return f * CLEAR_SWEEP_S;
+        if (style === "sweepL") return (1 - f) * CLEAR_SWEEP_S;
+        if (style === "burst") return Math.abs(f - 0.5) * 2 * CLEAR_SWEEP_S;
+        return 0;
+      };
+      // Aufsteigender Ton nur für die erste Linie (sonst Kakophonie bei Mehrfach-Clears)
+      const firstIsRow = clear.rows.length > 0;
+      const firstLine = firstIsRow ? clear.rows[0]! : clear.cols[0]!;
+      const order = clear.cells
+        .filter((c) => (firstIsRow ? c.row === firstLine : c.col === firstLine))
+        .sort((a, b) => delayOf(a.row, a.col) - delayOf(b.row, b.col));
+      for (const cell of clear.cells) {
+        this.ghosts.push({
+          row: cell.row,
+          col: cell.col,
+          colorIndex: cell.colorIndex,
+          delay: delayOf(cell.row, cell.col),
+          t: 0,
+          popped: false,
+          tick: order.findIndex((o) => o.row === cell.row && o.col === cell.col),
+        });
+      }
+      this.spawnLineClearChunks(clear.cells, L, delayOf);
       const lineCount = clear.rows.length + clear.cols.length;
       if (lineCount > 0) sfx.rowClear(lineCount);
       // Wucht wächst mit Reihenzahl und Kette: 1 Reihe 0.5, 2 Reihen 0.75, 3+ ~1.
@@ -947,10 +1029,13 @@ export class CascadeView {
       sizeMax: number;
       lifeMin: number;
       lifeMax: number;
+      /** Start-Verzögerung je Zelle in Sekunden (Räum-Wisch). */
+      delayOf?: (row: number, col: number) => number;
     },
   ): void {
     const rect = this.canvas.getBoundingClientRect();
     for (const { row, col, colorIndex } of cells) {
+      const delay = opts.delayOf?.(row, col) ?? 0;
       const x = rect.left + L.boardX + (col + 0.5) * L.cell;
       const y = rect.top + L.boardY + (row + 0.5) * L.cell;
       const dx = x - originX;
@@ -973,7 +1058,7 @@ export class CascadeView {
           y: y + (Math.random() - 0.5) * L.cell * 0.22,
           vx: Math.cos(ang) * sp,
           vy: Math.sin(ang) * sp - opts.upBias,
-          t: 0,
+          t: -delay,
           max: opts.lifeMin + Math.random() * (opts.lifeMax - opts.lifeMin),
           color: i === 0 ? "#ffffff" : color,
           size: L.cell * (opts.sizeMin + Math.random() * (opts.sizeMax - opts.sizeMin)),
@@ -1036,6 +1121,7 @@ export class CascadeView {
   private spawnLineClearChunks(
     cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
     L: Layout,
+    delayOf?: (row: number, col: number) => number,
   ): void {
     if (!cells.length) return;
     const rect = this.canvas.getBoundingClientRect();
@@ -1051,6 +1137,7 @@ export class CascadeView {
       sizeMax: 0.22,
       lifeMin: 0.35,
       lifeMax: 0.6,
+      delayOf,
     });
   }
 
@@ -1102,6 +1189,7 @@ export class CascadeView {
 
     if (this.fxChunks.length) {
       for (const s of this.fxChunks) {
+        if (s.t < 0) continue;
         const k = 1 - s.t / s.max;
         ctx.globalAlpha = Math.max(0, k);
         this.drawSplinter(ctx, s.x, s.y, s.size * (0.65 + k * 0.55), s.rot, s.color);
@@ -1382,60 +1470,34 @@ export class CascadeView {
       }
     }
 
-    // a cleared row: a bright bar sweeping outward, then it's gone
-    for (const f of this.flash) {
-      const p = f.t / 0.5;
-      const y = L.boardY + f.row * L.cell;
-      const w = this.game.cols * L.cell;
+    // Geräumte Zellen: bleiben kurz stehen und poppen nacheinander (aufblitzen,
+    // aufblähen, zerplatzen), sobald der Lichtkopf sie erreicht.
+    for (const gh of this.ghosts) {
+      const u = (gh.t - gh.delay) / GHOST_S;
+      const color = shardByColorIndex(gh.colorIndex).color;
+      if (u >= 1) continue;
+      if (u < 0) {
+        drawPieceBody(ctx, [[gh.row, gh.col]], L.boardX, L.boardY, L.cell, color);
+        continue;
+      }
+      const sc = 1 + 0.32 * Math.sin(Math.min(1, u * 1.6) * Math.PI * 0.5) - 0.45 * u * u;
+      drawPieceBody(ctx, [[gh.row, gh.col]], L.boardX, L.boardY, L.cell, color, {
+        scale: sc,
+        alpha: 1 - u * u * u,
+        glow: 10 * (1 - u),
+      });
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      const g = ctx.createLinearGradient(L.boardX, y, L.boardX + w, y);
-      const a = (1 - p) * 0.9;
-      g.addColorStop(0, `rgba(255,255,255,0)`);
-      g.addColorStop(0.5, `rgba(255,240,190,${a})`);
-      g.addColorStop(1, `rgba(255,255,255,0)`);
-      ctx.fillStyle = g;
-      const bh = L.cell * (1 + p * 0.6);
-      ctx.fillRect(L.boardX, y - (bh - L.cell) / 2, w, bh);
-      // heller Lichtkopf, der einmal durch die Reihe rast
-      if (p < 0.7) {
-        const hx = L.boardX + w * Math.min(1, p / 0.45);
-        const hy = y + L.cell / 2;
-        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, L.cell * 1.7);
-        hg.addColorStop(0, `rgba(255,255,255,${((1 - p / 0.7) * 0.95).toFixed(3)})`);
-        hg.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = hg;
-        ctx.fillRect(hx - L.cell * 1.7, hy - L.cell * 1.7, L.cell * 3.4, L.cell * 3.4);
-      }
+      ctx.globalAlpha = 0.5 * Math.sin(u * Math.PI);
+      ctx.fillStyle = "#ffffff";
+      roundRect(ctx, L.boardX + gh.col * L.cell + 2, L.boardY + gh.row * L.cell + 2, L.cell - 4, L.cell - 4, 6);
+      ctx.fill();
       ctx.restore();
     }
 
-    // a cleared column: dieselbe helle Leiste, nur senkrecht
-    for (const f of this.flashCols) {
-      const p = f.t / 0.5;
-      const x = L.boardX + f.col * L.cell;
-      const h = this.game.rows * L.cell;
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      const g = ctx.createLinearGradient(x, L.boardY, x, L.boardY + h);
-      const a = (1 - p) * 0.9;
-      g.addColorStop(0, `rgba(255,255,255,0)`);
-      g.addColorStop(0.5, `rgba(255,240,190,${a})`);
-      g.addColorStop(1, `rgba(255,255,255,0)`);
-      ctx.fillStyle = g;
-      const bw = L.cell * (1 + p * 0.6);
-      ctx.fillRect(x - (bw - L.cell) / 2, L.boardY, bw, h);
-      if (p < 0.7) {
-        const hy = L.boardY + h * Math.min(1, p / 0.45);
-        const hx = x + L.cell / 2;
-        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, L.cell * 1.7);
-        hg.addColorStop(0, `rgba(255,255,255,${((1 - p / 0.7) * 0.95).toFixed(3)})`);
-        hg.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = hg;
-        ctx.fillRect(hx - L.cell * 1.7, hy - L.cell * 1.7, L.cell * 3.4, L.cell * 3.4);
-      }
-      ctx.restore();
-    }
+    // Räum-Animation je geräumter Reihe / Spalte (Stil wechselt zufällig)
+    for (const f of this.flash) this.drawClearFlash(L, f, false, f.row);
+    for (const f of this.flashCols) this.drawClearFlash(L, f, true, f.col);
 
     // star sparks from row clears — „lighter" gibt schon Glühen, kein shadowBlur
     if (this.sparks.length) {
@@ -1677,6 +1739,87 @@ export class CascadeView {
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, L.cssW, L.cssH);
     }
+  }
+
+  /** Zufälliger Räum-Stil mit Gewichten, nie derselbe wie beim letzten Clear. */
+  private pickClearStyle(): ClearStyle {
+    const pool: Array<[ClearStyle, number]> = [
+      ["sweepR", 3],
+      ["sweepL", 2],
+      ["burst", 3],
+      ["bar", 2],
+    ];
+    const opts = pool.filter(([st]) => st !== this.lastClearStyle);
+    let r = Math.random() * opts.reduce((a, [, w]) => a + w, 0);
+    let pick = opts[0]![0];
+    for (const [st, w] of opts) {
+      if ((r -= w) <= 0) {
+        pick = st;
+        break;
+      }
+    }
+    this.lastClearStyle = pick;
+    return pick;
+  }
+
+  /** Eine geräumte Reihe (`vert` false) oder Spalte: Leiste + je nach Stil
+   *  ein oder zwei Lichtköpfe mit Schweif. `bar` ist der klassische Blitz ohne
+   *  Wisch, dafür kräftiger. */
+  private drawClearFlash(L: Layout, f: { t: number; style: ClearStyle }, vert: boolean, index: number): void {
+    const ctx = this.ctx;
+    const p = f.t / 0.5;
+    const len = (vert ? this.game.rows : this.game.cols) * L.cell;
+    const x0 = vert ? L.boardX + index * L.cell : L.boardX;
+    const y0 = vert ? L.boardY : L.boardY + index * L.cell;
+    const at = (frac: number): { x: number; y: number } =>
+      vert ? { x: x0 + L.cell / 2, y: y0 + len * frac } : { x: x0 + len * frac, y: y0 + L.cell / 2 };
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const g = vert ? ctx.createLinearGradient(x0, y0, x0, y0 + len) : ctx.createLinearGradient(x0, y0, x0 + len, y0);
+    const a = f.style === "bar" ? (1 - p) ** 1.4 : (1 - p) * 0.9;
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, `rgba(255,240,190,${a.toFixed(3)})`);
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    const thick = L.cell * (1 + p * 0.6 + (f.style === "bar" ? 0.55 * (1 - p) : 0));
+    if (vert) ctx.fillRect(x0 - (thick - L.cell) / 2, y0, thick, len);
+    else ctx.fillRect(x0, y0 - (thick - L.cell) / 2, len, thick);
+
+    if (f.style !== "bar" && p < 0.75) {
+      const q = Math.min(1, p / (CLEAR_SWEEP_S / 0.5));
+      const fade = 1 - p / 0.75;
+      // Köpfe + Start des Schweifs (Anteil 0..1 entlang der Linie)
+      const heads: Array<{ pos: number; from: number }> =
+        f.style === "sweepR"
+          ? [{ pos: q, from: 0 }]
+          : f.style === "sweepL"
+            ? [{ pos: 1 - q, from: 1 }]
+            : [
+                { pos: 0.5 - 0.5 * q, from: 0.5 },
+                { pos: 0.5 + 0.5 * q, from: 0.5 },
+              ];
+      for (const h of heads) {
+        // Schweif: heller Verlauf vom Start der Welle bis zum Kopf
+        const s0 = at(h.from);
+        const s1 = at(h.pos);
+        const tail = ctx.createLinearGradient(s0.x, s0.y, s1.x, s1.y);
+        tail.addColorStop(0, "rgba(255,230,160,0)");
+        tail.addColorStop(1, `rgba(255,240,190,${(0.5 * fade).toFixed(3)})`);
+        ctx.fillStyle = tail;
+        const lo = Math.min(h.from, h.pos);
+        const hi = Math.max(h.from, h.pos);
+        if (vert) ctx.fillRect(x0, y0 + len * lo, L.cell, len * (hi - lo));
+        else ctx.fillRect(x0 + len * lo, y0, len * (hi - lo), L.cell);
+        // Kopf
+        const c = at(h.pos);
+        const hg = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, L.cell * 1.7);
+        hg.addColorStop(0, `rgba(255,255,255,${(fade * 0.8).toFixed(3)})`);
+        hg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = hg;
+        ctx.fillRect(c.x - L.cell * 1.7, c.y - L.cell * 1.7, L.cell * 3.4, L.cell * 3.4);
+      }
+    }
+    ctx.restore();
   }
 
   /** Feuriger Rand ums Band: der Rahmen glüht orange-rot und flackert
