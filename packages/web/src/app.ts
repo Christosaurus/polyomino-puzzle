@@ -614,13 +614,13 @@ function renderHome(): void {
   const a = store.cascadeAttempts();
   $("cascade-attempts").textContent =
     a.count >= store.CASCADE_MAX_ATTEMPTS
-      ? `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche`
-      : `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} Versuche · nächster in ${fmt(a.msToNext)}`;
+      ? `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} attempts`
+      : `🎮 ${a.count}/${store.CASCADE_MAX_ATTEMPTS} attempts · next in ${fmt(a.msToNext)}`;
   const resetMs = msUntilWeekReset();
   const resetDays = Math.floor(resetMs / 86_400_000);
   const resetHours = Math.floor((resetMs % 86_400_000) / 3_600_000);
   $("cascade-week-countdown").textContent =
-    `🏆 Bestenliste: Reset in ${resetDays > 0 ? `${resetDays}T ` : ""}${resetHours}h`;
+    `🏆 Leaderboard resets in ${resetDays > 0 ? `${resetDays}d ` : ""}${resetHours}h`;
 }
 
 function openRegion(index: number): void {
@@ -1745,8 +1745,8 @@ async function renderLeaderboard(): Promise<void> {
     p.className = "lb-offline";
     p.textContent =
       lbScope === "country"
-        ? "Noch keine Einträge in deinem Land diese Woche — sei der Erste!"
-        : "Noch keine Einträge diese Woche — sei der Erste!";
+        ? "No entries from your country this week yet — be the first!"
+        : "No entries this week yet — be the first!";
     rows.replaceChildren(p);
     self.hidden = true;
     return;
@@ -1777,11 +1777,11 @@ function renderCascadeAttemptsSub(): void {
   const a = store.cascadeAttempts();
   $("na-sub").innerHTML =
     a.count > 0
-      ? "Wieder da! Du kannst jetzt loslegen."
-      : `Nächster Versuch in <b>${fmt(a.msToNext)}</b>.`;
+      ? "Back! You can start now."
+      : `Next attempt in <b>${fmt(a.msToNext)}</b>.`;
   const canPay = store.load().shards >= 15;
   const refillBtn = $<HTMLButtonElement>("na-refill");
-  refillBtn.textContent = canPay ? "✦ 15 Splitter → voll auffüllen" : `✦ ${nf(store.load().shards)} / 15 Splitter`;
+  refillBtn.textContent = canPay ? "✦ 15 shards → refill all" : `✦ ${nf(store.load().shards)} / 15 shards`;
   refillBtn.disabled = !canPay;
 }
 
@@ -1819,7 +1819,7 @@ $("k-noattempts-overlay").addEventListener("click", (e) => {
 $("na-refill").addEventListener("click", () => {
   if (!store.spendShards(15)) return;
   store.refillCascadeAttempts();
-  toast("Versuche aufgefüllt");
+  toast("Attempts refilled");
   renderTopPills();
   const go = pendingCascadeStart;
   closeAttemptsGate();
@@ -1829,7 +1829,7 @@ $("na-video").addEventListener("click", () => {
   // Echtes Ad-SDK ist ein eigener Integrationsschritt (Kontozugang, native
   // Konfiguration) -- bis dahin ein ehrlicher Platzhalter statt eines toten
   // Knopfs, analog zum bestehenden "📺 Watch video → Hint"-Stub im Shop.
-  toast("Werbevideos kommen bald");
+  toast("Video ads coming soon");
 });
 
 // ── Weiterspielen-Angebot beim Verlust des letzten Lebens (Abschnitt 4c) ───
@@ -1841,7 +1841,7 @@ $<HTMLButtonElement>("kc-accept").addEventListener("click", () => {
   if (price === null || !store.spendShards(price)) return;
   cascadeGame.acceptContinue();
   sfx.win(2);
-  toast("Weiter geht's!");
+  toast("Let's go!");
   $("k-continue-overlay").classList.remove("show");
 });
 $("kc-decline").addEventListener("click", () => {
@@ -1872,13 +1872,13 @@ function useCascadeAbility(kind: store.CascadeAbilityKind): void {
   sfx.pickUp();
   if (kind === "shuffle") {
     cascadeGame.shuffleBelt();
-    toast("Band gemischt");
+    toast("Belt shuffled");
   } else if (kind === "clear") {
     const pos = cascadeGame.clearMostBlockedCell();
-    toast(pos ? "Zelle geräumt" : "Brett ist schon leer");
+    toast(pos ? "Cell cleared" : "Board is already empty");
   } else {
     cascadeGame.addTime(10_000);
-    toast("+10 Sekunden");
+    toast("+10 seconds");
   }
   renderCascadeAbilities();
 }
@@ -1979,8 +1979,8 @@ function startCascade(): void {
         const canPay = store.load().shards >= price;
         const acceptBtn = $<HTMLButtonElement>("kc-accept");
         acceptBtn.textContent = canPay
-          ? `✦ ${nf(price)} → weiterspielen`
-          : `✦ ${nf(store.load().shards)} / ${nf(price)} Splitter`;
+          ? `✦ ${nf(price)} → keep playing`
+          : `✦ ${nf(store.load().shards)} / ${nf(price)} shards`;
         acceptBtn.disabled = !canPay;
         $("k-continue-overlay").classList.add("show");
       } else if (!h.awaitingContinue && continueOfferOpen) {
@@ -2111,12 +2111,10 @@ function startCascade(): void {
       if (h.chain >= 2) streakEl.textContent = `🔥 ×${h.chain}`;
     },
     onEnd: (r) => {
-      // Unabhängig von der laufenden Mid-Run-Fanfare (die feuert bei der
-      // allerersten Runde bewusst NIE, siehe oben) -- am Rundenende zählt
-      // ehrlich, ob der Score den Bestwert VOR dieser Runde übertrifft. Ein
-      // Score von 0 ist dabei nie ein "Rekord", auch nicht gegen einen noch
-      // leeren Bestwert von 0.
-      const isNewRecord = bestScore > 0 ? r.score >= bestScore : r.score > 0;
+      // "New record" gibt es nur, wenn ein ECHTER früherer Bestwert übertroffen
+      // wurde. Ein erster Lauf (Bestwert 0) bekommt keinen Rekord-Hinweis --
+      // bei 5 Punkten entwertet er den Begriff.
+      const isNewRecord = bestScore > 0 && r.score > bestScore;
       store.recordCascade(r.score, r.cleared, r.bestChain, r.perfectClears, r.megaClears, r.combosWon);
       // Lichtsplitter fürs Budget (kein Story-Fortschritt) — belohnt jetzt
       // Spielweise (Clears/Challenges/Kombis/Perfects/Ketten), nicht mehr nur
@@ -2152,7 +2150,7 @@ function startCascade(): void {
               const rank = idx + 1;
               const gap =
                 idx > 0 ? ` · noch <b>${nf(rows[idx - 1]!.score - r.score)}</b> bis Platz ${rank - 1}` : "";
-              $("k-rank").innerHTML = `🏆 Rang <b>#${rank}</b> diese Woche${gap}`;
+              $("k-rank").innerHTML = `🏆 Rank <b>#${rank}</b> this week${gap}`;
               $("k-rank").hidden = false;
             });
           } else if (r.score > 0) {
@@ -2495,28 +2493,28 @@ const SHOP: ShopItem[] = [
   // einzelnen Runde wird. Weitblick ist der einzige Einmalkauf.
   {
     icon: "ui/solvent.webp",
-    label: "🔀 Mischen ×3",
+    label: "🔀 Shuffle ×3",
     cost: 15,
     buy: () => store.addCascadeAbility("shuffle", 3),
     disabledWhen: () => store.load().cascadeAbilities.shuffle >= store.CASCADE_ABILITY_CAP,
   },
   {
     icon: "💣",
-    label: "Klärfunke ×2",
+    label: "Clear Spark ×2",
     cost: 20,
     buy: () => store.addCascadeAbility("clear", 2),
     disabledWhen: () => store.load().cascadeAbilities.clear >= store.CASCADE_ABILITY_CAP,
   },
   {
     icon: "ui/time.webp",
-    label: "⏱️ Zeitphiole ×2",
+    label: "⏱️ Time Vial ×2",
     cost: 12,
     buy: () => store.addCascadeAbility("time", 2),
     disabledWhen: () => store.load().cascadeAbilities.time >= store.CASCADE_ABILITY_CAP,
   },
   {
     icon: "👁️",
-    label: "Weitblick (dauerhaft)",
+    label: "Foresight (permanent)",
     cost: 25,
     buy: () => store.unlockForesight(),
     disabledWhen: () => store.load().cascadeAbilities.foresight,
