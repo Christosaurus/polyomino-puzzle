@@ -25,6 +25,12 @@
 
         </activity>
 
+        <!-- AdMob-App-ID: Googles TEST-ID. Vor dem Release durch die echte App-ID aus
+             der AdMob-Konsole ersetzen (und ADS_TEST_MODE in src/ads-config.ts auf false). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

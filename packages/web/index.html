@@ -3908,6 +3908,7 @@
                + hidden, solange kein Rang feststeht (kein Netz, Rang > Top 100,
                0-Punkte-Lauf). Abschnitt 5.1 im Ökonomie-Konzept. -->
           <div class="sub" id="k-rank" hidden></div>
+          <button class="go" id="k-double" hidden style="width:100%"></button>
           <div class="btns">
             <button id="k-quit">Overview</button>
             <button class="go k-again-pulse" id="k-again">Play Again</button>
@@ -3923,6 +3924,7 @@
           <div class="toggles" id="k-settings-toggles"></div>
           <div class="btns" style="flex-direction:column">
             <button class="go big" id="kp-resume">Resume</button>
+            <button id="kp-privacy" hidden>Ad privacy settings</button>
             <button id="kp-restart">Restart</button>
             <button class="stop" id="kp-quit">Quit</button>
           </div>
@@ -3939,8 +3941,8 @@
           <button class="close" id="na-x">✕</button>
           <p class="muted" id="na-sub" style="margin:0;text-align:center">Next attempt in --:--</p>
           <div class="btns" style="flex-direction:column">
-            <button class="go big" id="na-refill">✦ shards → refill all</button>
-            <button id="na-video">📺 Watch a video → +1 attempt</button>
+            <button class="go big" id="na-video">📺 Watch a video → +1 attempt</button>
+            <button id="na-refill">✦ shards → refill all</button>
           </div>
         </div>
       </div>
@@ -3958,6 +3960,7 @@
           <p class="muted" id="kc-sub" style="margin:0;text-align:center">Keep playing for shards?</p>
           <div class="btns" style="flex-direction:column">
             <button class="go big" id="kc-accept">✦ → keep playing</button>
+            <button id="kc-video">📺 Watch a video → keep playing</button>
             <button id="kc-decline">End round</button>
           </div>
         </div>

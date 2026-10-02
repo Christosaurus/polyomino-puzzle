@@ -17,7 +17,9 @@ import {
   COMBO_DECISION_MS,
   CascadeState,
 } from "./cascade.js";
+import { adsPrivacyOptionsRequired, initAds, openAdPrivacyOptions, showRewardedAd } from "./ads.js";
 import { CascadeView, DRAG_LIFT_CELLS } from "./cascade-view.js";
+import { nextGoal } from "./goals.js";
 import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
@@ -314,7 +316,10 @@ function buildMusicRow(): HTMLElement {
   return row;
 }
 
+$("kp-privacy").addEventListener("click", () => void openAdPrivacyOptions());
+
 function renderSettingsToggles(host: HTMLElement): void {
+  $("kp-privacy").hidden = !adsPrivacyOptionsRequired();
   const rows: Array<[keyof Settings, string, string]> = [
     ["sound", "🔊", "Sound"],
     ["haptics", "📳", "Haptics"],
@@ -1828,11 +1833,21 @@ $("na-refill").addEventListener("click", () => {
   closeAttemptsGate();
   go?.();
 });
-$("na-video").addEventListener("click", () => {
-  // Echtes Ad-SDK ist ein eigener Integrationsschritt (Kontozugang, native
-  // Konfiguration) -- bis dahin ein ehrlicher Platzhalter statt eines toten
-  // Knopfs, analog zum bestehenden "📺 Watch video → Hint"-Stub im Shop.
-  toast("Video ads coming soon");
+$<HTMLButtonElement>("na-video").addEventListener("click", async () => {
+  const btn = $<HTMLButtonElement>("na-video");
+  btn.disabled = true;
+  const ok = await showRewardedAd("attempt");
+  btn.disabled = false;
+  if (!ok) {
+    toast("No reward — the video wasn't finished");
+    return;
+  }
+  store.grantCascadeAttempt();
+  toast("+1 attempt");
+  renderTopPills();
+  const go = pendingCascadeStart;
+  closeAttemptsGate();
+  go?.();
 });
 
 // ── Weiterspielen-Angebot beim Verlust des letzten Lebens (Abschnitt 4c) ───
@@ -1843,6 +1858,24 @@ $<HTMLButtonElement>("kc-accept").addEventListener("click", () => {
   const price = cascadeGame.nextContinuePrice();
   if (price === null || !store.spendShards(price)) return;
   cascadeGame.acceptContinue();
+  sfx.win(2);
+  toast("Let's go!");
+  $("k-continue-overlay").classList.remove("show");
+});
+$<HTMLButtonElement>("kc-video").addEventListener("click", async () => {
+  const game = cascadeGame;
+  if (!game || !game.awaitingContinueOffer) return;
+  const btn = $<HTMLButtonElement>("kc-video");
+  btn.disabled = true;
+  const ok = await showRewardedAd("continue");
+  btn.disabled = false;
+  // Runde inzwischen beendet/neu gestartet? Dann gilt die Belohnung nicht mehr.
+  if (cascadeGame !== game || !game.awaitingContinueOffer) return;
+  if (!ok) {
+    toast("No reward — the video wasn't finished");
+    return;
+  }
+  game.acceptContinue();
   sfx.win(2);
   toast("Let's go!");
   $("k-continue-overlay").classList.remove("show");
@@ -2228,8 +2261,34 @@ function showRoundEnd(
     chips.append(c);
   });
 
-  // Hinweiszeile unter den Chips (freigeschaltete Erfolge)
-  $("k-result").innerHTML = achievement ? `<small>🏅 ${achievement} unlocked</small>` : "";
+  // Hinweiszeilen unter den Chips: freigeschaltete Erfolge + nächstes Ziel
+  const goal = nextGoal(
+    store.load().shards,
+    SHOP.map((it) => ({ label: it.label.replace(/^\S+\s(?=[A-Za-z])/, ""), cost: it.cost, locked: !!it.soon || !!it.disabledWhen?.() })),
+  );
+  $("k-result").innerHTML =
+    (achievement ? `<small>🏅 ${achievement} unlocked</small><br>` : "") +
+    (goal ? `<small>🎯 ${nf(goal.missing)} ✦ to <b>${goal.label}</b></small>` : "<small>🛒 You can afford everything — visit the Shop!</small>");
+
+  // Belohnungswerbung: Splitter dieser Runde verdoppeln (einmal pro Runde)
+  const dbl = $<HTMLButtonElement>("k-double");
+  dbl.hidden = shards < 2;
+  dbl.disabled = false;
+  dbl.textContent = `📺 Double shards  ✦ +${nf(shards)}`;
+  dbl.onclick = async () => {
+    dbl.disabled = true;
+    const ok = await showRewardedAd("double");
+    if (token !== roundEndToken) return; // inzwischen nächste Runde
+    if (!ok) {
+      dbl.disabled = false;
+      toast("No reward — the video wasn't finished");
+      return;
+    }
+    store.addShards(shards);
+    renderTopPills();
+    dbl.textContent = `✓ Doubled! ✦ +${nf(shards)}`;
+    sfx.milestone();
+  };
 
   // Bestwert-Zeile
   let bestText: string;
@@ -3119,6 +3178,7 @@ async function boot(): Promise<void> {
     refreshLight();
     renderHome();
     playMusic("menu");
+    void initAds(); // AdMob + Zustimmungsabfrage (nur in der App)
     // Intro-Cutscene erstmal raus -- Kaskade braucht (Stand jetzt) keine
     // Einführung mehr. `maybePlayIntro`/`playSequence`/`playCutscene` und
     // `beats.ts` bleiben unangetastet liegen (derselbe "Einstiegspunkt weg,

@@ -92,6 +92,25 @@ zurücksetzen, trotzdem sauber aufbewahren.
 8. **Werbung-Deklaration:** „enthält Werbung" erst mit AdMob auf *Ja* setzen.
 9. Geschlossener Test → 14 Tage → Produktion beantragen.
 
+## 5b. Werbung (AdMob) -- eingebaut, im Testmodus
+
+- Belohnungswerbung an drei Stellen: „Keine Versuche" (+1 Versuch, primärer Knopf), Weiterspielen
+  beim letzten Leben (zusätzlich zum Splitter-Preis) und Rundenende („Double shards").
+  Code: `src/ads.ts`, Konfiguration: `src/ads-config.ts`.
+- **Testmodus**: `ADS_TEST_MODE = true` + Googles öffentliche Test-IDs; im AndroidManifest steht
+  die Test-App-ID. Im Browser läuft stattdessen ein als „Test ad" gekennzeichnetes Overlay.
+- Zustimmungsabfrage (Googles UMP) läuft beim App-Start; im Pausenmenü erscheint „Ad privacy
+  settings", wo Google das verlangt (EU/UK).
+- **Auf echte Werbung umstellen** (erst nach AdMob-Konto + Store-Verknüpfung):
+  1. AdMob-Konto, App anlegen, Rewarded-Anzeigenblock erstellen.
+  2. Echte IDs in `src/ads-config.ts` eintragen, `ADS_TEST_MODE = false`.
+  3. App-ID in `AndroidManifest.xml` (`com.google.android.gms.ads.APPLICATION_ID`) ersetzen.
+  4. Play-Console: „enthält Werbung" = Ja; Data-Safety ergänzen (Werbe-ID, Gerätekennungen,
+     Zugriff durch Google AdMob).
+  5. **Nie mit echten Anzeigen auf dem eigenen Gerät klicken** -- Sperrgrund bei AdMob.
+- Nicht gebaut: Banner und Vollbild-Anzeigen (Banner braucht einen Gerätetest für die Position
+  über der Tab-Leiste; Vollbild frühestens ab Runde 4, max. 1 pro 3 Runden).
+
 ## 6. Offene Entscheidungen
 
 - **App-ID `app.lumen.game` ist nach dem ersten Upload dauerhaft.** Ändern geht nur vorher
@@ -99,7 +118,6 @@ zurücksetzen, trotzdem sauber aufbewahren.
   `npx cap add android` erzeugen und die hier gemachten Anpassungen übernehmen).
 - **Impressum/Anbieterkennzeichnung:** in Deutschland brauchst du ein Impressum (Name, Anschrift,
   E-Mail) – in der Datenschutzerklärung und im Store-Eintrag.
-- **Werbung:** AdMob-SDK ist noch nicht eingebaut; „Werbevideo schauen" ist ein Platzhalter.
 - **Bestenliste:** Server-SQL aus `BACKEND-bestenliste.md` Abschnitt 2e ist eingespielt. Vor dem
   Release den Punkte-Deckel (aktuell 200.000) an echten Scores ausrichten, Namensfilter/Meldefunktion
   erwägen.
@@ -109,4 +127,5 @@ zurücksetzen, trotzdem sauber aufbewahren.
 Nichts davon wurde auf einem Android-Gerät oder -Emulator ausgeführt, weil auf dem Entwicklungsrechner
 kein JDK/Android SDK installiert ist. Verifiziert ist nur: `npm run build`, `npx cap sync android`
 laufen durch, Typecheck und Tests sind grün, Icons wurden als Bilder geprüft. Risikostellen: Insets
-unter Android 15/16, System-Splash (Android 12+), WebView-Audio, Vibration, Zurück-Taste.
+unter Android 15/16, System-Splash (Android 12+), WebView-Audio, Vibration, Zurück-Taste,
+**AdMob (Test-Anzeigen laden/abspielen, Zustimmungsformular, Belohnung wird gutgeschrieben)**.
