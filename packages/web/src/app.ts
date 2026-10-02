@@ -191,6 +191,21 @@ function pillValue(id: string, value: string): void {
   el.append(document.createTextNode(value));
 }
 
+/** Herzen auf den Lebensstand bringen; das gerade VERLORENE Herz schüttelt kurz. */
+function syncHearts(lives: number): void {
+  for (let i = 0; i < 3; i++) {
+    const el = $(`k-life-${i}`);
+    const nowLost = i >= lives;
+    if (nowLost && !el.classList.contains("lost")) {
+      el.classList.remove("shake");
+      void el.offsetWidth;
+      el.classList.add("shake");
+      window.setTimeout(() => el.classList.remove("shake"), 600);
+    }
+    el.classList.toggle("lost", nowLost);
+  }
+}
+
 function renderTopPills(): void {
   const s = store.load();
   const l = store.lives();
@@ -2007,6 +2022,8 @@ function startCascade(): void {
       lastMultTier = tier;
       const el = $("k-clock");
       $("k-clock-txt").textContent = fmt(h.ms);
+      // unter 10 s pulsiert die Uhr rot -- die letzten Sekunden sind spürbar
+      $("k-clock").classList.toggle("urgent", h.ms > 0 && h.ms <= 10_000);
       el.classList.toggle("warn", h.ms < 12_000);
       // Gefahr-Zustand "Brett wird eng" (Abschnitt 3 im Ökonomie-Konzept):
       // Panel pulsiert bereits selbst (siehe .board-wrap.danger in
@@ -2067,7 +2084,7 @@ function startCascade(): void {
         const toFirst = Math.max(0, lbTop1 - h.score);
         $("k-best").textContent = toFirst > 0 ? nf(toFirst) : "🏆";
       }
-      for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
+      syncHearts(h.lives);
 
       // Die Feier (großer, wegfadender weißer Text mit "+15s") zeichnet die
       // View direkt aufs Brett — der Kasten hier zeigt nur noch die laufende
@@ -2561,7 +2578,7 @@ function startRescueLevel(level: RescueLevel): void {
       const el = $("k-clock");
       $("k-clock-txt").textContent = `🧊 ${nf(Math.max(0, h.shardsLeft))}`;
       el.classList.toggle("warn", h.shardsLeft <= 3);
-      for (let i = 0; i < 3; i++) $(`k-life-${i}`).classList.toggle("lost", i >= h.lives);
+      syncHearts(h.lives);
       // keine Zwischenaufgaben im Level — das Ziel ist das Ziel
       $("k-challenge").hidden = true;
 

@@ -1562,6 +1562,10 @@ export class CascadeView {
       const sc = pop.t < 0.14 ? 1 + 0.55 * (1 - pop.t / 0.14) : 1;
       ctx.translate(pop.x, y);
       ctx.scale(sc, sc);
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(20, 10, 40, 0.7)";
+      ctx.strokeText(pop.text, 0, 0);
       ctx.fillText(pop.text, 0, 0);
       ctx.restore();
     }
@@ -1757,6 +1761,19 @@ export class CascadeView {
 
     ctx.restore(); // Ende Zoom-Punch
 
+    // Letztes Leben: dauerhaft pulsierende warme Vignette an den Rändern --
+    // man spürt "jetzt zählt's", ohne etwas Wichtiges zu verdecken.
+    if (this.game.isStarted && !this.game.isOver && !this.game.isPaused && this.game.lives === 1) {
+      const pulse = 0.5 + 0.5 * Math.sin((this.nowMs / 1000) * 2.4 * Math.PI * 2);
+      const vcx = L.cssW / 2;
+      const vcy = L.cssH / 2;
+      const vg = this.ctx.createRadialGradient(vcx, vcy, Math.min(L.cssW, L.cssH) * 0.3, vcx, vcy, Math.max(L.cssW, L.cssH) * 0.8);
+      vg.addColorStop(0, "rgba(255, 70, 40, 0)");
+      vg.addColorStop(1, `rgba(255, 70, 40, ${(0.14 + 0.14 * pulse).toFixed(3)})`);
+      this.ctx.fillStyle = vg;
+      this.ctx.fillRect(0, 0, L.cssW, L.cssH);
+    }
+
     // Lebensverlust: kurzer roter Blitz von den Rändern her, blendet schnell aus.
     if (this.lifeFlashT >= 0) {
       const k = 1 - this.lifeFlashT / LIFE_FLASH_S;
@@ -1889,10 +1906,17 @@ export class CascadeView {
     const rim = ctx.createLinearGradient(0, y, 0, y + h);
     rim.addColorStop(0, `rgba(255, 70, 40, ${(a * 0.55).toFixed(3)})`);
     rim.addColorStop(1, `rgba(255, 175, 60, ${a.toFixed(3)})`);
+    // breiter, weicher Halo darunter -- macht den Rand von weitem als Glut lesbar
+    ctx.strokeStyle = `rgba(255, 120, 40, ${(a * 0.35).toFixed(3)})`;
+    ctx.lineWidth = 9 + 9 * u * flick;
+    ctx.shadowColor = `rgba(255, 90, 30, ${a.toFixed(3)})`;
+    ctx.shadowBlur = 18 + 30 * u * flick;
+    roundRect(ctx, x, y, w, h, 15);
+    ctx.stroke();
     ctx.shadowColor = `rgba(255, 110, 40, ${a.toFixed(3)})`;
-    ctx.shadowBlur = 6 + 16 * u * flick;
+    ctx.shadowBlur = 10 + 24 * u * flick;
     ctx.strokeStyle = rim;
-    ctx.lineWidth = 2.5 + 2.5 * u * flick;
+    ctx.lineWidth = 3.5 + 4 * u * flick;
     roundRect(ctx, x, y, w, h, 15);
     ctx.stroke();
 
@@ -2309,6 +2333,7 @@ export class CascadeView {
             t: 0,
             text: "PHEW!",
             color: "#ffd24a",
+            s: 1.9,
           });
           sfx.save();
           sfx.vibrate(20);

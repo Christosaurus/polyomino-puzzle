@@ -1329,6 +1329,31 @@
         height: 64px;
         z-index: 1;
       }
+      /* Herz gerade verloren: kräftiger Wackler (translate/scale als eigene
+         Properties, damit die gedrehte Grundlage per transform unberührt bleibt) */
+      .k-life.shake {
+        animation: heart-shake 0.55s ease-out;
+      }
+      @keyframes heart-shake {
+        0% { translate: 0 0; scale: 1; }
+        15% { translate: -7px 0; scale: 1.25; }
+        30% { translate: 7px -3px; scale: 1.25; }
+        45% { translate: -5px 0; scale: 1.12; }
+        60% { translate: 4px 2px; scale: 1.05; }
+        100% { translate: 0 0; scale: 1; }
+      }
+      /* Letzte 10 Sekunden: Uhr pulsiert rot */
+      #k-clock.urgent {
+        animation: clock-urgent 0.5s ease-in-out infinite alternate;
+        color: #ff6a5a;
+      }
+      @keyframes clock-urgent {
+        from { transform: scale(1); }
+        to { transform: scale(1.1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .k-life.shake, #k-clock.urgent { animation: none; }
+      }
       .k-life.lost {
         opacity: 0.3;
         filter: grayscale(1) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
