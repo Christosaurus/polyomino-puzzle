@@ -120,6 +120,8 @@ const BELT_WARN_Y = 0.82;
 const BELT_SAVE_Y = 0.82;
 /** Roter Schlag-Blitz an den Rändern, wenn ein Leben vom Band fällt. */
 const LIFE_FLASH_S = 0.45;
+/** Dauer des kurzen Zoom-Punchs beim Räumen. */
+const PUNCH_S = 0.28;
 
 export class CascadeView {
   private canvas: HTMLCanvasElement;
@@ -159,7 +161,11 @@ export class CascadeView {
   private flashCols: { col: number; t: number }[] = [];
   private sparks: Spark[] = [];
   /** short-lived "+N" score pops */
-  private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
+  private pops: { x: number; y: number; t: number; text: string; color: string; s?: number }[] = [];
+  /** Zoom-Punch des Panels beim Räumen (0..LIFE) und seine Stärke. */
+  private punchScale = 1;
+  private punchT = -1;
+  private punchMag = 0;
   private placePop: { r: number; c: number; t: number } | null = null;
   /** Scherben, für die der Vorwarn-Tick schon lief (je Scherbe nur einmal). */
   private warned = new Set<number>();
@@ -400,6 +406,20 @@ export class CascadeView {
       this.shakeMag > 0.05
         ? `translate(${(Math.random() - 0.5) * 2 * this.shakeMag}px, ${(Math.random() - 0.5) * 2 * this.shakeMag}px)`
         : "";
+    // Zoom-Punch beim Räumen: wird im Canvas selbst gezeichnet (siehe render),
+    // NICHT per CSS-Transform am Panel -- das machte die Seite kurz breiter als
+    // den Bildschirm (horizontaler Scrollbalken) und verschob die Trefferkoordinaten.
+    this.punchScale = 1;
+    if (this.punchT >= 0) {
+      this.punchT += dt;
+      const k = this.punchT / PUNCH_S;
+      if (k >= 1) {
+        this.punchT = -1;
+      } else {
+        // schneller Ausschlag, weiches Zurückfedern
+        this.punchScale = 1 + this.punchMag * Math.sin(k * Math.PI) * (1 - k);
+      }
+    }
     if (this.comboPop && (this.comboPop.t += dt) > COMBO_LIFE_S) this.comboPop = null;
     if (this.tierFlashT >= 0) {
       this.tierFlashT += dt;
@@ -472,6 +492,14 @@ export class CascadeView {
       this.spawnLineClearChunks(clear.cells, L);
       const lineCount = clear.rows.length + clear.cols.length;
       if (lineCount > 0) sfx.rowClear(lineCount);
+      // Wucht wächst mit Reihenzahl und Kette: 1 Reihe 0.5, 2 Reihen 0.75, 3+ ~1.
+      const power = Math.min(1, 0.25 + lineCount * 0.25 + Math.max(0, clear.chain - 1) * 0.15);
+      if (lineCount > 0) {
+        this.punchMag = 0.012 + 0.06 * power * power;
+        this.punchT = 0;
+        if (lineCount === 1) this.shake(2.4);
+        if (power >= 0.7) sfx.thump(power);
+      }
       if (clear.gain >= 12 && lineCount > 0) {
         const popRow = clear.rows.length > 0 ? clear.rows[0]! + 0.2 : 0.4;
         this.pops.push({
@@ -480,9 +508,10 @@ export class CascadeView {
           t: 0,
           text: `+${nf(clear.gain)}`,
           color: cssVar("--gold"),
+          s: clear.gain >= 400 ? 1.6 : clear.gain >= 150 ? 1.4 : clear.gain >= 50 ? 1.2 : 1,
         });
       }
-      sfx.vibrate(24);
+      sfx.vibrate(Math.round(16 + 26 * power));
       // Zwei verschiedene Combo-Arten, die auch verschieden aussehen — nicht
       // immer dieselbe Zeile. Mehrfach-Clear ist seltener/größer, geht vor.
       let comboShown = false;
@@ -1200,6 +1229,15 @@ export class CascadeView {
     const ctx = this.ctx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, L.cssW, L.cssH);
+    // Zoom-Punch: alles bis zum roten Lebensverlust-Blitz um die Brettmitte skalieren.
+    ctx.save();
+    if (this.punchScale !== 1) {
+      const pcx = L.boardX + (this.game.cols * L.cell) / 2;
+      const pcy = L.boardY + (this.game.rows * L.cell) / 2;
+      ctx.translate(pcx, pcy);
+      ctx.scale(this.punchScale, this.punchScale);
+      ctx.translate(-pcx, -pcy);
+    }
 
     // leeres Brett-Raster: einmal gebaut, danach nur noch als Bild geblittet
     const grid = boardGrid(this.gridCells, L.cell, dpr, cssVar("--cell"));
@@ -1298,6 +1336,16 @@ export class CascadeView {
       ctx.fillStyle = g;
       const bh = L.cell * (1 + p * 0.6);
       ctx.fillRect(L.boardX, y - (bh - L.cell) / 2, w, bh);
+      // heller Lichtkopf, der einmal durch die Reihe rast
+      if (p < 0.7) {
+        const hx = L.boardX + w * Math.min(1, p / 0.45);
+        const hy = y + L.cell / 2;
+        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, L.cell * 1.7);
+        hg.addColorStop(0, `rgba(255,255,255,${((1 - p / 0.7) * 0.95).toFixed(3)})`);
+        hg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = hg;
+        ctx.fillRect(hx - L.cell * 1.7, hy - L.cell * 1.7, L.cell * 3.4, L.cell * 3.4);
+      }
       ctx.restore();
     }
 
@@ -1316,6 +1364,15 @@ export class CascadeView {
       ctx.fillStyle = g;
       const bw = L.cell * (1 + p * 0.6);
       ctx.fillRect(x - (bw - L.cell) / 2, L.boardY, bw, h);
+      if (p < 0.7) {
+        const hy = L.boardY + h * Math.min(1, p / 0.45);
+        const hx = x + L.cell / 2;
+        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, L.cell * 1.7);
+        hg.addColorStop(0, `rgba(255,255,255,${((1 - p / 0.7) * 0.95).toFixed(3)})`);
+        hg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = hg;
+        ctx.fillRect(hx - L.cell * 1.7, hy - L.cell * 1.7, L.cell * 3.4, L.cell * 3.4);
+      }
       ctx.restore();
     }
 
@@ -1344,12 +1401,16 @@ export class CascadeView {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = pop.color;
-      ctx.font = `800 ${Math.round(L.cell * 0.6)}px "Baloo 2", sans-serif`;
+      ctx.font = `800 ${Math.round(L.cell * 0.6 * (pop.s ?? 1))}px "Baloo 2", sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0,0,0,0.5)";
       ctx.shadowBlur = 4;
-      ctx.fillText(pop.text, pop.x, y);
+      // Einschlag: beim Erscheinen kurz überdimensioniert, dann auf Größe
+      const sc = pop.t < 0.14 ? 1 + 0.55 * (1 - pop.t / 0.14) : 1;
+      ctx.translate(pop.x, y);
+      ctx.scale(sc, sc);
+      ctx.fillText(pop.text, 0, 0);
       ctx.restore();
     }
     ctx.textAlign = "left";
@@ -1541,6 +1602,8 @@ export class CascadeView {
       }
       this.drawDrag(L);
     }
+
+    ctx.restore(); // Ende Zoom-Punch
 
     // Lebensverlust: kurzer roter Blitz von den Rändern her, blendet schnell aus.
     if (this.lifeFlashT >= 0) {

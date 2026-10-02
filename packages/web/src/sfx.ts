@@ -119,6 +119,11 @@ export const sfx = {
     tone(300, 420, "sawtooth", 0.05, 0, 90);
     tone(150, 500, "sine", 0.04, 60, 70);
   },
+  /** Satter Bass-Schlag unter Mehrfach-Clears und Ketten (`power` 0..1). */
+  thump(power = 1): void {
+    tone(120, 170, "sine", 0.1 * power, 0, 46);
+    noise(70, 0.07 * power, 130);
+  },
   /** Scherbe ist kurz vorm Bandende -- zwei dumpfe Ticks als Vorwarnung. */
   warn(): void {
     tone(210, 55, "square", 0.035);
