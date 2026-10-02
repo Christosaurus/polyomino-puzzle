@@ -2201,12 +2201,14 @@ function maybeHintRotate(): void {
   window.setTimeout(startRotateTutorial, 500);
 }
 
-/** Friert die Runde ein (kein `game.start()`, siehe
- *  `CascadeView.beginRotateTutorial`) und legt nur die oberste Band-Scherbe
- *  in einem runden, weich ausgeblendeten Spotlight frei — kreisende Pfeile
- *  auf der Scherbe + ein antippender Zeiger zeigen die Geste. Erst nachdem
- *  der Spieler die Scherbe ein paar Mal angetippt (= gedreht) hat, endet das
- *  Tutorial und die Runde startet sofort. */
+/** Zweiteiliges Tutorial vor der ALLERERSTEN Runde. Die Runde bleibt dabei
+ *  eingefroren (kein `game.start()`, siehe `CascadeView.beginRotateTutorial`):
+ *  1) Die oberste Band-Scherbe steht in einem runden, weichen Spotlight,
+ *     kreisende Pfeile + antippender Zeiger -- 2 Taps drehen sie.
+ *  2) Eine vorbereitete Lücke im Brett (genau die Scherbenform) wird mit
+ *     zweitem Spotlight freigestellt, der Zeiger zieht die Scherbe dorthin --
+ *     die Reihe verschwindet.
+ *  Erst danach startet die Runde sofort. */
 function startRotateTutorial(): void {
   const view = cascadeView;
   const game = cascadeGame;
@@ -2218,15 +2220,55 @@ function startRotateTutorial(): void {
     const p = view.tutorialShardPoint;
     if (!p) return;
     const r = canvas.getBoundingClientRect();
-    hint.style.setProperty("--tx", `${r.left + p.x}px`);
-    hint.style.setProperty("--ty", `${r.top + p.y}px`);
+    const tx = r.left + p.x;
+    const ty = r.top + p.y;
+    hint.style.setProperty("--tx", `${tx}px`);
+    hint.style.setProperty("--ty", `${ty}px`);
     hint.style.setProperty("--tr", `${p.r}px`);
+    const g = view.tutorialGapRect;
+    if (!g) return;
+    const gx = r.left + g.x + g.w / 2;
+    const gy = r.top + g.y + g.h / 2;
+    hint.style.setProperty("--gx", `${gx}px`);
+    hint.style.setProperty("--gy", `${gy}px`);
+    hint.style.setProperty("--gr", `${Math.max(g.w, g.h) / 2 + g.cell * 0.9}px`);
+    // Zeiger: Start auf der Scherbe, Zielversatz zur Lücke
+    hint.style.setProperty("--hx0", `${tx}px`);
+    hint.style.setProperty("--hy0", `${ty}px`);
+    hint.style.setProperty("--hdx", `${gx - tx}px`);
+    hint.style.setProperty("--hdy", `${gy - ty}px`);
+    const ring = $("rt-gap");
+    ring.style.left = `${r.left + g.x - 4}px`;
+    ring.style.top = `${r.top + g.y - 4}px`;
+    ring.style.width = `${g.w + 8}px`;
+    ring.style.height = `${g.h + 8}px`;
+    const cap = $("rt-cap");
+    cap.style.top = `${Math.max(12, r.top + g.y - 74)}px`;
   };
+
+  function finish(): void {
+    window.removeEventListener("resize", place);
+    hint.classList.remove("show");
+    window.setTimeout(() => {
+      hint.hidden = true;
+      hint.classList.remove("step2");
+    }, 300);
+    view!.endRotateTutorial();
+    game!.start();
+  }
 
   let taps = 0;
   view.beginRotateTutorial(() => {
     taps += 1;
-    if (taps >= ROTATE_TUTORIAL_TAPS) finish();
+    if (taps < ROTATE_TUTORIAL_TAPS) return;
+    // Schritt 2: Lücke vorbereiten. Geht das nicht (Level-Modus o. Ä.), ist's
+    // mit dem Drehen genug und die Runde startet gleich.
+    if (!view.beginPlaceTutorial(finish)) {
+      finish();
+      return;
+    }
+    hint.classList.add("step2");
+    place();
   });
   place();
   if (!view.tutorialShardPoint) {
@@ -2240,14 +2282,6 @@ function startRotateTutorial(): void {
   void hint.offsetWidth; // reflow erzwingen, damit die Fade-Transition greift
   hint.classList.add("show");
   window.addEventListener("resize", place);
-
-  function finish(): void {
-    window.removeEventListener("resize", place);
-    hint.classList.remove("show");
-    window.setTimeout(() => (hint.hidden = true), 300);
-    view!.endRotateTutorial();
-    game!.start();
-  }
 }
 
 // ── Story-Modus (Kaskade-Level mit Rettungsszene) ──────────────────────────

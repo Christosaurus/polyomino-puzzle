@@ -154,6 +154,11 @@ export class CascadeView {
    *  `game.start()` bleibt aus -- die Runde steht bewusst still. */
   private tutorialShardId: number | null = null;
   private onTutorialTap: (() => void) | null = null;
+  /** Tutorial-Schritt 2 ("Reihe füllen"): Zielposition der Scherbe in der
+   *  vorbereiteten Lücke. Gesetzt = Schritt 2 aktiv. */
+  private tutorialGap: Pos | null = null;
+  private tutorialGapBox: { row: number; col: number; h: number; w: number } | null = null;
+  private onTutorialPlaced: (() => void) | null = null;
   private running = false;
   private raf = 0;
   private last = 0;
@@ -276,6 +281,62 @@ export class CascadeView {
   endRotateTutorial(): void {
     this.tutorialShardId = null;
     this.onTutorialTap = null;
+    this.tutorialGap = null;
+    this.tutorialGapBox = null;
+    this.onTutorialPlaced = null;
+  }
+  /** Tutorial-Schritt 2: bereitet unten eine Lücke vor, in die genau die
+   *  Tutorial-Scherbe passt -- alle anderen Zellen der betroffenen Reihen sind
+   *  gefüllt, ein Treffer räumt sie also. Nimmt dafür die Ausrichtung mit der
+   *  kleinsten Höhe. Gibt `false` zurück, wenn das nicht möglich ist. Nur im
+   *  Free Play (im Level-Modus schrumpft das Brett). */
+  beginPlaceTutorial(onPlaced: () => void): boolean {
+    const g = this.game;
+    const shard = g.belt.find((s) => s.id === this.tutorialShardId);
+    if (!shard || g.level) return false;
+    const dims = (): { h: number; w: number; minR: number; minC: number } => {
+      const cs = g.cells(shard);
+      const rs = cs.map((c) => c[0]);
+      const cc = cs.map((c) => c[1]);
+      const minR = Math.min(...rs);
+      const minC = Math.min(...cc);
+      return { h: Math.max(...rs) - minR + 1, w: Math.max(...cc) - minC + 1, minR, minC };
+    };
+    let best = shard.orientationIndex;
+    let bh = 99;
+    let bw = 99;
+    for (let o = 0; o < g.orientationCount(shard.name); o++) {
+      shard.orientationIndex = o;
+      const d = dims();
+      if (d.h < bh || (d.h === bh && d.w < bw)) {
+        bh = d.h;
+        bw = d.w;
+        best = o;
+      }
+    }
+    shard.orientationIndex = best;
+    const d = dims();
+    if (d.h > g.rows || d.w > g.cols) return false;
+    const row0 = g.rows - d.h;
+    const col0 = Math.floor((g.cols - d.w) / 2);
+    // untere Reihen komplett füllen (bunt, aus den Farben der Bandscherben) …
+    const colors = g.belt.map((s) => g.colorIndex(s.name));
+    for (let r = row0; r < g.rows; r++) {
+      for (let c = 0; c < g.cols; c++) g.board[r * g.cols + c] = colors[(r + c) % colors.length]!;
+    }
+    // … und genau die Form der Scherbe wieder freiräumen
+    for (const [dr, dc] of g.cells(shard)) g.board[(row0 + dr - d.minR) * g.cols + (col0 + dc - d.minC)] = 0;
+    this.tutorialGap = { row: row0 - d.minR, col: col0 - d.minC };
+    this.tutorialGapBox = { row: row0, col: col0, h: d.h, w: d.w };
+    this.onTutorialPlaced = onPlaced;
+    return true;
+  }
+  /** Rechteck der Lücke (Canvas-relative CSS-Pixel) + Zellgröße. */
+  get tutorialGapRect(): { x: number; y: number; w: number; h: number; cell: number } | null {
+    const L = this.layout;
+    const b = this.tutorialGapBox;
+    if (!L || !b) return null;
+    return { x: L.boardX + b.col * L.cell, y: L.boardY + b.row * L.cell, w: b.w * L.cell, h: b.h * L.cell, cell: L.cell };
   }
   /** Bildschirmposition (Canvas-relative CSS-Pixel) + sinnvoller Spotlight-
    *  Radius für die Tutorial-Scherbe. `null` ohne aktives Tutorial oder
@@ -1964,6 +2025,7 @@ export class CascadeView {
       this.canvas.setPointerCapture(e.pointerId);
       const cen = this.centroid(nearest);
       this.drag = { shard: nearest, from: "belt", px: x, py: y, sx: x, sy: y, moved: false, grabR: cen.r, grabC: cen.c };
+      if (this.tutorialGap) sfx.pickUp();
       return;
     }
 
@@ -2028,15 +2090,23 @@ export class CascadeView {
     const L = this.layout;
 
     if (this.tutorialShardId !== null) {
-      // Dreh-Tutorial: JEDE Berührung der freigestellten Scherbe dreht sie --
-      // auch ein leichtes Verrutschen zählt als Dreh-Tap, nie als
-      // Platzierung (die Runde ist absichtlich noch nicht gestartet).
-      if (d.shard.id === this.tutorialShardId) {
+      if (d.shard.id !== this.tutorialShardId) return;
+      if (!this.tutorialGap) {
+        // Schritt 1 (Dreh-Tutorial): JEDE Berührung der freigestellten Scherbe
+        // dreht sie -- auch ein leichtes Verrutschen zählt als Dreh-Tap, nie
+        // als Platzierung (die Runde ist absichtlich noch nicht gestartet).
         this.game.rotate(d.shard);
         sfx.pickUp();
         this.onTutorialTap?.();
+        return;
       }
-      return;
+      // Schritt 2: nur das Ziehen genau in die vorbereitete Lücke zählt, alles
+      // andere springt zurück. Passt es, läuft der normale Platzier-Pfad unten.
+      const snapT = d.moved && this.overBoard(d.px, d.py, L) ? this.snappedFor(d, L) : null;
+      if (!snapT || snapT.row !== this.tutorialGap.row || snapT.col !== this.tutorialGap.col) {
+        if (d.moved) sfx.invalid();
+        return;
+      }
     }
 
     // tap → rotate the shard in place. Nur an der Bewegung fest gemacht, NICHT
@@ -2058,6 +2128,11 @@ export class CascadeView {
         else this.game.hold = null;
         sfx.place();
         sfx.vibrate(8);
+        if (this.tutorialGap) {
+          const done = this.onTutorialPlaced;
+          this.endRotateTutorial();
+          done?.();
+        }
         // Knapp gerettet: die Scherbe war schon fast am Bandende.
         if (d.from === "belt" && d.shard.y >= BELT_SAVE_Y) {
           this.pops.push({
