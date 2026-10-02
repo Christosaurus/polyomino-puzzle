@@ -1740,6 +1740,18 @@ async function renderLeaderboard(): Promise<void> {
     return;
   }
 
+  if (data.length === 0) {
+    const p = document.createElement("li");
+    p.className = "lb-offline";
+    p.textContent =
+      lbScope === "country"
+        ? "Noch keine Einträge in deinem Land diese Woche — sei der Erste!"
+        : "Noch keine Einträge diese Woche — sei der Erste!";
+    rows.replaceChildren(p);
+    self.hidden = true;
+    return;
+  }
+
   const me = playerId();
   const myName = store.playerName();
   rows.replaceChildren(...data.slice(0, 50).map((r, i) => lbRowEl(r, i + 1, me, myName)));

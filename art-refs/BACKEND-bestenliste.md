@@ -256,6 +256,17 @@ $$;
 grant execute on function public.submit_cascade_score to anon;
 ```
 
+### 2d. Stand 2026-10-02: Fix 2c war live NICHT eingespielt
+
+Per Probe-Aufruf geprueft: der Server lehnte `p_run_ms = 10000` und
+`p_run_ms = 270000` mit `implausible run time` ab -- es liefen also noch die
+alten Grenzen (45000..200000 ms) aus Schritt 2b. Folge: jede Runde unter 45 s
+und jede ueber 200 s (3:00 Grundzeit + Zeitboni, seit den neuen Faehigkeiten
+ueblich) wurde stillschweigend abgelehnt, die Wochenliste blieb leer.
+**Abhilfe: den SQL-Block aus Abschnitt 2c im Supabase SQL Editor ausfuehren.**
+Danach muessten `run_ms=10000` -> `implausible clears` und `run_ms=270000` ->
+`implausible score` kommen (statt jeweils `implausible run time`).
+
 ### 3. Die zwei Werte für mich holen
 
 Linke Leiste → **Project Settings** → **API**:
