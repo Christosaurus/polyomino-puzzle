@@ -2182,7 +2182,10 @@ const ROTATE_TUTORIAL_TAPS = 2;
  *  Story-Level), danach nie wieder — sonst findet kaum jemand von allein
  *  heraus, dass Antippen eine Figur dreht. */
 function maybeHintRotate(): void {
-  if (!store.markHintSeen("rotate-tip")) return;
+  // `?tutorial` in der URL erzwingt das Tutorial erneut (zum Anschauen/Testen),
+  // ohne den Gesehen-Flag anzufassen.
+  const forced = new URLSearchParams(location.search).has("tutorial");
+  if (!forced && !store.markHintSeen("rotate-tip")) return;
   // kurze Verzögerung, damit der Screen-Wechsel/die Cross-Slide-Animation
   // fertig ist, bevor sich alles verdunkelt
   window.setTimeout(startRotateTutorial, 500);
