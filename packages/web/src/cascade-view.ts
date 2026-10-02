@@ -1555,58 +1555,60 @@ export class CascadeView {
     }
   }
 
-  /** Flammenzungen am unteren Bandrand + weiches Glühen darüber. `u` (0..1)
-   *  wächst, je näher die gefährdetste Scherbe dem Abfall kommt: die Flammen
-   *  werden höher, heller und flackern schneller. */
+  /** Feuriger Rand ums Band: der Rahmen glüht orange-rot und flackert
+   *  unregelmäßig, dazu wandern helle Funken-Segmente am Rand entlang. `u`
+   *  (0..1) wächst, je näher die gefährdetste Scherbe dem Abfall kommt:
+   *  Rand dicker, heller, Flackern schneller. Unten ist der Rand am heißesten. */
   private drawBeltFlames(L: Layout, u: number): void {
     const ctx = this.ctx;
     const t = this.nowMs / 1000;
-    const baseY = L.beltTop + L.beltH;
+    const x = L.beltX + 1.5;
+    const y = L.beltTop + 1.5;
+    const w = L.beltW - 3;
+    const h = L.beltH - 3;
+    const sp = 5 + u * 7;
+    // unregelmäßiges Flackern: drei Sinus mit krummen Verhältnissen
+    const flick = Math.min(
+      1.2,
+      Math.max(
+        0.35,
+        0.7 + 0.22 * Math.sin(t * sp) + 0.14 * Math.sin(t * sp * 2.3 + 1.3) + 0.08 * Math.sin(t * sp * 5.1 + 0.4),
+      ),
+    );
+    const a = Math.min(1, (0.35 + 0.6 * u) * flick);
+
+    // weiches Glühen von innen, unten stärker
     ctx.save();
     roundRect(ctx, L.beltX, L.beltTop, L.beltW, L.beltH, 16);
     ctx.clip();
-
-    // Glut-Glühen: pulsiert langsam, schneller und stärker mit u.
-    const pulse = 0.5 + 0.5 * Math.sin(t * (1.8 + u * 3) * Math.PI * 2);
-    const glow = ctx.createLinearGradient(0, baseY, 0, baseY - L.beltH * (0.35 + 0.3 * u));
-    glow.addColorStop(0, `rgba(255, 110, 40, ${(0.18 + 0.3 * u * (0.5 + 0.5 * pulse)).toFixed(3)})`);
-    glow.addColorStop(1, "rgba(255, 70, 30, 0)");
-    ctx.fillStyle = glow;
+    const inner = ctx.createLinearGradient(0, L.beltTop + L.beltH, 0, L.beltTop + L.beltH * 0.4);
+    inner.addColorStop(0, `rgba(255, 110, 40, ${((0.1 + 0.22 * u) * flick).toFixed(3)})`);
+    inner.addColorStop(1, "rgba(255, 70, 30, 0)");
+    ctx.fillStyle = inner;
     ctx.fillRect(L.beltX, L.beltTop, L.beltW, L.beltH);
+    ctx.restore();
 
-    // Flammenzungen: jede mit eigener Phase, zwei überlagerte Sinus-Flackerer.
-    const n = 5;
-    const w = L.beltW / n;
-    const flickerSpeed = 6 + u * 7;
-    const maxH = L.beltH * (0.12 + 0.38 * u);
-    for (let i = 0; i < n; i++) {
-      const ph = i * 1.9;
-      const flick = 0.72 + 0.26 * Math.sin(t * flickerSpeed + ph) + 0.16 * Math.sin(t * flickerSpeed * 1.9 + ph * 2.3);
-      const h = maxH * flick;
-      const cx = L.beltX + w * (i + 0.5);
-      const sway = Math.sin(t * 3.1 + ph) * w * 0.22;
-      const a = 0.5 + 0.45 * u;
-      // äußere (rot-orange) und innere (gelbe) Zunge
-      for (const [wid, hh, core] of [[0.62, 1, false], [0.32, 0.6, true]] as const) {
-        const tipY = baseY - h * hh;
-        ctx.beginPath();
-        ctx.moveTo(cx - w * wid, baseY + 2);
-        ctx.quadraticCurveTo(cx - w * wid * 0.25, baseY - h * hh * 0.55, cx + sway * hh, tipY);
-        ctx.quadraticCurveTo(cx + w * wid * 0.3, baseY - h * hh * 0.5, cx + w * wid, baseY + 2);
-        ctx.closePath();
-        const g = ctx.createLinearGradient(0, baseY, 0, tipY);
-        if (core) {
-          g.addColorStop(0, `rgba(255, 240, 150, ${a.toFixed(3)})`);
-          g.addColorStop(1, "rgba(255, 190, 70, 0)");
-        } else {
-          g.addColorStop(0, `rgba(255, 150, 40, ${a.toFixed(3)})`);
-          g.addColorStop(0.55, `rgba(255, 85, 35, ${(a * 0.8).toFixed(3)})`);
-          g.addColorStop(1, "rgba(220, 40, 30, 0)");
-        }
-        ctx.fillStyle = g;
-        ctx.fill();
-      }
-    }
+    // glühender Rand: oben rot, unten gelb-orange, mit Schein nach außen
+    ctx.save();
+    const rim = ctx.createLinearGradient(0, y, 0, y + h);
+    rim.addColorStop(0, `rgba(255, 70, 40, ${(a * 0.55).toFixed(3)})`);
+    rim.addColorStop(1, `rgba(255, 175, 60, ${a.toFixed(3)})`);
+    ctx.shadowColor = `rgba(255, 110, 40, ${a.toFixed(3)})`;
+    ctx.shadowBlur = 6 + 16 * u * flick;
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = 2.5 + 2.5 * u * flick;
+    roundRect(ctx, x, y, w, h, 15);
+    ctx.stroke();
+
+    // helle Funken-Segmente, die am Rand entlangwandern
+    const per = 2 * (w + h);
+    ctx.setLineDash([per * 0.07, per * 0.05, per * 0.03, per * 0.09]);
+    ctx.lineDashOffset = -t * (40 + u * 90);
+    ctx.shadowBlur = 4 + 8 * u;
+    ctx.strokeStyle = `rgba(255, 235, 150, ${a.toFixed(3)})`;
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, y, w, h, 15);
+    ctx.stroke();
     ctx.restore();
   }
 
