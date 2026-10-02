@@ -112,6 +112,14 @@ export interface CascadeCallbacks {
  *  steuert `pickShardName` schon vorher gleitend gegen (mehr kleine Teile,
  *  je voller), das hier ist nur die feste Schwelle für die sichtbare Warnung. */
 const DANGER_FRAC = 0.78;
+/** Band-Position (0 = oben, 1 = fällt runter), ab der das Bandende zu glühen
+ *  beginnt, und ab der es einmal pro Scherbe tickt. Eine Rettung ab
+ *  `BELT_SAVE_Y` gilt als knapp ("PHEW!"). */
+const BELT_DANGER_Y = 0.7;
+const BELT_WARN_Y = 0.82;
+const BELT_SAVE_Y = 0.82;
+/** Roter Schlag-Blitz an den Rändern, wenn ein Leben vom Band fällt. */
+const LIFE_FLASH_S = 0.45;
 
 export class CascadeView {
   private canvas: HTMLCanvasElement;
@@ -153,6 +161,10 @@ export class CascadeView {
   /** short-lived "+N" score pops */
   private pops: { x: number; y: number; t: number; text: string; color: string }[] = [];
   private placePop: { r: number; c: number; t: number } | null = null;
+  /** Scherben, für die der Vorwarn-Tick schon lief (je Scherbe nur einmal). */
+  private warned = new Set<number>();
+  private lastLives = -1;
+  private lifeFlashT = -1;
   /** Winziges Staubwölkchen beim Platzieren — billig: ein paar Kreise, kein Glow. */
   private dust: Array<{ x: number; y: number; vx: number; vy: number; t: number; max: number; r: number }> = [];
   private ended = false;
@@ -337,6 +349,33 @@ export class CascadeView {
   private step(dt: number): void {
     this.nowMs = performance.now();
     this.game.tick(dt);
+
+    // Vorwarnung: sobald eine Scherbe zum ersten Mal kurz vorm Bandende ist,
+    // ein leiser Doppel-Tick (+ kurzer Haptik-Impuls) -- je Scherbe einmal.
+    if (this.game.isStarted && !this.game.isOver) {
+      for (const s of this.game.belt) {
+        if (s.y >= BELT_WARN_Y && !this.warned.has(s.id)) {
+          this.warned.add(s.id);
+          sfx.warn();
+          sfx.vibrate(12);
+        }
+      }
+      if (this.warned.size > 24) {
+        const live = new Set(this.game.belt.map((s) => s.id));
+        for (const id of this.warned) if (!live.has(id)) this.warned.delete(id);
+      }
+    }
+    // Leben verloren (Scherbe vom Band gefallen): Schlag, Wackler, roter Blitz.
+    const livesNow = this.game.lives;
+    if (this.lastLives >= 0 && livesNow < this.lastLives) {
+      this.shake(10);
+      this.lifeFlashT = 0;
+      sfx.lifeLost();
+      sfx.vibrate(35);
+    }
+    this.lastLives = livesNow;
+    if (this.lifeFlashT >= 0 && (this.lifeFlashT += dt) > LIFE_FLASH_S) this.lifeFlashT = -1;
+
     // Schutt sanft auf den echten Stand nachziehen — das Feld schrumpft dann
     // sichtbar über ~0,4s, statt in einem Frame zu springen.
     if (this.rubbleDisplay !== this.game.shrunkRows) {
@@ -1455,6 +1494,30 @@ export class CascadeView {
       ctx.lineTo(L.beltX + L.beltW - 8, y);
       ctx.stroke();
     }
+    // Gefahrenzone: je näher die am weitesten gerutschte Scherbe dem Bandende
+    // kommt, desto stärker und schneller pulsiert ein warmes Glühen am unteren
+    // Bandrand (bewusst am Band, NICHT als rote Kontur an der Scherbe).
+    if (this.game.isStarted && !this.game.isOver && !this.game.isPaused) {
+      let urgency = 0;
+      for (const s of this.game.belt) {
+        urgency = Math.max(urgency, (s.y - BELT_DANGER_Y) / (1 - BELT_DANGER_Y));
+      }
+      if (urgency > 0) {
+        const u = Math.min(1, urgency);
+        const hz = 1.6 + u * 3.2;
+        const pulse = 0.5 + 0.5 * Math.sin((this.nowMs / 1000) * hz * Math.PI * 2);
+        const alpha = 0.12 + u * 0.38 * (0.35 + 0.65 * pulse);
+        ctx.save();
+        roundRect(ctx, L.beltX, L.beltTop, L.beltW, L.beltH, 16);
+        ctx.clip();
+        const g = ctx.createLinearGradient(0, L.beltTop + L.beltH, 0, L.beltTop + L.beltH * 0.5);
+        g.addColorStop(0, `rgba(255, 80, 60, ${alpha.toFixed(3)})`);
+        g.addColorStop(1, "rgba(255, 80, 60, 0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(L.beltX, L.beltTop, L.beltW, L.beltH);
+        ctx.restore();
+      }
+    }
     for (const { shard, cy } of this.beltRows(L)) {
       if (this.drag && this.drag.shard.id === shard.id) continue;
       this.drawShard(shard, L.beltX + L.beltW / 2, cy, L.shardCell);
@@ -1491,6 +1554,18 @@ export class CascadeView {
         if (preview.rows.length || preview.cols.length) this.drawLinePreview(preview, L);
       }
       this.drawDrag(L);
+    }
+
+    // Lebensverlust: kurzer roter Blitz von den Rändern her, blendet schnell aus.
+    if (this.lifeFlashT >= 0) {
+      const k = 1 - this.lifeFlashT / LIFE_FLASH_S;
+      const cx = L.cssW / 2;
+      const cyy = L.cssH / 2;
+      const g = this.ctx.createRadialGradient(cx, cyy, Math.min(L.cssW, L.cssH) * 0.25, cx, cyy, Math.max(L.cssW, L.cssH) * 0.75);
+      g.addColorStop(0, "rgba(255, 50, 50, 0)");
+      g.addColorStop(1, `rgba(255, 50, 50, ${(0.5 * k).toFixed(3)})`);
+      this.ctx.fillStyle = g;
+      this.ctx.fillRect(0, 0, L.cssW, L.cssH);
     }
   }
 
@@ -1877,6 +1952,18 @@ export class CascadeView {
         else this.game.hold = null;
         sfx.place();
         sfx.vibrate(8);
+        // Knapp gerettet: die Scherbe war schon fast am Bandende.
+        if (d.from === "belt" && d.shard.y >= BELT_SAVE_Y) {
+          this.pops.push({
+            x: L.boardX + (this.game.cols * L.cell) / 2,
+            y: L.boardY + snap.row * L.cell,
+            t: 0,
+            text: "PHEW!",
+            color: "#ffd24a",
+          });
+          sfx.save();
+          sfx.vibrate(20);
+        }
         // Winziger Wackler bei jeder Platzierung — nur ein kurzer Ruck, spürbar
         // wenn man draufachtet, aber weit unter den Clear-/Combo-Wacklern.
         this.shake(3.5);

@@ -119,6 +119,21 @@ export const sfx = {
     tone(300, 420, "sawtooth", 0.05, 0, 90);
     tone(150, 500, "sine", 0.04, 60, 70);
   },
+  /** Scherbe ist kurz vorm Bandende -- zwei dumpfe Ticks als Vorwarnung. */
+  warn(): void {
+    tone(210, 55, "square", 0.035);
+    tone(210, 55, "square", 0.035, 120);
+  },
+  /** Leben vom Band verloren -- dumpfer, fallender Schlag. */
+  lifeLost(): void {
+    tone(240, 280, "sawtooth", 0.07, 0, 70);
+    noise(140, 0.08, 170);
+  },
+  /** Knapp gerettet: Scherbe kurz vorm Bandende noch gesetzt -- aufsteigendes Aufatmen. */
+  save(): void {
+    tone(660, 80, "triangle", 0.06);
+    tone(990, 150, "sine", 0.05, 70);
+  },
   /** Winziger UI-Tap (Knöpfe, Tabs). */
   tap(): void {
     tone(560, 28, "sine", 0.03);
