@@ -874,7 +874,9 @@ export class CascadeView {
     // .k-lives und .board-wrap) und brauchen keine eigene Höhen-Reservierung
     // — `canvasTop` (unten) erfasst diese Zeile schon automatisch mit, wie
     // jede andere HUD-Zeile über dem Brett.
-    const AD_SLOT_H = 64;
+    // Kein Banner neben dem Spielfeld (Fehltipps beim Ziehen): der frühere
+    // Platzhalter ist entfernt, die Höhe gehört dem Brett.
+    const AD_SLOT_H = 0;
     // KEIN künstlicher Mindestwert (`Math.max(280, ...)`) mehr hier — der
     // sorgte auf kurzen Bildschirmen (viel HUD-Inhalt oben, wenig Höhe übrig)
     // dafür, dass `cssH` größer gerechnet wurde, als tatsächlich Platz war.
@@ -904,7 +906,9 @@ export class CascadeView {
     // Brettzelle wird dadurch nur um ~(76-62)/cols Pixel kleiner, und nur in
     // genau diesem breite-bindet-Fall -- im (häufigeren) höhe-bindet-Fall
     // hat der Gürtel ohnehin schon mehr als dieses Minimum übrig.
-    const MIN_BELT_W = 76;
+    // 88 statt 76: nach dem Wegfall des Ad-Platzhalters wächst das Brett stark,
+    // und der Gürtel (Scherben ~55 % der Brettzelle) soll nicht mitschrumpfen.
+    const MIN_BELT_W = 88;
     const MAX_BELT_W = 150;
     const heightCell = Math.floor(availH / this.game.rows);
     const widthCellAtMinBelt = Math.floor((cssW - MIN_BELT_W - pad * 3) / this.game.cols);

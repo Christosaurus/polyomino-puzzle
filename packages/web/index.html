@@ -1165,7 +1165,7 @@
         color: var(--gold);
       }
       #k-best {
-        font-size: 32px;
+        font-size: 22px;
         font-weight: 900;
         white-space: nowrap;
         text-shadow: 0 2px 0 var(--stroke), 0 0 14px rgba(255, 194, 59, 0.5);
@@ -1298,11 +1298,17 @@
         justify-self: end;
         margin-top: 17px;
       }
+      .k-center {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-self: center;
+        gap: 6px;
+        margin-top: 8px;
+      }
       .k-hearts {
         display: flex;
         align-items: center;
-        justify-self: center;
-        margin-top: 8px;
       }
       .k-life {
         width: 48px;
@@ -2019,16 +2025,15 @@
       .k-abilities {
         display: flex;
         justify-content: center;
-        gap: 10px;
-        margin-top: 8px;
+        gap: 8px;
       }
       .k-ability {
         --jc: var(--gold);
         --jc-lo: var(--gold-lo);
         position: relative;
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
         background: linear-gradient(180deg, color-mix(in srgb, var(--jc) 82%, #fff), var(--jc-lo));
         display: grid;
         place-items: center;
@@ -2053,7 +2058,7 @@
         --jc-lo: var(--sky-lo, #2288c9);
       }
       .k-ability .jl {
-        font-size: 26px;
+        font-size: 22px;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
       }
       .k-ability .c {
@@ -3751,31 +3756,30 @@
               <span id="k-score-txt">0</span><span class="crown-badge" id="k-crown-badge" hidden>👑</span>
             </span>
           </span>
-          <span class="k-hearts">
-            <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
-            <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
-            <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
-          </span>
+          <div class="k-center">
+            <span class="k-hearts">
+              <img class="icon-img k-life" id="k-life-0" src="ui/life.webp" alt="" />
+              <img class="icon-img k-life k-life-mid" id="k-life-1" src="ui/life.webp" alt="" />
+              <img class="icon-img k-life" id="k-life-2" src="ui/life.webp" alt="" />
+            </span>
+            <!-- Fähigkeiten direkt unter den Herzen statt in einer eigenen Zeile:
+                spart rund 80 px Höhe, die dem Spielfeld zugute kommen. -->
+            <div class="k-abilities" id="k-abilities">
+            <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
+              <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
+            </button>
+            <button class="k-ability" id="ka-clear" data-kind="clear">
+              <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
+            </button>
+            <button class="k-ability" id="ka-time" data-kind="time">
+              <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
+            </button>
+          </div>
+            </div>
           <span class="mult-col" id="k-mult-col">
             <span class="metric"><small>Mult</small><span id="k-mult">×1.0</span></span>
             <div class="k-streak" id="k-streak"></div>
           </span>
-        </div>
-        <!-- Eigene Zeile statt in .k-lives -- auf einem schmalen Screen (375px)
-             würde die Fähigkeiten-Reihe sonst mit Score/Highscore/Multiplier
-             um dieselbe horizontale Breite konkurrieren und "MULTIPLIER"
-             abschneiden. Hier drunter ist die volle Breite frei, und
-             (Christians Beobachtung) massig ungenutzte Höhe bis zum Brett. -->
-        <div class="k-abilities" id="k-abilities">
-          <button class="k-ability" id="ka-shuffle" data-kind="shuffle">
-            <span class="jl">🔀</span><span class="c" id="ka-shuffle-c">0</span>
-          </button>
-          <button class="k-ability" id="ka-clear" data-kind="clear">
-            <span class="jl">💣</span><span class="c" id="ka-clear-c">0</span>
-          </button>
-          <button class="k-ability" id="ka-time" data-kind="time">
-            <span class="jl">⏱️</span><span class="c" id="ka-time-c">0</span>
-          </button>
         </div>
         <div class="board-wrap" id="k-wrap">
           <div class="board-inner">
@@ -3806,7 +3810,6 @@
             <canvas id="k-canvas"></canvas>
           </div>
         </div>
-        <div class="ad-slot" id="k-ad-slot"><span>Ad space</span></div>
       </section>
 
       <!-- overlays (global) -->
