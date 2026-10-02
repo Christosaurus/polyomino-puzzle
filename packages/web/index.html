@@ -3451,19 +3451,48 @@
         border-radius: var(--r-md);
         padding: 12px 14px;
         box-shadow:
-          inset 0 3px 0 rgba(255, 255, 255, 0.2),
-          inset 0 -5px 0 rgba(0, 0, 0, 0.2),
-          0 5px 0 -1px var(--border-lo),
-          0 12px 18px -10px rgba(0, 0, 0, 0.5);
+          inset 0 2px 0 rgba(255, 255, 255, 0.16),
+          inset 0 -3px 0 rgba(0, 0, 0, 0.16),
+          0 3px 0 -1px var(--border-lo),
+          0 8px 14px -10px rgba(0, 0, 0, 0.45);
       }
       .shop .item {
         justify-content: space-between;
       }
       .shop .item .lbl,
       .ach .t {
-        font-weight: 800;
+        font-weight: 700;
         font-size: 15.5px;
-        text-shadow: 0 2px 0 var(--stroke);
+        text-shadow: 0 1px 0 var(--stroke);
+      }
+      /* Shop: Abschnitts-Überschriften + zweizeilige Einträge (Name, Wirkung · Bestand) */
+      .shop-head {
+        margin: 6px 4px -2px;
+        font-weight: 800;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      .shop-head:first-child {
+        margin-top: 0;
+      }
+      .shop .item button {
+        flex: none;
+        white-space: nowrap;
+        min-width: 78px;
+      }
+      .shop-txt {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+      }
+      .shop-txt small {
+        font-weight: 600;
+        font-size: 11.5px;
+        text-shadow: none;
+        color: var(--ink-2);
+        opacity: 0.85;
       }
       .shop .item .lbl {
         display: flex;

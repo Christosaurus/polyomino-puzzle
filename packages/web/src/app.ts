@@ -2692,21 +2692,30 @@ interface ShopItem {
   disabledWhen?: () => boolean;
   /** Beschriftung des gesperrten Knopfs (Standard "full"). */
   lockedLabel?: string;
+  /** Abschnitt im Shop. */
+  group?: "cascade" | "daily";
+  /** Eine Zeile: was es bewirkt. */
+  desc?: string;
+  /** Aktueller Vorrat, z. B. "2/3". */
+  stock?: () => string;
 }
 const SHOP: ShopItem[] = [
   // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
   // (kommt später). Preise fallen mit der Stärke: Tipp > Zeit > Neu ordnen.
-  { icon: "ui/hint.webp", label: "Hint ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
-  { icon: "ui/time.webp", label: "More Time ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
-  { icon: "ui/solvent.webp", label: "Shuffle ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
+  { icon: "ui/hint.webp", label: "Hint ×1", cost: 40, group: "daily", buy: () => store.update((d) => void (d.jokers.hint += 1)) },
+  { icon: "ui/time.webp", label: "More Time ×1", cost: 26, group: "daily", buy: () => store.update((d) => void (d.jokers.time += 1)) },
+  { icon: "ui/solvent.webp", label: "Reshuffle ×1", cost: 16, group: "daily", buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
   // Kaskaden-Fähigkeiten (KONZEPT-kaskade-oekonomie.md §2) — Verbrauchsgut,
   // gedeckelt bei CASCADE_ABILITY_CAP pro Typ (siehe `disabledWhen`), damit
   // eine einzelne Grind-Session nie zu einem unfairen Dauervorteil in einer
   // einzelnen Runde wird. Weitblick ist der einzige Einmalkauf.
   {
     icon: "ui/solvent.webp",
-    label: "🔀 Shuffle ×3",
+    label: "Shuffle ×3",
     cost: 24,
+    group: "cascade",
+    desc: "Re-rolls the whole belt",
+    stock: () => `${store.load().cascadeAbilities.shuffle}/${store.CASCADE_ABILITY_CAP}`,
     buy: () => store.addCascadeAbility("shuffle", 3),
     disabledWhen: () => store.load().cascadeAbilities.shuffle + 3 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
@@ -2715,14 +2724,20 @@ const SHOP: ShopItem[] = [
     icon: "💣",
     label: "Clear Spark ×2",
     cost: 30,
+    group: "cascade",
+    desc: "Frees your most blocking cell",
+    stock: () => `${store.load().cascadeAbilities.clear}/${store.CASCADE_ABILITY_CAP}`,
     buy: () => store.addCascadeAbility("clear", 2),
     disabledWhen: () => store.load().cascadeAbilities.clear + 2 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
   },
   {
     icon: "ui/time.webp",
-    label: "⏱️ Time Vial ×2",
+    label: "Time Vial ×2",
     cost: 18,
+    group: "cascade",
+    desc: "+10 seconds on the clock",
+    stock: () => `${store.load().cascadeAbilities.time}/${store.CASCADE_ABILITY_CAP}`,
     buy: () => store.addCascadeAbility("time", 2),
     disabledWhen: () => store.load().cascadeAbilities.time + 2 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
@@ -2735,8 +2750,21 @@ const SHOP: ShopItem[] = [
 function renderShop(): void {
   const s = store.load();
   pillValue("shop-shards", nf(s.shards));
-  $("shop").replaceChildren(
-    ...SHOP.map((item) => {
+  const heads: Record<string, string> = { cascade: "Cascade", daily: "Daily puzzle" };
+  const ordered = [...SHOP.filter((i) => i.group === "cascade"), ...SHOP.filter((i) => i.group !== "cascade")];
+  const nodes: HTMLElement[] = [];
+  let lastGroup = "";
+  for (const item of ordered) {
+    const g = item.group ?? "daily";
+    if (g !== lastGroup) {
+      lastGroup = g;
+      const head = document.createElement("div");
+      head.className = "shop-head";
+      head.textContent = heads[g] ?? g;
+      nodes.push(head);
+    }
+    nodes.push(
+      (() => {
       const row = document.createElement("div");
       row.className = "item";
       const btn = document.createElement("button");
@@ -2756,11 +2784,14 @@ function renderShop(): void {
       const iconHtml = item.icon.startsWith("ui/")
         ? `<img class="shop-ic" src="${item.icon}" alt="" />`
         : `<span class="shop-ic" style="display:grid;place-items:center;font-size:22px">${item.icon}</span>`;
-      row.innerHTML = `<span class="lbl">${iconHtml}${item.label}</span>`;
+      const sub = [item.desc, item.stock ? `have ${item.stock()}` : ""].filter(Boolean).join(" · ");
+      row.innerHTML = `<span class="lbl">${iconHtml}<span class="shop-txt">${item.label}${sub ? `<small>${sub}</small>` : ""}</span></span>`;
       row.append(btn);
       return row;
-    }),
-  );
+      })(),
+    );
+  }
+  $("shop").replaceChildren(...nodes);
 }
 
 // ── Profil ─────────────────────────────────────────────────────────────────
