@@ -129,3 +129,29 @@ describe("Rettungslevel — targetRows darf rows nie überschreiten (Playtest-Bu
     }
   });
 });
+
+describe("Kaskade -- Fähigkeiten verbrauchen nichts Sinnloses (Playtest-Funde)", () => {
+  it("Klärfunke nimmt keine Zelle aus einer Reihe, der nur noch eine Zelle fehlt", () => {
+    const game = new CascadeState("clear-spark-test");
+    const color = shardColorIndex("mono");
+    // Reihe 7: alle bis auf Spalte 0 gefüllt (= fast fertig) + ein einzelner Stein woanders
+    for (let c = 1; c < game.cols; c++) game.board[7 * game.cols + c] = color;
+    game.board[3 * game.cols + 3] = color;
+    const pos = game.clearMostBlockedCell();
+    expect(pos).toEqual({ row: 3, col: 3 });
+    // die fast fertige Reihe ist unangetastet
+    for (let c = 1; c < game.cols; c++) expect(game.board[7 * game.cols + c]).toBe(color);
+  });
+
+  it("Klärfunke auf leerem Brett tut nichts", () => {
+    const game = new CascadeState("clear-spark-empty");
+    expect(game.clearMostBlockedCell()).toBeNull();
+  });
+
+  it("timeBonusFull wird wahr, sobald der Zeit-Deckel erreicht ist", () => {
+    const game = new CascadeState("time-cap-flag");
+    expect(game.timeBonusFull).toBe(false);
+    for (let i = 0; i < 20; i++) game.addTime(10_000);
+    expect(game.timeBonusFull).toBe(true);
+  });
+});

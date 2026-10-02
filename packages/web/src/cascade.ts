@@ -1231,29 +1231,67 @@ export class CascadeState {
     return true;
   }
 
-  /** Klärfunke ohne manuelle Zielwahl: sucht selbst die Zelle, die am meisten
-   *  hilft -- die volltseste Reihe (die einer Vervollständigung am nächsten
-   *  ist), darin eine belegte Zelle. Gibt die geräumte Position zurück (für
-   *  einen kurzen Blitz in der View) oder `null`, wenn das Brett schon leer ist. */
+  /** Wie viele (Drehung, Position)-Kombinationen gibt es für diese Scherbe
+   *  auf dem aktuellen Brett? Maß dafür, wie viel Luft das Brett ihr lässt. */
+  private countPlacements(name: string): number {
+    const probe: Shard = { id: -1, name, orientationIndex: 0, y: 0 };
+    let n = 0;
+    for (let oi = 0; oi < this.orientationCount(name); oi++) {
+      probe.orientationIndex = oi;
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) if (this.canPlace(probe, { row: r, col: c })) n += 1;
+      }
+    }
+    return n;
+  }
+
+  /** Klärfunke ohne manuelle Zielwahl: räumt die belegte Zelle, die den
+   *  aktuellen Scherben (Band + Ablage) am meisten Platz verschafft. Nie eine
+   *  Zelle aus einer Reihe/Spalte, der nur noch EINE Zelle zur Vollendung fehlt
+   *  -- das würde die beste Chance des Spielers zerstören (außer es gibt nichts
+   *  anderes). Gleichstand: Zelle aus der leereren Reihe. Gibt die geräumte
+   *  Position zurück (für einen Blitz in der View) oder `null`, wenn das Brett
+   *  leer ist. */
   clearMostBlockedCell(): Pos | null {
-    let bestRow = -1;
-    let bestFilled = -1;
-    for (let r = this.shrunkRows; r < this.rows; r++) {
-      let filled = 0;
-      for (let c = 0; c < this.cols; c++) if (this.board[this.idx(r, c)] !== 0) filled += 1;
-      if (filled > bestFilled && filled < this.cols) {
-        bestFilled = filled;
-        bestRow = r;
-      }
+    const shards = this.hold ? [...this.belt, this.hold] : [...this.belt];
+    const rowFilled: number[] = [];
+    const colFilled: number[] = [];
+    for (let r = 0; r < this.rows; r++) {
+      rowFilled[r] = 0;
+      for (let c = 0; c < this.cols; c++) if (this.board[this.idx(r, c)] !== 0) rowFilled[r]! += 1;
     }
-    if (bestRow === -1 || bestFilled <= 0) return null;
     for (let c = 0; c < this.cols; c++) {
-      if (this.board[this.idx(bestRow, c)] !== 0) {
-        this.board[this.idx(bestRow, c)] = 0;
-        return { row: bestRow, col: c };
+      colFilled[c] = 0;
+      for (let r = 0; r < this.rows; r++) if (this.board[this.idx(r, c)] !== 0) colFilled[c]! += 1;
+    }
+    let best: Pos | null = null;
+    let bestScore = -Infinity;
+    for (let r = this.shrunkRows; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const i = this.idx(r, c);
+        if (this.board[i] === 0) continue;
+        const keep = this.board[i]!;
+        this.board[i] = 0;
+        let space = 0;
+        for (const s of shards) space += this.countPlacements(s.name);
+        this.board[i] = keep;
+        const nearlyDone = rowFilled[r]! === this.cols - 1 || colFilled[c]! === this.rows - 1;
+        const score = space - (nearlyDone ? 100000 : 0) - rowFilled[r]! * 0.01;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { row: r, col: c };
+        }
       }
     }
-    return null;
+    if (!best) return null;
+    this.board[this.idx(best.row, best.col)] = 0;
+    return best;
+  }
+
+  /** Der Zeit-Bonus dieser Runde ist ausgereizt (Deckel) -- eine Zeitphiole
+   *  würde jetzt nichts mehr bringen und darf nicht verbraucht werden. */
+  get timeBonusFull(): boolean {
+    return !this.level && this.extraMs >= EXTRA_MS_CAP;
   }
 
   /** Zeitphiole: sofortige, manuell ausgelöste Zeitgutschrift -- zusätzlich

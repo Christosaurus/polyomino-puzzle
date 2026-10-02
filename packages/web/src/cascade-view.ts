@@ -356,6 +356,13 @@ export class CascadeView {
     for (let r = row0; r < g.rows; r++) {
       for (let c = 0; c < g.cols; c++) g.board[r * g.cols + c] = colors[(r + c) % colors.length]!;
     }
+    // Zwei Steine direkt über den gefüllten Reihen stehen lassen: nach dem Räumen
+    // ist das Brett dann nicht leer -- sonst zählte das Tutorial als "Perfect
+    // Clear" (Bonus-Splitter + Erfolg für jeden Neuspieler).
+    if (row0 > 0) {
+      g.board[(row0 - 1) * g.cols] = colors[0]!;
+      g.board[(row0 - 1) * g.cols + (g.cols - 1)] = colors[colors.length - 1]!;
+    }
     // … und genau die Form der Scherbe wieder freiräumen
     for (const [dr, dc] of g.cells(shard)) g.board[(row0 + dr - d.minR) * g.cols + (col0 + dc - d.minC)] = 0;
     this.tutorialGap = { row: row0 - d.minR, col: col0 - d.minC };

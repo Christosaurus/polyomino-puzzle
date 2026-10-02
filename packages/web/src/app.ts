@@ -1867,6 +1867,15 @@ function fireAbilityButton(kind: store.CascadeAbilityKind): void {
 }
 function useCascadeAbility(kind: store.CascadeAbilityKind): void {
   if (!cascadeGame || cascadeGame.isOver) return;
+  // Nichts verbrauchen, was gerade ohnehin nichts bewirken würde
+  if (kind === "time" && cascadeGame.timeBonusFull) {
+    toast("Time bonus is maxed out");
+    return;
+  }
+  if (kind === "clear" && cascadeGame.coveredCells() === 0) {
+    toast("Board is already empty");
+    return;
+  }
   if (!store.spendCascadeAbility(kind)) return; // nichts im Vorrat
   fireAbilityButton(kind);
   sfx.pickUp();
@@ -2555,7 +2564,6 @@ function renderCollection(): void {
   const memSeen = store.beatsSeen().filter((id) => allBeats.some((b) => b.id === id)).length;
   const stats: [string, string][] = [
     ["Light Collected", nf(s.shards)],
-    ["Memories", `${nf(memSeen)} / ${nf(allBeats.length)}`],
     ["Cascade", nf(s.cascade.bestScore)],
     ["Achievements", `${nf(unlockedCount(s))} / ${nf(ACHIEVEMENTS.length)}`],
   ];
@@ -2603,6 +2611,8 @@ interface ShopItem {
   soon?: boolean;
   /** Zusätzliche Sperre über "genug Splitter?" hinaus (z. B. "eh schon voll"). */
   disabledWhen?: () => boolean;
+  /** Beschriftung des gesperrten Knopfs (Standard "full"). */
+  lockedLabel?: string;
 }
 const SHOP: ShopItem[] = [
   // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
@@ -2627,29 +2637,28 @@ const SHOP: ShopItem[] = [
     label: "🔀 Shuffle ×3",
     cost: 15,
     buy: () => store.addCascadeAbility("shuffle", 3),
-    disabledWhen: () => store.load().cascadeAbilities.shuffle >= store.CASCADE_ABILITY_CAP,
+    disabledWhen: () => store.load().cascadeAbilities.shuffle + 3 > store.CASCADE_ABILITY_CAP,
+    lockedLabel: "stocked",
   },
   {
     icon: "💣",
     label: "Clear Spark ×2",
     cost: 20,
     buy: () => store.addCascadeAbility("clear", 2),
-    disabledWhen: () => store.load().cascadeAbilities.clear >= store.CASCADE_ABILITY_CAP,
+    disabledWhen: () => store.load().cascadeAbilities.clear + 2 > store.CASCADE_ABILITY_CAP,
+    lockedLabel: "stocked",
   },
   {
     icon: "ui/time.webp",
     label: "⏱️ Time Vial ×2",
     cost: 12,
     buy: () => store.addCascadeAbility("time", 2),
-    disabledWhen: () => store.load().cascadeAbilities.time >= store.CASCADE_ABILITY_CAP,
+    disabledWhen: () => store.load().cascadeAbilities.time + 2 > store.CASCADE_ABILITY_CAP,
+    lockedLabel: "stocked",
   },
-  {
-    icon: "👁️",
-    label: "Foresight (permanent)",
-    cost: 25,
-    buy: () => store.unlockForesight(),
-    disabledWhen: () => store.load().cascadeAbilities.foresight,
-  },
+  // Foresight (permanente Vorschau) ist aus dem Shop genommen: der Kauf war noch
+  // ohne Wirkung (Flag wird gesetzt, aber nirgends gelesen). Wieder rein, sobald
+  // die Vorschau-Scherbe im Band gebaut ist.
 ];
 
 function renderShop(): void {
@@ -2662,7 +2671,7 @@ function renderShop(): void {
       const btn = document.createElement("button");
       btn.className = "gold";
       const locked = item.disabledWhen?.() ?? false;
-      btn.textContent = item.soon ? "soon" : locked ? "full" : `${item.cost} ✦`;
+      btn.textContent = item.soon ? "soon" : locked ? (item.lockedLabel ?? "full") : `${item.cost} ✦`;
       btn.disabled = item.soon || locked || s.shards < item.cost;
       btn.addEventListener("click", () => {
         if (item.soon || item.disabledWhen?.()) return;
@@ -2731,7 +2740,6 @@ function openProfile(): void {
     ["ui/collection.webp", "Windows lit", nf(store.panes(s))],
     ["ui/star.webp", "Stars collected", nf(store.totalStars(s))],
     ["ui/shard.webp", "Light collected", nf(s.shards)],
-    ["ui/hint.webp", "Memories", `${nf(memSeen)} / ${nf(allB.length)}`],
     ["ui/solvent.webp", "No-undo streak", nf(s.stats.bestNoUndoStreak)],
     ["ui/descent.webp", "Anselm's Mine — deepest level", nf(s.descent.bestDepth)],
     ["ui/cascade.webp", "Cascade — record", nf(s.cascade.bestScore)],
