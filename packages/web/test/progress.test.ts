@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   beginAttempt,
+  CASCADE_ATTEMPT_REGEN_MS,
   CASCADE_MAX_ATTEMPTS,
+  dailyChestShards,
   cascadeAttempts,
   claimDailyMilestone,
   claimMilestones,
@@ -219,9 +221,9 @@ describe("Kaskaden-Versuche (Energie-Gate gegen unbegrenztes Splitter-Farmen)", 
     for (let i = 0; i < CASCADE_MAX_ATTEMPTS; i++) spendCascadeAttempt();
     expect(cascadeAttempts().count).toBe(0);
     const perf = performance.now();
-    // 4 Minuten echt verstrichen -- ein Versuch sollte zurück sein
-    vi.spyOn(Date, "now").mockReturnValue(now + 4 * 60_000 + 500);
-    vi.spyOn(performance, "now").mockReturnValue(perf + 4 * 60_000 + 500);
+    // eine Regenerationsspanne echt verstrichen -- ein Versuch sollte zurück sein
+    vi.spyOn(Date, "now").mockReturnValue(now + CASCADE_ATTEMPT_REGEN_MS + 500);
+    vi.spyOn(performance, "now").mockReturnValue(perf + CASCADE_ATTEMPT_REGEN_MS + 500);
     expect(cascadeAttempts().count).toBe(1);
   });
 
@@ -286,5 +288,15 @@ describe("recordCascade — laufende Summen für die Kaskade-Erfolgsleiter", () 
     expect(c.totalPerfectClears).toBe(1);
     expect(c.totalMegaClears).toBe(1);
     expect(c.totalCombosWon).toBe(3);
+  });
+});
+
+describe("Daily-Truhe", () => {
+  it("wächst mit der Serie und ist bei 25 gedeckelt", () => {
+    expect(dailyChestShards(1)).toBe(12);
+    expect(dailyChestShards(2)).toBe(14);
+    expect(dailyChestShards(7)).toBe(24);
+    expect(dailyChestShards(8)).toBe(25);
+    expect(dailyChestShards(99)).toBe(25);
   });
 });

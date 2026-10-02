@@ -35,7 +35,7 @@ const EXTRA_MS_CAP = 90_000;
  *  Splitter-Geschäft (siehe app.ts), nie Echtgeld-exklusiv. Der steigende
  *  Preis + die feste Obergrenze verhindern, dass eine einzelne Runde durch
  *  Dauer-Zukauf die Bestenliste sprengt. */
-const CONTINUE_PRICES = [15, 30, 60] as const;
+export const CONTINUE_PRICES = [25, 50, 100] as const;
 const BASE_SPAWN_MS = 2200;
 const MIN_SPAWN_MS = 950;
 const BELT_TRAVEL_MS_START = 16_500; // time for a shard to ride top→bottom, at run start

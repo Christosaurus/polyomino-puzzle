@@ -44,7 +44,9 @@ export const LIFE_REGEN_MS = 20 * 60_000;
  *  5 Versuche, einer alle 4 Minuten nach — macht "alle 20 Minuten 5 Runden"
  *  als sanften, kontinuierlichen Tropfen statt eines einzelnen Schwalls. */
 export const CASCADE_MAX_ATTEMPTS = 5;
-export const CASCADE_ATTEMPT_REGEN_MS = 4 * 60_000;
+export const CASCADE_ATTEMPT_REGEN_MS = 8 * 60_000;
+/** Preis, den Versuch-Vorrat sofort ganz aufzufüllen. */
+export const CASCADE_REFILL_COST = 25;
 
 export interface SaveData {
   levels: Record<string, LevelResult>;
@@ -620,6 +622,13 @@ export function addShards(n: number): void {
     s.shards += n;
   });
 }
+/** Tägliche Truhe der Daily: 12 ✦ am ersten Tag, +2 je weiterem Serientag,
+ *  höchstens 25 ✦ (ab Tag 7) -- die Serie lohnt sich spürbar, ein Aussetzer
+ *  setzt sie zurück. */
+export function dailyChestShards(streak: number): number {
+  return Math.min(25, 10 + 2 * Math.max(1, streak));
+}
+
 export function spendShards(n: number): boolean {
   let ok = false;
   update((s) => {

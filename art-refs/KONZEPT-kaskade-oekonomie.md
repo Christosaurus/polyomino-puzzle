@@ -150,3 +150,26 @@ Reihenfolge nach Wirkung auf Sog ÷ Aufwand, alles außer explizit markiertem "P
 - Kosmetik-Shop als langfristige Splitter-Senke (Abschnitt 2, Punkt C).
 - Echtes Ad-SDK für den Werbevideo-Baustein (Abschnitt 4a) — Konto/Integration, eigener Schritt.
 - Design-/Sound-Politur (auf Christians ausdrücklichen Wunsch später).
+
+## Rebalance 2026-10-02 (nach Playtester-Auswertung)
+
+Messung: ein perfekter Bot holt in 4:18 min ca. 116 ✦, ein mittlerer Mensch geschätzt ~30 ✦ pro
+Runde; das alte Preisgefüge war nach ~3 Runden gesättigt (Weiterspielen 15 ✦ = eine halbe Runde
+Einkommen, Versuche-Gate griff praktisch nicht). Neue Werte:
+
+| Was | alt | neu |
+| --- | --- | --- |
+| Weiterspielen (1./2./3. Mal) | 15 / 30 / 60 | 25 / 50 / 100 |
+| Versuche auffüllen | 15 | 25 (`CASCADE_REFILL_COST`) |
+| Versuche-Regeneration | 4 min | 8 min |
+| Shuffle ×3 | 15 | 24 |
+| Clear Spark ×2 | 20 | 30 |
+| Time Vial ×2 | 12 | 18 |
+| Daily-Truhe | 5 ✦ | 12 ✦ (+2 je Serientag, max. 25) – `dailyChestShards()` |
+
+Weitere Änderungen: Foresight aus dem Shop (Kauf hatte keine Wirkung, wieder rein mit echter
+Vorschau-Scherbe); Fähigkeiten nur kaufbar, wenn die ganze Packung in den Vorrat passt; Time Vial
+bei erreichtem Zeit-Deckel nicht verbrauchbar; Clear Spark räumt die Zelle, die den aktuellen
+Scherben am meisten Platz verschafft (nie aus einer fast vollen Reihe/Spalte). Herzen (nur
+Kampagnen-Fenster) sind auf Home und im Shop versteckt; die Joker bleiben, weil die Daily sie nutzt.
+Zielwert: Weiterspielen nach ~1 Runde bezahlbar, volles Loadout nach 5+ Runden.

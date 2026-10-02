@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CascadeState, type LevelConfig } from "../src/cascade.js";
+import { CONTINUE_PRICES, CascadeState, type LevelConfig } from "../src/cascade.js";
 import { RESCUE_LEVELS } from "../src/rescue-levels.js";
 import { shardColorIndex } from "../src/shards.js";
 
@@ -43,7 +43,7 @@ describe("Kaskade — Weiterspielen-Angebot beim letzten Leben (Abschnitt 4c)", 
     expect(game.lives).toBe(0);
     expect(game.awaitingContinueOffer).toBe(true);
     expect(game.isOver).toBe(false); // eingefroren, noch keine Entscheidung
-    expect(game.nextContinuePrice()).toBe(15);
+    expect(game.nextContinuePrice()).toBe(CONTINUE_PRICES[0]);
   });
 
   it("acceptContinue() gibt ein Leben zurück und lässt den Preis pro Nutzung steigen", () => {
@@ -54,11 +54,11 @@ describe("Kaskade — Weiterspielen-Angebot beim letzten Leben (Abschnitt 4c)", 
     game.acceptContinue();
     expect(game.lives).toBe(1);
     expect(game.awaitingContinueOffer).toBe(false);
-    expect(game.nextContinuePrice()).toBe(30);
+    expect(game.nextContinuePrice()).toBe(CONTINUE_PRICES[1]);
 
     loseLastLife(game);
     game.acceptContinue();
-    expect(game.nextContinuePrice()).toBe(60);
+    expect(game.nextContinuePrice()).toBe(CONTINUE_PRICES[2]);
 
     loseLastLife(game);
     game.acceptContinue();

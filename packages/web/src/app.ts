@@ -1456,7 +1456,8 @@ async function playDaily(): Promise<void> {
       const r = store.recordLevel(`daily:${day}`, stars, ms, game.usedUndo);
       const before = store.load().daily.streak;
       const after = store.recordDaily().daily.streak;
-      store.addShards(5);
+      const chest = store.dailyChestShards(after);
+      store.addShards(chest);
       // Meilenstein nur beim *ersten* Erreichen — Serie brechen und wieder
       // hochbauen zahlt nicht erneut aus.
       const hit = after > before && DAILY_MILESTONES.find((m) => m.days === after);
@@ -1469,7 +1470,7 @@ async function playDaily(): Promise<void> {
         stars,
         sub: `The daily window · <b>${fmt(ms)}</b>`,
         rewards: [
-          `✦ +${nf(r.shards + 5)} light shards`,
+          `✦ +${nf(r.shards + chest)} light shards (daily chest ${nf(chest)})`,
           after > before ? `🔥 Streak ${nf(after)} days` : `🔥 Streak ${nf(after)}`,
           ...(milestone ? [`🏆 ${nf(milestone.days)}-day streak · ✦ +${nf(milestone.shards)}`] : []),
         ],
@@ -1781,7 +1782,9 @@ function renderCascadeAttemptsSub(): void {
       : `Next attempt in <b>${fmt(a.msToNext)}</b>.`;
   const canPay = store.load().shards >= 15;
   const refillBtn = $<HTMLButtonElement>("na-refill");
-  refillBtn.textContent = canPay ? "✦ 15 shards → refill all" : `✦ ${nf(store.load().shards)} / 15 shards`;
+  refillBtn.textContent = canPay
+    ? `✦ ${store.CASCADE_REFILL_COST} shards → refill all`
+    : `✦ ${nf(store.load().shards)} / ${store.CASCADE_REFILL_COST} shards`;
   refillBtn.disabled = !canPay;
 }
 
@@ -1817,7 +1820,7 @@ $("k-noattempts-overlay").addEventListener("click", (e) => {
   if (e.target === $("k-noattempts-overlay")) closeAttemptsGate();
 });
 $("na-refill").addEventListener("click", () => {
-  if (!store.spendShards(15)) return;
+  if (!store.spendShards(store.CASCADE_REFILL_COST)) return;
   store.refillCascadeAttempts();
   toast("Attempts refilled");
   renderTopPills();
@@ -2618,16 +2621,8 @@ const SHOP: ShopItem[] = [
   // Joker sind bewusst teuer — ein Tipp ~alle 4–5 Fenster, sonst per Video
   // (kommt später). Preise fallen mit der Stärke: Tipp > Zeit > Neu ordnen.
   { icon: "ui/hint.webp", label: "Hint ×1", cost: 40, buy: () => store.update((d) => void (d.jokers.hint += 1)) },
-  { icon: "ui/hint.webp", label: "📺 Watch video → Hint", cost: 0, soon: true, buy: () => {} },
   { icon: "ui/time.webp", label: "More Time ×1", cost: 26, buy: () => store.update((d) => void (d.jokers.time += 1)) },
   { icon: "ui/solvent.webp", label: "Shuffle ×1", cost: 16, buy: () => store.update((d) => void (d.jokers.solvent += 1)) },
-  {
-    icon: "ui/life.webp",
-    label: "Refill Hearts",
-    cost: 30,
-    buy: () => store.refillLives(),
-    disabledWhen: () => store.load().lives.count >= store.MAX_LIVES,
-  },
   // Kaskaden-Fähigkeiten (KONZEPT-kaskade-oekonomie.md §2) — Verbrauchsgut,
   // gedeckelt bei CASCADE_ABILITY_CAP pro Typ (siehe `disabledWhen`), damit
   // eine einzelne Grind-Session nie zu einem unfairen Dauervorteil in einer
@@ -2635,7 +2630,7 @@ const SHOP: ShopItem[] = [
   {
     icon: "ui/solvent.webp",
     label: "🔀 Shuffle ×3",
-    cost: 15,
+    cost: 24,
     buy: () => store.addCascadeAbility("shuffle", 3),
     disabledWhen: () => store.load().cascadeAbilities.shuffle + 3 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
@@ -2643,7 +2638,7 @@ const SHOP: ShopItem[] = [
   {
     icon: "💣",
     label: "Clear Spark ×2",
-    cost: 20,
+    cost: 30,
     buy: () => store.addCascadeAbility("clear", 2),
     disabledWhen: () => store.load().cascadeAbilities.clear + 2 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
@@ -2651,7 +2646,7 @@ const SHOP: ShopItem[] = [
   {
     icon: "ui/time.webp",
     label: "⏱️ Time Vial ×2",
-    cost: 12,
+    cost: 18,
     buy: () => store.addCascadeAbility("time", 2),
     disabledWhen: () => store.load().cascadeAbilities.time + 2 > store.CASCADE_ABILITY_CAP,
     lockedLabel: "stocked",
