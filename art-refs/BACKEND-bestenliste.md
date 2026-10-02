@@ -267,6 +267,78 @@ ueblich) wurde stillschweigend abgelehnt, die Wochenliste blieb leer.
 Danach muessten `run_ms=10000` -> `implausible clears` und `run_ms=270000` ->
 `implausible score` kommen (statt jeweils `implausible run time`).
 
+### 2e. Fertiger Block für den Store-Release (ersetzt 2c, mit Härtung)
+
+Enthält die korrigierten Laufzeit-Grenzen aus 2c UND eine Prüfung gegen
+Fälschen: die gemeldete Spielzeit (`p_run_ms`) darf nie größer sein als die
+echte Zeit seit der Token-Ausgabe (2 s Toleranz). Der Client holt das Token am
+Rundenanfang, die Uhr startet erst danach, und Pausen zählen in `p_run_ms`
+nicht mit -- die echte Zeit ist also immer >= `p_run_ms`. Wer per Skript 280 s
+behaupten will, muss 278 s warten. Im **SQL Editor** als **eine** Query
+ausführen (`create or replace`, gleiche Signatur wie 2c):
+
+```sql
+create or replace function public.submit_cascade_score(
+  p_player_id text, p_name text, p_score integer, p_cleared integer,
+  p_country text default 'XX', p_token uuid default null, p_run_ms integer default null
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  wk text := to_char(now() at time zone 'UTC', 'IYYY')
+             || '-W' || lpad(to_char(now() at time zone 'UTC', 'IW'), 2, '0');
+  nm text := left(trim(coalesce(p_name, '')), 24);
+  cc text := upper(left(coalesce(p_country, 'XX'), 2));
+  score_cap integer;
+  tok_at timestamptz;
+begin
+  update run_tokens set used = true
+   where token = p_token and player_id = p_player_id
+     and not used and created_at > now() - interval '25 minutes'
+  returning created_at into tok_at;
+  if tok_at is null then
+    raise exception 'invalid run token';
+  end if;
+
+  if p_run_ms is null or p_run_ms < 3000 or p_run_ms > 280000 then
+    raise exception 'implausible run time';
+  end if;
+  -- gemeldete Spielzeit <= echte Zeit seit Token-Ausgabe (+2 s Toleranz)
+  if p_run_ms > extract(epoch from (now() - tok_at)) * 1000 + 2000 then
+    raise exception 'run time exceeds token age';
+  end if;
+  if p_cleared < 0 or p_cleared > (p_run_ms / 500) then
+    raise exception 'implausible clears';
+  end if;
+  score_cap := least(200000, p_cleared * 900 + (p_run_ms / 1000) * 35 + 8000);
+  if p_score < 0 or p_score > score_cap then
+    raise exception 'implausible score';
+  end if;
+
+  if cc !~ '^[A-Z]{2}$' then cc := 'XX'; end if;
+  insert into public.cascade_scores (player_id, name, score, cleared, week, country)
+  values (p_player_id,
+          coalesce(nullif(nm, ''), 'Glaser'),
+          p_score,
+          greatest(0, least(coalesce(p_cleared, 0), 100000)),
+          wk, cc)
+  on conflict (player_id, week) do update
+    set score      = greatest(cascade_scores.score, excluded.score),
+        cleared    = greatest(cascade_scores.cleared, excluded.cleared),
+        name       = excluded.name,
+        country    = excluded.country,
+        updated_at = now();
+end;
+$$;
+grant execute on function public.submit_cascade_score to anon;
+
+-- Aufräumen: Testzeile aus der Diagnose entfernen
+delete from public.cascade_scores where player_id = 'diagnose-probe-0001';
+```
+
+Prüfen (ohne Schreibzugriff, mit absurden Werten): `run_ms=10000` muss
+`implausible clears` liefern, `run_ms=270000` `run time exceeds token age`
+(frisches Token) -- nicht mehr beides `implausible run time`.
+
 ### 3. Die zwei Werte für mich holen
 
 Linke Leiste → **Project Settings** → **API**:
