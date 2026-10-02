@@ -2160,14 +2160,7 @@ function startCascade(): void {
       );
       $("k-rank").hidden = true;
       $("k-overlay-title").textContent = r.livesLeft <= 0 ? "No Lives Left!" : "Time's Up!";
-      $("k-result").innerHTML =
-        `<b>${nf(r.score)}</b> points · ${nf(r.cleared)} lines` +
-        ` · ✦ +${nf(shards)}` +
-        (r.perfectClears ? ` · ${r.perfectClears}× perfect` : "") +
-        (r.megaClears ? ` · 💥 ${r.megaClears}× Ultimate Clear` : "") +
-        (r.bestChain >= 3 ? ` · 🔥 Chain ×${r.bestChain}` : "") +
-        (isNewRecord ? ` · 🏆 new record!` : "") +
-        (freshAch.length ? `<br><small>🏅 ${freshAch[0]!.name} unlocked</small>` : "");
+      showRoundEnd(r, shards, bestScore, isNewRecord, freshAch.length ? freshAch[0]!.name : null);
       const ov = $("k-overlay");
       ov.classList.remove("show");
       void ov.offsetWidth;
@@ -2182,6 +2175,102 @@ function startCascade(): void {
   showScreen("kaskade");
   window.scrollTo(0, 0);
   maybeHintRotate();
+}
+
+let roundEndToken = 0;
+
+/** Rundenende-Overlay befüllen: Score zählt hoch (mit aufsteigenden Tönen),
+ *  dann Bestwert-Zeile (Rekord oder Abstand), Statistik-Chips nacheinander,
+ *  Hinweis auf übrige Versuche. Bei "Bewegung reduzieren" sofort fertig. */
+function showRoundEnd(
+  r: ReturnType<CascadeState["result"]>,
+  shards: number,
+  bestBefore: number,
+  isNewRecord: boolean,
+  achievement: string | null,
+): void {
+  const token = ++roundEndToken;
+  const big = $("k-score-big");
+  const line = $("k-best-line");
+  const chips = $("k-chips");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  big.classList.remove("bump", "record");
+  line.className = "k-best-line";
+  line.textContent = "";
+  chips.replaceChildren();
+
+  // Statistik-Chips
+  const items: Array<[string, boolean]> = [
+    [`🧱 ${nf(r.cleared)} ${r.cleared === 1 ? "line" : "lines"}`, false],
+    [`✦ +${nf(shards)}`, false],
+  ];
+  if (r.bestChain >= 2) items.push([`🔥 Chain ×${r.bestChain}`, r.bestChain >= 4]);
+  if (r.perfectClears) items.push([`⭐ ${r.perfectClears}× perfect`, true]);
+  if (r.megaClears) items.push([`💥 ${r.megaClears}× Ultimate`, true]);
+  items.forEach(([text, hot], i) => {
+    const c = document.createElement("span");
+    c.className = `k-chip${hot ? " hot" : ""}`;
+    c.style.setProperty("--i", String(i));
+    c.textContent = text;
+    chips.append(c);
+  });
+
+  // Hinweiszeile unter den Chips (freigeschaltete Erfolge)
+  $("k-result").innerHTML = achievement ? `<small>🏅 ${achievement} unlocked</small>` : "";
+
+  // Bestwert-Zeile
+  let bestText: string;
+  if (isNewRecord) bestText = `🏆 NEW RECORD  +${nf(r.score - bestBefore)}`;
+  else if (bestBefore <= 0) bestText = r.score > 0 ? "Your first score — now beat it!" : "";
+  else if (r.score >= bestBefore) bestText = "Tied your best!";
+  else bestText = `👑 ${nf(bestBefore - r.score)} to your best`;
+
+  const att = store.cascadeAttempts();
+  $("k-att").textContent = `🎮 ${att.count}/${store.CASCADE_MAX_ATTEMPTS} attempts left`;
+
+  const finish = (): void => {
+    if (token !== roundEndToken) return;
+    big.textContent = nf(r.score);
+    big.classList.toggle("record", isNewRecord);
+    if (!reduce) {
+      void big.offsetWidth;
+      big.classList.add("bump");
+    }
+    line.textContent = bestText;
+    line.classList.toggle("rec", isNewRecord);
+    if (bestText) line.classList.add("on");
+    if (isNewRecord) {
+      sfx.milestone();
+      sfx.vibrate(40);
+    } else if (r.score > 0) {
+      sfx.streak(2);
+    }
+  };
+
+  if (reduce || r.score <= 0) {
+    big.textContent = nf(r.score);
+    finish();
+    return;
+  }
+  // Hochzählen: ~1 s, schnell am Anfang, ausgebremst am Ende; Töne steigen mit
+  const dur = Math.min(1300, 700 + Math.log10(r.score + 1) * 140);
+  const t0 = performance.now();
+  let lastTick = 0;
+  const step = (): void => {
+    if (token !== roundEndToken) return;
+    const k = Math.min(1, (performance.now() - t0) / dur);
+    const eased = 1 - (1 - k) ** 3;
+    big.textContent = nf(Math.round(r.score * eased));
+    const tickIdx = Math.floor(k * 12);
+    if (tickIdx > lastTick) {
+      lastTick = tickIdx;
+      sfx.cellPop(tickIdx);
+    }
+    if (k < 1) requestAnimationFrame(step);
+    else finish();
+  };
+  requestAnimationFrame(step);
 }
 
 /** Wie oft die Tutorial-Scherbe angetippt werden muss, bevor die Runde

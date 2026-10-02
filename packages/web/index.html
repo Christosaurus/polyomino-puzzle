@@ -2607,6 +2607,122 @@
       .ocard .sub b {
         color: #fff;
       }
+      /* ── Rundenende (Kaskade) ─────────────────────────────────────────── */
+      .k-score-big {
+        font-weight: 900;
+        font-size: 58px;
+        line-height: 1;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 3px 0 rgba(20, 10, 40, 0.45), 0 0 18px rgba(255, 255, 255, 0.25);
+      }
+      .k-score-big.bump {
+        animation: k-bump 0.45s var(--tap);
+      }
+      .k-score-big.record {
+        color: var(--gold);
+        text-shadow: 0 3px 0 rgba(90, 50, 0, 0.5), 0 0 26px rgba(255, 194, 59, 0.75);
+      }
+      @keyframes k-bump {
+        0% {
+          transform: scale(1);
+        }
+        45% {
+          transform: scale(1.22);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .k-best-line {
+        min-height: 20px;
+        font-weight: 800;
+        font-size: 16px;
+        color: var(--ink-2);
+        text-align: center;
+        opacity: 0;
+      }
+      .k-best-line.on {
+        animation: k-fade-up 0.4s var(--tap) forwards;
+      }
+      .k-best-line.rec {
+        color: var(--gold);
+        font-size: 19px;
+        letter-spacing: 0.04em;
+        text-shadow: 0 0 14px rgba(255, 194, 59, 0.6);
+      }
+      .k-best-line.rec.on {
+        animation:
+          k-fade-up 0.4s var(--tap) forwards,
+          k-glow 1.3s ease-in-out 0.4s infinite;
+      }
+      @keyframes k-glow {
+        0%,
+        100% {
+          filter: brightness(1);
+        }
+        50% {
+          filter: brightness(1.35);
+        }
+      }
+      @keyframes k-fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.92);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .k-chips {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        min-height: 4px;
+      }
+      .k-chip {
+        padding: 6px 11px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-weight: 800;
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+        opacity: 0;
+        animation: k-fade-up 0.35s var(--tap) forwards;
+        animation-delay: calc(var(--i) * 140ms + 700ms);
+      }
+      .k-chip.hot {
+        background: rgba(255, 150, 40, 0.28);
+      }
+      .k-att {
+        font-size: 12px;
+        opacity: 0.8;
+      }
+      .k-again-pulse {
+        animation: k-pulse 1.6s ease-in-out 1.6s infinite;
+      }
+      @keyframes k-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .k-score-big.bump,
+        .k-best-line.on,
+        .k-best-line.rec.on,
+        .k-chip,
+        .k-again-pulse {
+          animation: none;
+          opacity: 1;
+        }
+      }
       /* ── Result stars: the painted star icon. Every place shows a dark
             recessed star; earned ones pop in above it, hover, drift up, then
             turn and drop into place. One transform per element, ending exactly
@@ -3155,6 +3271,14 @@
       }
       .btns button {
         flex: 1;
+      }
+      /* Rundenende: beide Knöpfe einzeilig, "Play Again" bekommt mehr Platz */
+      #k-overlay .btns button {
+        white-space: nowrap;
+        padding-inline: 10px;
+      }
+      #k-overlay #k-again {
+        flex: 1.4;
       }
 
       /* toggles (pause) */
@@ -3771,6 +3895,12 @@
       <div class="overlay" id="k-overlay">
         <div class="ocard">
           <h3 id="k-overlay-title">Time's Up!</h3>
+          <!-- Rundenende: große hochzählende Zahl, Bestwert-Zeile (Rekord oder
+               "noch X bis zum Bestwert"), Statistik als nacheinander
+               erscheinende Chips, darunter die übrigen Hinweise. -->
+          <div class="k-score-big" id="k-score-big">0</div>
+          <div class="k-best-line" id="k-best-line"></div>
+          <div class="k-chips" id="k-chips"></div>
           <div class="sub" id="k-result"></div>
           <!-- Bestenlisten-Rang: erst nach dem Score-Submit bekannt (Netzwerk-
                Roundtrip), also ein eigenes Element statt Teil von #k-result --
@@ -3780,8 +3910,9 @@
           <div class="sub" id="k-rank" hidden></div>
           <div class="btns">
             <button id="k-quit">Overview</button>
-            <button class="go" id="k-again">Play Again</button>
+            <button class="go k-again-pulse" id="k-again">Play Again</button>
           </div>
+          <div class="sub k-att" id="k-att"></div>
         </div>
       </div>
 
