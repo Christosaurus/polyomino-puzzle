@@ -121,7 +121,7 @@ export const sfx = {
   },
   /** Kleines Blip pro platzender Zelle -- steigt Ganzton für Ganzton an. */
   cellPop(step: number): void {
-    tone(520 * Math.pow(1.1225, Math.min(10, Math.max(0, step))), 70, "sine", 0.03);
+    tone(520 * Math.pow(1.1225, Math.min(16, Math.max(0, step))), 70, "sine", 0.03);
   },
   /** Satter Bass-Schlag unter Mehrfach-Clears und Ketten (`power` 0..1). */
   thump(power = 1): void {

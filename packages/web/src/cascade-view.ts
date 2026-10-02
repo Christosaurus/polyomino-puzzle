@@ -129,6 +129,11 @@ const CLEAR_SWEEP_S = 0.225;
 const GHOST_S = 0.28;
 /** Räum-Animation: wechselt zufällig (nie zweimal derselbe Stil hintereinander). */
 type ClearStyle = "sweepR" | "sweepL" | "burst" | "bar";
+/** Tempo der Räum-Animation in Abhängigkeit von der Kette: ein einzelner Clear
+ *  läuft im Normaltempo (1), jede direkt folgende Kette macht alles schneller
+ *  (Wisch, Zellen-Pop, Splitter, Punch) -- bis höchstens 2,4-fach. Nach einem
+ *  Zug ohne Clear fällt die Kette auf 0 und damit das Tempo zurück. */
+const chainSpeed = (chain: number): number => (chain >= 2 ? Math.min(2.4, 1 + 0.3 * (chain - 1)) : 1);
 
 export class CascadeView {
   private canvas: HTMLCanvasElement;
@@ -169,8 +174,8 @@ export class CascadeView {
   private running = false;
   private raf = 0;
   private last = 0;
-  private flash: { row: number; t: number; style: ClearStyle }[] = [];
-  private flashCols: { col: number; t: number; style: ClearStyle }[] = [];
+  private flash: { row: number; t: number; style: ClearStyle; speed: number }[] = [];
+  private flashCols: { col: number; t: number; style: ClearStyle; speed: number }[] = [];
   /** Geräumte Zellen, die noch kurz stehen bleiben und nacheinander poppen. */
   private ghosts: Array<{
     row: number;
@@ -181,7 +186,12 @@ export class CascadeView {
     popped: boolean;
     /** Reihenfolge-Index für den aufsteigenden Ton (nur erste Linie), sonst -1. */
     tick: number;
+    /** Tempo-Faktor dieses Clears (Kette). */
+    speed: number;
+    /** Kette des Clears -- hebt die Tonhöhe der Pop-Töne. */
+    chain: number;
   }> = [];
+  private punchSpeed = 1;
   private lastClearStyle: ClearStyle | null = null;
   private sparks: Spark[] = [];
   /** short-lived "+N" score pops */
@@ -491,7 +501,7 @@ export class CascadeView {
     // den Bildschirm (horizontaler Scrollbalken) und verschob die Trefferkoordinaten.
     this.punchScale = 1;
     if (this.punchT >= 0) {
-      this.punchT += dt;
+      this.punchT += dt * this.punchSpeed;
       const k = this.punchT / PUNCH_S;
       if (k >= 1) {
         this.punchT = -1;
@@ -542,8 +552,8 @@ export class CascadeView {
         this.wrap.classList.remove("ultimate-glow");
       }
     }
-    this.flash = this.flash.filter((f) => (f.t += dt) < 0.5);
-    this.flashCols = this.flashCols.filter((f) => (f.t += dt) < 0.5);
+    this.flash = this.flash.filter((f) => (f.t += dt * f.speed) < 0.5);
+    this.flashCols = this.flashCols.filter((f) => (f.t += dt * f.speed) < 0.5);
     for (const s of this.sparks) {
       s.t += dt;
       s.x += s.vx * dt;
@@ -557,7 +567,7 @@ export class CascadeView {
       const L = this.layout;
       const gold = cssVar("--gold");
       for (const g of this.ghosts) {
-        g.t += dt;
+        g.t += dt * g.speed;
         if (!g.popped && g.t >= g.delay) {
           g.popped = true;
           const x = L.boardX + (g.col + 0.5) * L.cell;
@@ -578,7 +588,7 @@ export class CascadeView {
               spin: (Math.random() - 0.5) * 14,
             });
           }
-          if (g.tick >= 0) sfx.cellPop(g.tick);
+          if (g.tick >= 0) sfx.cellPop(g.tick + Math.max(0, g.chain - 1) * 2);
         }
       }
       this.ghosts = this.ghosts.filter((g) => g.t < g.delay + GHOST_S);
@@ -599,8 +609,10 @@ export class CascadeView {
     if (clear && this.layout) {
       const L = this.layout;
       const style = this.pickClearStyle();
-      for (const r of clear.rows) this.flash.push({ row: r, t: 0, style });
-      for (const c of clear.cols) this.flashCols.push({ col: c, t: 0, style });
+      const speed = chainSpeed(clear.chain);
+      this.punchSpeed = speed;
+      for (const r of clear.rows) this.flash.push({ row: r, t: 0, style, speed });
+      for (const c of clear.cols) this.flashCols.push({ col: c, t: 0, style, speed });
       // Position der Zelle entlang ihrer Linie (0..1) -> Verzögerung, mit der
       // sie poppt, sobald der Lichtkopf sie erreicht.
       const rowSet = new Set(clear.rows);
@@ -630,9 +642,11 @@ export class CascadeView {
           t: 0,
           popped: false,
           tick: order.findIndex((o) => o.row === cell.row && o.col === cell.col),
+          speed,
+          chain: clear.chain,
         });
       }
-      this.spawnLineClearChunks(clear.cells, L, delayOf);
+      this.spawnLineClearChunks(clear.cells, L, delayOf, speed);
       const lineCount = clear.rows.length + clear.cols.length;
       if (lineCount > 0) sfx.rowClear(lineCount);
       // Wucht wächst mit Reihenzahl und Kette: 1 Reihe 0.5, 2 Reihen 0.75, 3+ ~1.
@@ -1122,6 +1136,7 @@ export class CascadeView {
     cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
     L: Layout,
     delayOf?: (row: number, col: number) => number,
+    speed = 1,
   ): void {
     if (!cells.length) return;
     const rect = this.canvas.getBoundingClientRect();
@@ -1135,9 +1150,9 @@ export class CascadeView {
       upBias: 90,
       sizeMin: 0.1,
       sizeMax: 0.22,
-      lifeMin: 0.35,
-      lifeMax: 0.6,
-      delayOf,
+      lifeMin: 0.35 / speed,
+      lifeMax: 0.6 / speed,
+      delayOf: delayOf ? (r, c) => delayOf(r, c) / speed : undefined,
     });
   }
 
