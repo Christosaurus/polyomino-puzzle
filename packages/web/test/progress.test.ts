@@ -4,6 +4,8 @@ import {
   CASCADE_ATTEMPT_REGEN_MS,
   CASCADE_MAX_ATTEMPTS,
   dailyChestShards,
+  isAdFree,
+  setAdFree,
   cascadeAttempts,
   claimDailyMilestone,
   claimMilestones,
@@ -298,5 +300,16 @@ describe("Daily-Truhe", () => {
     expect(dailyChestShards(7)).toBe(24);
     expect(dailyChestShards(8)).toBe(25);
     expect(dailyChestShards(99)).toBe(25);
+  });
+});
+
+describe("No Ads (Werbefrei-Kauf)", () => {
+  it("ist zunächst aus, bleibt nach dem Setzen gespeichert und lässt sich zurücknehmen", () => {
+    expect(isAdFree()).toBe(false);
+    setAdFree(true);
+    expect(isAdFree()).toBe(true);
+    expect(load().adFree).toBe(true);
+    setAdFree(false);
+    expect(isAdFree()).toBe(false);
   });
 });

@@ -111,6 +111,21 @@ zurücksetzen, trotzdem sauber aufbewahren.
 - Nicht gebaut: Banner und Vollbild-Anzeigen (Banner braucht einen Gerätetest für die Position
   über der Tab-Leiste; Vollbild frühestens ab Runde 4, max. 1 pro 3 Runden).
 
+## 5c. „No Ads“-Einmalkauf (In-App-Produkt)
+
+- Im Spiel: kleiner „No Ads“-Knopf auf Home (neben dem Zahnrad) → Dialog mit Store-Preis.
+  Wirkung: alle Belohnungen (zusätzlicher Versuch, Weiterspielen, Splitter ×2) gibt es sofort,
+  ohne Video. Code: `src/iap.ts` (Plugin `@capgo/native-purchases`), Zustand `adFree` im Spielstand.
+- **Play Console (einmalig):** Monetarisieren → Produkte → *Einmalige Produkte* → neues Produkt mit
+  der ID **`remove_ads`** anlegen (Name „No Ads“, Preis z. B. 2,99 €) und **aktivieren**. Ohne aktives
+  Produkt zeigt der Dialog „The store isn’t available“. Zum Testen: Lizenztester in der Play Console
+  eintragen und die App über einen Test-Track installieren (Käufe gehen nicht über eine lokal
+  gebaute Debug-APK).
+- Neuinstallation / neues Gerät: beim Start prüft die App `getPurchases`; zusätzlich gibt es
+  „Restore purchase“ im Dialog.
+- Im Browser ist es ein klar gekennzeichneter **Test-Kauf** (es wird nichts abgebucht).
+- Data Safety: der Kaufverlauf wird von Google Play verarbeitet, die App speichert nur das Flag lokal.
+
 ## 6. Offene Entscheidungen
 
 - **App-ID `app.lumen.game` ist nach dem ersten Upload dauerhaft.** Ändern geht nur vorher
@@ -128,4 +143,4 @@ Nichts davon wurde auf einem Android-Gerät oder -Emulator ausgeführt, weil auf
 kein JDK/Android SDK installiert ist. Verifiziert ist nur: `npm run build`, `npx cap sync android`
 laufen durch, Typecheck und Tests sind grün, Icons wurden als Bilder geprüft. Risikostellen: Insets
 unter Android 15/16, System-Splash (Android 12+), WebView-Audio, Vibration, Zurück-Taste,
-**AdMob (Test-Anzeigen laden/abspielen, Zustimmungsformular, Belohnung wird gutgeschrieben)**.
+**AdMob (Test-Anzeigen laden/abspielen, Zustimmungsformular, Belohnung wird gutgeschrieben)**, **Play-Billing-Kauf „No Ads“**.

@@ -100,6 +100,8 @@ export interface SaveData {
   /** Kaskade-eigener Versuchs-Vorrat — siehe `CASCADE_MAX_ATTEMPTS`. */
   cascadeAttempts: { count: number; nextAt: number };
   cascadeAbilities: CascadeAbilities;
+  /** "No Ads" gekauft: Belohnungen gibt es ohne Video. */
+  adFree: boolean;
   stats: {
     solved: number;
     totalMs: number;
@@ -139,6 +141,7 @@ const EMPTY: SaveData = {
   lives: { count: MAX_LIVES, nextAt: 0 },
   cascadeAttempts: { count: CASCADE_MAX_ATTEMPTS, nextAt: 0 },
   cascadeAbilities: { shuffle: 0, clear: 0, time: 0, foresight: false },
+  adFree: false,
   stats: {
     solved: 0,
     totalMs: 0,
@@ -177,6 +180,7 @@ export function load(): SaveData {
       lives: { ...EMPTY.lives, ...parsed.lives },
       cascadeAttempts: { ...EMPTY.cascadeAttempts, ...parsed.cascadeAttempts },
       cascadeAbilities: { ...EMPTY.cascadeAbilities, ...parsed.cascadeAbilities },
+      adFree: parsed.adFree ?? false,
       stats: { ...EMPTY.stats, ...parsed.stats },
     };
   } catch {
@@ -627,6 +631,17 @@ export function addShards(n: number): void {
  *  setzt sie zurück. */
 export function dailyChestShards(streak: number): number {
   return Math.min(25, 10 + 2 * Math.max(1, streak));
+}
+
+/** "No Ads" (Einmalkauf) -- lokal gemerkt; die Wahrheit liegt bei Google Play und
+ *  wird beim App-Start per `getPurchases` nachgezogen (siehe iap.ts). */
+export function isAdFree(): boolean {
+  return load().adFree;
+}
+export function setAdFree(value: boolean): void {
+  update((s) => {
+    s.adFree = value;
+  });
 }
 
 export function spendShards(n: number): boolean {

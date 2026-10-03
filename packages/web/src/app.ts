@@ -20,6 +20,7 @@ import {
 import { adsPrivacyOptionsRequired, initAds, openAdPrivacyOptions, showRewardedAd } from "./ads.js";
 import { CascadeView, DRAG_LIFT_CELLS } from "./cascade-view.js";
 import { nextGoal } from "./goals.js";
+import { buyRemoveAds, getRemoveAdsPrice, ownsRemoveAds } from "./iap.js";
 import { RESCUE_LEVELS, type RescueLevel } from "./rescue-levels.js";
 import { GameState } from "./game.js";
 import { dailyLevel, descentDifficulty, descentLevel, levelSignature } from "./levelgen.js";
@@ -1848,10 +1849,55 @@ $("na-refill").addEventListener("click", () => {
   closeAttemptsGate();
   go?.();
 });
+/** Belohnungswerbung -- mit "No Ads" gibt es die Belohnung sofort, ohne Video. */
+async function rewardedOrFree(reason: Parameters<typeof showRewardedAd>[0]): Promise<boolean> {
+  if (store.isAdFree()) return true;
+  return showRewardedAd(reason);
+}
+
+/** Beschriftungen + Sichtbarkeit je nach "No Ads"-Stand (Video-Knöpfe, Home-Knopf). */
+function syncAdUi(): void {
+  const free = store.isAdFree();
+  $("home-noads").hidden = free;
+  $("na-video").textContent = free ? "⚡ +1 attempt (ad-free)" : "📺 Watch a video → +1 attempt";
+  $("kc-video").textContent = free ? "⚡ Keep playing (ad-free)" : "📺 Watch a video → keep playing";
+}
+
+// ── "No Ads"-Einmalkauf ────────────────────────────────────────────────────
+async function openNoAds(): Promise<void> {
+  $("noads-note").textContent = "";
+  $("noads-buy").textContent = "Remove ads";
+  $("noads-overlay").classList.add("show");
+  const price = await getRemoveAdsPrice();
+  if (price) $("noads-buy").textContent = `Remove ads · ${price}`;
+  else $("noads-note").textContent = "The store isn't available right now — try again later.";
+}
+function finishNoAds(): void {
+  store.setAdFree(true);
+  syncAdUi();
+  $("noads-overlay").classList.remove("show");
+  toast("Ads removed — thank you!");
+  sfx.milestone();
+}
+$("home-noads").addEventListener("click", () => void openNoAds());
+$("noads-x").addEventListener("click", () => $("noads-overlay").classList.remove("show"));
+$<HTMLButtonElement>("noads-buy").addEventListener("click", async () => {
+  const btn = $<HTMLButtonElement>("noads-buy");
+  btn.disabled = true;
+  const ok = await buyRemoveAds();
+  btn.disabled = false;
+  if (ok) finishNoAds();
+  else $("noads-note").textContent = "The purchase didn't go through.";
+});
+$<HTMLButtonElement>("noads-restore").addEventListener("click", async () => {
+  if (await ownsRemoveAds()) finishNoAds();
+  else $("noads-note").textContent = "No earlier purchase found for this account.";
+});
+
 $<HTMLButtonElement>("na-video").addEventListener("click", async () => {
   const btn = $<HTMLButtonElement>("na-video");
   btn.disabled = true;
-  const ok = await showRewardedAd("attempt");
+  const ok = await rewardedOrFree("attempt");
   btn.disabled = false;
   if (!ok) {
     toast("No reward — the video wasn't finished");
@@ -1882,7 +1928,7 @@ $<HTMLButtonElement>("kc-video").addEventListener("click", async () => {
   if (!game || !game.awaitingContinueOffer) return;
   const btn = $<HTMLButtonElement>("kc-video");
   btn.disabled = true;
-  const ok = await showRewardedAd("continue");
+  const ok = await rewardedOrFree("continue");
   btn.disabled = false;
   // Runde inzwischen beendet/neu gestartet? Dann gilt die Belohnung nicht mehr.
   if (cascadeGame !== game || !game.awaitingContinueOffer) return;
@@ -2291,10 +2337,10 @@ function showRoundEnd(
   const dbl = $<HTMLButtonElement>("k-double");
   dbl.hidden = shards < 2;
   dbl.disabled = false;
-  dbl.textContent = `📺 Double shards  ✦ +${nf(shards)}`;
+  dbl.textContent = `${store.isAdFree() ? "⚡" : "📺"} Double shards  ✦ +${nf(shards)}`;
   dbl.onclick = async () => {
     dbl.disabled = true;
-    const ok = await showRewardedAd("double");
+    const ok = await rewardedOrFree("double");
     if (token !== roundEndToken) return; // inzwischen nächste Runde
     if (!ok) {
       dbl.disabled = false;
@@ -3227,6 +3273,14 @@ async function boot(): Promise<void> {
     renderHome();
     playMusic("menu");
     void initAds(); // AdMob + Zustimmungsabfrage (nur in der App)
+    syncAdUi();
+    // Neuinstallation/neues Gerät: gehört "No Ads" laut Google Play schon?
+    void ownsRemoveAds().then((owned) => {
+      if (owned && !store.isAdFree()) {
+        store.setAdFree(true);
+        syncAdUi();
+      }
+    });
     // Intro-Cutscene erstmal raus -- Kaskade braucht (Stand jetzt) keine
     // Einführung mehr. `maybePlayIntro`/`playSequence`/`playCutscene` und
     // `beats.ts` bleiben unangetastet liegen (derselbe "Einstiegspunkt weg,

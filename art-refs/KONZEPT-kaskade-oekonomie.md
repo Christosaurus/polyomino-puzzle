@@ -173,3 +173,8 @@ bei erreichtem Zeit-Deckel nicht verbrauchbar; Clear Spark räumt die Zelle, die
 Scherben am meisten Platz verschafft (nie aus einer fast vollen Reihe/Spalte). Herzen (nur
 Kampagnen-Fenster) sind auf Home und im Shop versteckt; die Joker bleiben, weil die Daily sie nutzt.
 Zielwert: Weiterspielen nach ~1 Runde bezahlbar, volles Loadout nach 5+ Runden.
+
+**Mega Clear (Ultimate Clear):** löst seit 2026-10-03 schon bei **einer Reihe + einer Spalte** in
+einer Platzierung aus (vorher 2+2) und wischt das ganze Brett leer. Weil er dadurch deutlich öfter
+kommt, ist der Splitter-Bonus pro Mega von 30 auf 10 gesenkt (`SHARDS_PER_MEGA`); Score (+500 ×
+Mult), Multiplikator (+1,5) und Zeit (+10 s, Deckel 90 s) bleiben.

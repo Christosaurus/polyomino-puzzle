@@ -155,3 +155,30 @@ describe("Kaskade -- Fähigkeiten verbrauchen nichts Sinnloses (Playtest-Funde)"
     expect(game.timeBonusFull).toBe(true);
   });
 });
+
+describe("Kaskade -- Mega Clear schon bei Reihe + Spalte (Kreuz)", () => {
+  it("räumt das ganze Brett, wenn EINE Platzierung eine Reihe UND eine Spalte vollmacht", () => {
+    const game = new CascadeState("mega-cross");
+    const color = shardColorIndex("mono");
+    // Reihe 0 bis auf (0,0) und Spalte 0 bis auf (0,0) füllen -> ein Stein dort schließt beide
+    for (let c = 1; c < game.cols; c++) game.board[c] = color;
+    for (let r = 1; r < game.rows; r++) game.board[r * game.cols] = color;
+    // ein unbeteiligter Stein, der mit weggewischt werden muss
+    game.board[4 * game.cols + 3] = color;
+    const rows = game.place({ id: 1, name: "mono", orientationIndex: 0, y: 0 }, { row: 0, col: 0 });
+    expect(rows).toBe(1); // eine Reihe (plus eine Spalte)
+    expect(game.megaClears).toBe(1);
+    expect(game.coveredCells()).toBe(0);
+    expect(game.consumeMegaClear()).not.toBeNull();
+  });
+
+  it("eine einzelne Reihe ohne Spalte löst KEINEN Mega Clear aus", () => {
+    const game = new CascadeState("mega-single-row");
+    const color = shardColorIndex("mono");
+    for (let c = 0; c < game.cols - 1; c++) game.board[c] = color;
+    game.board[4 * game.cols + 3] = color; // bleibt stehen
+    game.place({ id: 2, name: "mono", orientationIndex: 0, y: 0 }, { row: 0, col: game.cols - 1 });
+    expect(game.megaClears).toBe(0);
+    expect(game.coveredCells()).toBe(1);
+  });
+});

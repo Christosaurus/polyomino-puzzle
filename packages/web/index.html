@@ -2732,6 +2732,26 @@
       #k-double:active {
         box-shadow: inset 0 0 0 1.5px rgba(255, 194, 59, 0.8);
       }
+      /* "No Ads"-Knopf auf Home: kleine Pille mit Icon + Beschriftung */
+      .noads {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        padding: 5px 10px;
+        border-radius: 14px;
+        line-height: 1.05;
+        margin-right: 8px;
+      }
+      .noads .na-ic {
+        font-size: 17px;
+      }
+      .noads small {
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
       .k-att {
         font-size: 12px;
         opacity: 0.8;
@@ -3671,6 +3691,7 @@
           <span class="pill" id="home-lives" hidden><span class="ic"><img class="icon-img" src="ui/life.webp" alt="" /></span>5</span>
           <span class="pill" id="home-shards"><span class="ic"><img class="icon-img" src="ui/shard.webp" alt="" /></span>0</span>
           <span class="grow"></span>
+          <button class="noads" id="home-noads" aria-label="Remove ads"><span class="na-ic">📺</span><small>No Ads</small></button>
           <button class="icon" id="home-settings">⚙</button>
           <div class="avatar" id="home-avatar">🙂</div>
         </div>
@@ -4025,6 +4046,24 @@
             <button id="kc-video">📺 Watch a video → keep playing</button>
             <button id="kc-decline">End round</button>
           </div>
+        </div>
+      </div>
+
+      <!-- "No Ads": Einmalkauf. Belohnungen (Versuch, Weiterspielen, Splitter x2)
+           gibt es danach sofort, ohne Video. Preis kommt aus dem Store. -->
+      <div class="overlay" id="noads-overlay">
+        <div class="ocard">
+          <h3>No Ads</h3>
+          <button class="close" id="noads-x">✕</button>
+          <p class="muted" style="margin:0;text-align:center">
+            One small purchase, forever: every bonus — extra attempt, keep playing, double shards —
+            is granted instantly, with no videos.
+          </p>
+          <div class="btns" style="flex-direction:column">
+            <button class="go big" id="noads-buy">Remove ads</button>
+            <button id="noads-restore">Restore purchase</button>
+          </div>
+          <p class="muted" id="noads-note" style="margin:0;text-align:center;font-size:12px"></p>
         </div>
       </div>
 

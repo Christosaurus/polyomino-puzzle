@@ -153,7 +153,10 @@ const SHARDS_PER_CHALLENGE = 4;
 const SHARDS_PER_COMBO = 5;
 const SHARDS_PER_CHAIN_TIER = 1;
 const SHARDS_PER_PERFECT = 15;
-const SHARDS_PER_MEGA = 30;
+// 10 statt 30: der Mega Clear kommt seit dem Kreuz-Trigger (1 Reihe + 1 Spalte)
+// deutlich öfter -- Zeit, Multiplikator und Score tragen den Moment, die
+// Splitter-Wirtschaft soll nicht davon aufgebläht werden.
+const SHARDS_PER_MEGA = 10;
 const SHARDS_ROUND_CAP = 150;
 
 /**
@@ -900,7 +903,8 @@ export class CascadeState {
 
   /** Wischt das GESAMTE Brett leer (nicht nur die gerade vollen Reihen/Spalten)
    *  und zündet den großen Bonus — ausgelöst, sobald eine einzelne Platzierung
-   *  2+ Reihen UND 2+ Spalten gleichzeitig räumt. Merkt sich Position + Farbe
+   *  mindestens eine Reihe UND mindestens eine Spalte gleichzeitig räumt (ein
+   *  "Kreuz"; früher 2+2, zu selten). Merkt sich Position + Farbe
    *  jeder weggewischten Zelle für die "alles fliegt weg"-Funken in der View. */
   private triggerMegaClear(): void {
     const cells: Array<{ row: number; col: number; colorIndex: number }> = [];
@@ -1043,11 +1047,11 @@ export class CascadeState {
         this.nextChallengeAt = this.elapsedMs() + this.nextChallengeCooldown();
       }
     }
-    // Schockwelle: 2+ Reihen UND 2+ Spalten in EINER Platzierung — der große,
-    // clip-taugliche Showmoment. Geht dem normalen Perfect Clear vor (schließt
+    // Schockwelle: mindestens 1 Reihe UND 1 Spalte in EINER Platzierung (ein
+    // Kreuz) — der große, clip-taugliche Showmoment. Geht dem normalen Perfect Clear vor (schließt
     // ihn ein, da danach garantiert 0 Zellen belegt sind), sonst würden beide
     // gleichzeitig feiern und doppelt Bonus geben.
-    if (rows >= 2 && cols >= 2) {
+    if (rows >= 1 && cols >= 1) {
       this.triggerMegaClear();
     } else if (this.coveredCells() === 0 && lines > 0) {
       // Perfekt zählt bei JEDER Kombination aus Reihen/Spalten, die das Brett
