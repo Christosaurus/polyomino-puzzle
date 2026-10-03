@@ -123,6 +123,18 @@ export const sfx = {
   cellPop(step: number): void {
     tone(520 * Math.pow(1.1225, Math.min(16, Math.max(0, step))), 70, "sine", 0.03);
   },
+  /** Mega Clear: tiefer Boom + aufsteigender Sweep, dann eine Fanfare und ein
+   *  Funkeln -- läuft über ~1,2 s und passt zur Zeitlupe der Animation. */
+  mega(): void {
+    tone(70, 700, "sine", 0.16, 0, 38);
+    noise(240, 0.1, 110);
+    tone(180, 620, "sawtooth", 0.045, 80, 760);
+    [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+      tone(f, 440, "triangle", 0.06, 280 + i * 110);
+      tone(f * 2, 380, "sine", 0.022, 280 + i * 110);
+    });
+    tone(2093, 560, "sine", 0.03, 980);
+  },
   /** Satter Bass-Schlag unter Mehrfach-Clears und Ketten (`power` 0..1). */
   thump(power = 1): void {
     tone(120, 170, "sine", 0.1 * power, 0, 46);
@@ -151,6 +163,11 @@ export const sfx = {
   toggleOn(): void {
     tone(523.25, 90, "sine", 0.05);
     tone(783.99, 140, "sine", 0.045, 70);
+  },
+
+  /** Vibrationsmuster (ms an/aus/an ...), z. B. beim Mega Clear. */
+  vibratePattern(pattern: number[]): void {
+    if (haptics) navigator.vibrate?.(pattern);
   },
 
   setMuted(value: boolean): void {

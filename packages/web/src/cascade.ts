@@ -296,6 +296,7 @@ export class CascadeState {
   private tierUp = 0;
   private perfectFlag = false;
   private megaFlag = false;
+  private megaGain = 0;
   /** Snapshot der Zellen, die die Schockwelle gerade weggewischt hat (Position +
    *  Farbe) — für die View, die daraus die Wegflieg-Funken baut, bevor die
    *  Zellen selbst schon längst wieder 0 sind. */
@@ -345,12 +346,18 @@ export class CascadeState {
   }
   /** Einmalig die weggewischten Zellen, direkt nach einer Schockwelle — `null`
    *  sonst. Für die "alles fliegt weg"-Feier in der View. */
-  consumeMegaClear(): { cells: Array<{ row: number; col: number; colorIndex: number }> } | null {
+  consumeMegaClear(): {
+    cells: Array<{ row: number; col: number; colorIndex: number }>;
+    /** Score-Bonus dieses Mega Clears (für die Einblendung). */
+    scoreGain: number;
+    /** Zeitbonus in ms (0 im Level-Modus). */
+    timeBonusMs: number;
+  } | null {
     if (!this.megaFlag) return null;
     this.megaFlag = false;
     const cells = this.megaCells;
     this.megaCells = [];
-    return { cells };
+    return { cells, scoreGain: this.megaGain, timeBonusMs: this.level ? 0 : MEGA_TIME_BONUS_MS };
   }
   /** The active mini-challenge, if any — cleared automatically on success or timeout. */
   challenge: Challenge | null = null;
@@ -919,6 +926,7 @@ export class CascadeState {
     }
     this.megaCells = cells;
     this.megaClears += 1;
+    this.megaGain = Math.round(MEGA_SCORE_BONUS * this.multiplier);
     this.score += MEGA_SCORE_BONUS * this.multiplier;
     this.multiplier = Math.min(6, this.multiplier + MEGA_MULT_BOOST);
     // Zeitbonus nur im Free Play — im Level-Modus läuft keine Uhr, gegen die

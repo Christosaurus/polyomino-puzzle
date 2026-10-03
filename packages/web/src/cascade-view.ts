@@ -125,6 +125,8 @@ const BELT_SAVE_Y = 0.82;
 const LIFE_FLASH_S = 0.45;
 /** Dauer des kurzen Zoom-Punchs beim Räumen. */
 const PUNCH_S = 0.28;
+/** Dauer der Zeitlupe nach einem Mega Clear (Echtzeit-Sekunden). */
+const MEGA_SLOW_S = 1.5;
 /** Laufzeit des Lichtkopfs durch eine geräumte Reihe/Spalte (Sek.) -- die
  *  Zellen poppen genau dann, wenn er sie erreicht. */
 const CLEAR_SWEEP_S = 0.225;
@@ -196,6 +198,10 @@ export class CascadeView {
   }> = [];
   private punchSpeed = 1;
   private lastClearStyle: ClearStyle | null = null;
+  /** Zeit seit dem Mega Clear (Echtzeit) -- steuert Hit-Stop + Zeitlupe; -1 = aus. */
+  private slowT = -1;
+  /** Gestaffelte Nachschläge des Mega Clears (Zeit läuft in Zeitlupen-Zeit). */
+  private megaTimers: Array<{ t: number; fn: () => void }> = [];
   private sparks: Spark[] = [];
   /** short-lived "+N" score pops */
   private pops: { x: number; y: number; t: number; text: string; color: string; s?: number }[] = [];
@@ -455,6 +461,20 @@ export class CascadeView {
   private step(dt: number): void {
     this.nowMs = performance.now();
     this.game.tick(dt);
+    // Zeitlupe nach Mega Clear: das Spiel (Band, Uhr) lief oben in Echtzeit, alle
+    // Effekt-Zeitleisten unten laufen mit skaliertem dt -- kurzer Hit-Stop, dann
+    // weich zurück ins Normaltempo.
+    if (this.slowT >= 0) {
+      this.slowT += dt;
+      if (this.slowT > MEGA_SLOW_S) this.slowT = -1;
+    }
+    dt *= this.slowScale();
+    if (this.megaTimers.length) {
+      for (const m of this.megaTimers) m.t -= dt;
+      const due = this.megaTimers.filter((m) => m.t <= 0);
+      this.megaTimers = this.megaTimers.filter((m) => m.t > 0);
+      for (const m of due) m.fn();
+    }
 
     // Vorwarnung: sobald eine Scherbe zum ersten Mal kurz vorm Bandende ist,
     // ein leiser Doppel-Tick (+ kurzer Haptik-Impuls) -- je Scherbe einmal.
@@ -786,12 +806,72 @@ export class CascadeView {
         color: cssVar("--stop"),
         fontScale: 0.5,
       };
-      sfx.milestone();
-      sfx.vibrate(40);
+      const ML = this.layout;
+      this.slowT = 0; // Hit-Stop + Zeitlupe
+      sfx.mega();
+      sfx.vibratePattern([50, 40, 30, 40, 90]);
       this.shake(22);
       this.shockwaveT = 0;
       this.perfectShineT = 0; // derselbe weiße Schein wie beim Perfect Clear obendrauf
-      this.spawnShockwave(mega.cells, this.layout);
+      this.punchMag = 0.07; // großer, langsamer Zoom
+      this.punchT = 0;
+      this.punchSpeed = 0.5;
+      // Die Zellen platzen als Welle von der Brettmitte nach außen, nacheinander
+      // (statt alle im selben Frame zu verschwinden).
+      const oR = (this.game.rows - 1) / 2;
+      const oC = (this.game.cols - 1) / 2;
+      let maxD = 1;
+      for (const c of mega.cells) maxD = Math.max(maxD, Math.hypot(c.row - oR, c.col - oC));
+      const waveDelay = (row: number, col: number): number => 0.2 + (Math.hypot(row - oR, col - oC) / maxD) * 0.7;
+      for (const c of mega.cells) {
+        this.ghosts.push({
+          row: c.row,
+          col: c.col,
+          colorIndex: c.colorIndex,
+          delay: waveDelay(c.row, c.col),
+          t: 0,
+          popped: false,
+          tick: -1,
+          speed: 1,
+          chain: 1,
+        });
+      }
+      this.spawnShockwave(mega.cells, ML, waveDelay);
+      this.spawnBigBurst(ML); // goldener Funkenregen sofort
+      // Nachschläge: erst der Score, dann die Zeit, dann ein zweiter Funkenregen
+      const popX = ML.boardX + (this.game.cols * ML.cell) / 2;
+      const popY = ML.boardY + this.game.rows * ML.cell * 0.62;
+      this.megaTimers.push(
+        {
+          t: 0.45,
+          fn: () =>
+            this.pops.push({ x: popX, y: popY, t: 0, text: `+${nf(mega.scoreGain)}`, color: cssVar("--gold"), s: 2.1 }),
+        },
+        {
+          t: 0.75,
+          fn: () => {
+            if (mega.timeBonusMs > 0) {
+              this.pops.push({
+                x: popX,
+                y: popY + ML.cell * 1.2,
+                t: 0,
+                text: `+${Math.round(mega.timeBonusMs / 1000)}s`,
+                color: cssVar("--sky"),
+                s: 1.7,
+              });
+            }
+            sfx.streak(4);
+          },
+        },
+        {
+          t: 0.95,
+          fn: () => {
+            this.spawnBigBurst(ML);
+            this.shake(8);
+            sfx.vibrate(30);
+          },
+        },
+      );
       // Nachleuchten: das lila Panel selbst pulsiert 10s nach — siehe
       // .ultimate-glow in index.html (Halo-Ebene hinter dem Panel, per
       // negativem inset + Blur, für den 3D-Eindruck).
@@ -1101,6 +1181,7 @@ export class CascadeView {
   private spawnShockwave(
     cells: ReadonlyArray<{ row: number; col: number; colorIndex: number }>,
     L: Layout,
+    delayOf?: (row: number, col: number) => number,
   ): void {
     const rect = this.canvas.getBoundingClientRect();
     const cx = L.boardX + (this.game.cols * L.cell) / 2;
@@ -1135,6 +1216,7 @@ export class CascadeView {
       sizeMax: 0.34,
       lifeMin: FX_CHUNK_S_MIN,
       lifeMax: FX_CHUNK_S_MAX,
+      delayOf,
     });
   }
 
@@ -1785,6 +1867,15 @@ export class CascadeView {
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, L.cssW, L.cssH);
     }
+  }
+
+  /** Tempo-Faktor der Effekte: kurzer Hit-Stop, dann Zeitlupe, die weich ausläuft. */
+  private slowScale(): number {
+    const t = this.slowT;
+    if (t < 0) return 1;
+    if (t < 0.1) return 0.12;
+    const k = Math.min(1, (t - 0.1) / (MEGA_SLOW_S - 0.1));
+    return 0.5 + 0.5 * k * k;
   }
 
   /** Zufälliger Räum-Stil mit Gewichten, nie derselbe wie beim letzten Clear. */
